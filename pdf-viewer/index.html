@@ -170,6 +170,10 @@ const csel     = document.getElementById('csel');
 const ctype    = document.getElementById('ctype');
 const cfgerr   = document.getElementById('cfgerr');
 
+function isSameOrigin(url) {
+  try { return new URL(url).origin === location.origin; } catch { return false; }
+}
+
 function openPopup(url) {
   const w = screen.width  > 1400 ? 1200 : screen.width  - 100;
   const h = screen.height > 900  ? 860  : screen.height - 100;
@@ -253,7 +257,13 @@ grist.onRecord(row => {
   }
 
   st.url = url;
-  showPDF(url);
+  // PDF même origine (pièce jointe Grist) → iframe OK
+  // PDF externe (drive, URL tierce) → iframe bloqué → bouton direct
+  if (isSameOrigin(url)) {
+    showPDF(url);
+  } else {
+    showBlocked(url);
+  }
 });
 
 // ── Modal config ──────────────────────────────────────────────────────────────
