@@ -136,7 +136,37 @@
 <script>
 // ── État ───────────────────────────────────────────────────────────────────────
 const WIN_NAME = 'grist-pdf-viewer';
-const st = { col: null, type: 'url', url: null, name: null, cols: [] };
+const st = { col: null, type: 'url', url: null, name: null, cols: [], winFeatures: '' };
+
+function getWinFeatures() {
+  const w = screen.width  > 1400 ? 1200 : screen.width  - 100;
+  const h = screen.height > 900  ? 860  : screen.height - 100;
+  const l = Math.max(0, (screen.width  - w) / 2);
+  const t = Math.max(0, (screen.height - h) / 2);
+  return `width=${w},height=${h},left=${l},top=${t},resizable=yes`;
+}
+
+function openViewer(url) {
+  const win = window.open(url, WIN_NAME, getWinFeatures());
+  if (win) win.focus();
+  return win;
+}
+
+function updateViewer(url) {
+  // window.open(url, existingName) navigue la fenêtre existante, fonctionne cross-origin
+  // Si aucune fenêtre n'existe, ouvre une nouvelle (peut être bloqué par le navigateur)
+  const test = window.open('', WIN_NAME);
+  if (!test) return false;
+  let hasContent = false;
+  try { hasContent = test.location.href !== 'about:blank'; } catch { hasContent = true; } // cross-origin = contenu réel
+  if (hasContent) {
+    window.open(url, WIN_NAME); // navigue la fenêtre existante vers le nouveau PDF
+    return true;
+  } else {
+    test.close(); // ferme la fenêtre vide qu'on vient d'ouvrir accidentellement
+    return false;
+  }
+}
 
 const btn  = document.getElementById('btn');
 const lbl  = document.getElementById('lbl');
@@ -146,17 +176,10 @@ const csel = document.getElementById('csel');
 const ctype= document.getElementById('ctype');
 const err  = document.getElementById('err');
 
-// ── Clic → ouvre le PDF directement, sans intermédiaire ───────────────────────
+// ── Clic sur le bouton ────────────────────────────────────────────────────────
 btn.addEventListener('click', () => {
   if (!st.url) return;
-  // window.open avec le même nom réutilise la fenêtre existante
-  // → pas de page blanche, pas de viewer.html, pas de CORS
-  const w = screen.width  > 1400 ? 1200 : screen.width  - 100;
-  const h = screen.height > 900  ? 860  : screen.height - 100;
-  const l = Math.max(0, (screen.width  - w) / 2);
-  const t = Math.max(0, (screen.height - h) / 2);
-  const pdfWin = window.open(st.url, WIN_NAME, `width=${w},height=${h},left=${l},top=${t},resizable=yes`);
-  if (pdfWin) pdfWin.focus();
+  openViewer(st.url);
   btn.className = 'state-live';
   lbl.textContent = '● Viewer ouvert';
 });
@@ -194,20 +217,23 @@ grist.onRecord(row => {
   }
 
   st.url = url; st.name = name;
-  btn.className = 'state-ready';
-  lbl.textContent = '▶  Ouvrir le PDF';
   sub.textContent = name;
 
-  // Si la fenêtre viewer est déjà ouverte, la mettre à jour automatiquement
-  try {
-    const w = window.open('', WIN_NAME); // tente de récupérer la fenêtre existante
-    if (w && !w.closed && w.location.href !== 'about:blank') {
-      w.location.href = url;             // navigue vers le nouveau PDF
-      w.focus();                         // remet la fenêtre au premier plan
+  // Tente de mettre à jour la fenêtre déjà ouverte (fonctionne cross-origin)
+  if (updateViewer(url)) {
+    btn.className = 'state-live';
+    lbl.textContent = '● Viewer mis à jour';
+  } else {
+    // Aucune fenêtre ouverte — ouvre automatiquement (s'ouvre au 1er clic sur l'onglet Grist)
+    const win = openViewer(url);
+    if (win) {
       btn.className = 'state-live';
-      lbl.textContent = '● Viewer mis à jour';
+      lbl.textContent = '● Viewer ouvert';
+    } else {
+      btn.className = 'state-ready';
+      lbl.textContent = '▶  Ouvrir le PDF';
     }
-  } catch { /* fenêtre non accessible (cross-origin normal) */ }
+  }
 });
 
 // ── Modal config ───────────────────────────────────────────────────────────────
