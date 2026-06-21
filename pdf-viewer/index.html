@@ -149,7 +149,8 @@ btn.addEventListener('click', () => {
   const h = screen.height > 900  ? 860  : screen.height - 100;
   const l = Math.max(0, (screen.width  - w) / 2);
   const t = Math.max(0, (screen.height - h) / 2);
-  window.open(st.url, WIN_NAME, `width=${w},height=${h},left=${l},top=${t},resizable=yes`);
+  const pdfWin = window.open(st.url, WIN_NAME, `width=${w},height=${h},left=${l},top=${t},resizable=yes`);
+  if (pdfWin) pdfWin.focus();
   btn.className = 'state-live';
   lbl.textContent = '● Viewer ouvert';
 });
@@ -196,6 +197,7 @@ grist.onRecord(row => {
     const w = window.open('', WIN_NAME); // tente de récupérer la fenêtre existante
     if (w && !w.closed && w.location.href !== 'about:blank') {
       w.location.href = url;             // navigue vers le nouveau PDF
+      w.focus();                         // remet la fenêtre au premier plan
       btn.className = 'state-live';
       lbl.textContent = '● Viewer mis à jour';
     }
