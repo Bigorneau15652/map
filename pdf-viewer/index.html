@@ -175,6 +175,14 @@ function updateViewer(url) {
   }
 }
 
+// ── Ré-ouverture auto quand le widget redevient visible (ex: clic sur panneau réduit) ──
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && st.url && (!viewerWin || viewerWin.closed)) {
+    const win = openViewer(st.url);
+    if (win) document.body.classList.add('viewer-open');
+  }
+});
+
 // ── Clic sur le bouton (fallback si popup bloquée) ────────────────────────────
 btn.addEventListener('click', () => {
   if (!st.url) return;
