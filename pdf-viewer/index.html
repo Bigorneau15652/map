@@ -3,293 +3,269 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PDF Viewer — Lanceur</title>
+  <title>PDF Viewer</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --accent:  #4a90d9;
-      --accent-d:#357abd;
-      --bg:      #eef4fb;
-      --text:    #2c3e50;
-      --muted:   #7f8c8d;
-      --border:  #c8d6e0;
-      --green:   #27ae60;
-      --red:     #e74c3c;
-    }
-    html, body { height: 100%; margin: 0; background: var(--bg);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 13px; color: var(--text); }
 
-    /* ── Bouton principal ──────────────────────────────────── */
-    #btn-main {
-      display: flex; align-items: center; justify-content: center;
+    html, body {
+      height: 100%; width: 100%; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* ── Bouton principal ─────────────────────────────────── */
+    #btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       gap: 10px;
       width: 100%; height: 100%;
-      border: none; background: transparent;
-      cursor: pointer; padding: 8px 14px;
-      transition: background 0.15s;
+      border: none;
+      background: #2980b9;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      transition: background .15s;
+      padding: 8px 16px;
     }
-    #btn-main:hover  { background: #d6e8f7; }
-    #btn-main:active { background: #c0d8f0; }
-    #btn-main.no-pdf { cursor: default; opacity: 0.6; }
-    #btn-main.no-pdf:hover { background: transparent; }
+    #btn:hover  { background: #3498db; }
+    #btn:active { background: #1a6a9a; }
+    #btn.ready  { background: #2980b9; }
+    #btn.live   { background: #27ae60; }
+    #btn.live:hover { background: #2ecc71; }
+    #btn.empty  { background: #95a5a6; cursor: default; }
 
-    /* Icône */
-    .pdf-icon { width: 30px; height: 30px; flex-shrink: 0; }
+    #btn svg { width: 22px; height: 22px; flex-shrink: 0; }
 
-    /* Textes */
-    #lbl-action {
-      font-size: 13px; font-weight: 700;
-      color: var(--accent); white-space: nowrap;
-    }
-    #btn-main.no-pdf #lbl-action { color: var(--muted); font-weight: 400; font-size: 12px; }
+    #btn-text { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+    #lbl-main { font-size: 13px; font-weight: 700; white-space: nowrap; }
+    #lbl-sub  { font-size: 10px; opacity: .75; max-width: 180px;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    #lbl-file {
-      font-size: 11px; color: var(--muted);
-      max-width: 160px; overflow: hidden;
-      text-overflow: ellipsis; white-space: nowrap;
-    }
-
-    #badge-live {
-      display: none; font-size: 10px; font-weight: 700;
-      background: var(--green); color: white;
-      padding: 2px 7px; border-radius: 10px; flex-shrink: 0;
-    }
-    #badge-live.on { display: inline-block; }
-
-    /* ── Modal config (menu ···) ───────────────────────────── */
-    #modal-overlay {
+    /* ── Modal config ─────────────────────────────────────── */
+    #overlay {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.3); z-index: 100;
+      background: rgba(0,0,0,.4); z-index: 50;
       align-items: center; justify-content: center;
     }
-    #modal-overlay.open { display: flex; }
+    #overlay.open { display: flex; }
     #modal {
-      background: white; border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-      padding: 20px; width: 280px; max-width: 94vw;
+      background: #fff; border-radius: 8px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.2);
+      padding: 20px; width: 270px;
     }
     #modal h3 { font-size: 13px; margin-bottom: 14px;
-      border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-
-    .field { margin-bottom: 12px; }
-    .field label { display: block; font-size: 11px; font-weight: 600;
-      color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px; }
-    .field-row { display: flex; gap: 6px; }
-    .field select {
-      width: 100%; padding: 7px 10px;
-      border: 1px solid var(--border); border-radius: 5px;
-      font-size: 12px; color: var(--text); background: white;
+      padding-bottom: 8px; border-bottom: 1px solid #ddd; color: #333; }
+    .row { margin-bottom: 12px; }
+    .row label { display: block; font-size: 11px; font-weight: 700;
+      color: #777; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px; }
+    .row-flex { display: flex; gap: 6px; }
+    .row select {
+      width: 100%; padding: 7px 9px;
+      border: 1px solid #ccc; border-radius: 5px;
+      font-size: 12px; color: #333; background: #fff;
     }
-    .field select:focus { outline: none; border-color: var(--accent); }
-
     #btn-refresh {
-      padding: 6px 10px; border: 1px solid var(--border);
-      border-radius: 5px; background: white; cursor: pointer;
-      font-size: 14px; flex-shrink: 0;
+      padding: 0 10px; border: 1px solid #ccc; border-radius: 5px;
+      background: #fff; cursor: pointer; font-size: 15px; flex-shrink: 0;
     }
-    #btn-refresh:hover { background: #f0f0f0; }
-
-    .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
-    .btn-p, .btn-s {
+    .actions { display: flex; gap: 8px; margin-top: 16px; }
+    .btn-ok, .btn-no {
       flex: 1; padding: 8px; border: none; border-radius: 5px;
-      font-size: 12px; font-weight: 600; cursor: pointer;
+      font-size: 12px; font-weight: 700; cursor: pointer;
     }
-    .btn-p { background: var(--accent); color: white; }
-    .btn-p:hover { background: var(--accent-d); }
-    .btn-s { background: #ecf0f1; color: var(--text); }
-    .btn-s:hover { background: #dde4e6; }
-
+    .btn-ok { background: #2980b9; color: #fff; }
+    .btn-ok:hover { background: #3498db; }
+    .btn-no { background: #ecf0f1; color: #333; }
     #modal-err {
-      display: none; margin-top: 8px; font-size: 11px; color: var(--red);
+      display: none; margin-top: 8px; font-size: 11px; color: #c0392b;
       background: #fdf0ef; padding: 6px 8px; border-radius: 4px; line-height: 1.5;
     }
-    #modal-hint {
-      margin-top: 10px; font-size: 10px; color: var(--muted);
-      line-height: 1.6; background: #f0f6ff; padding: 7px 9px;
-      border-radius: 4px; border-left: 3px solid var(--accent);
+    #hint {
+      margin-top: 10px; font-size: 10px; color: #666; line-height: 1.6;
+      background: #eef4ff; padding: 7px 9px; border-radius: 4px;
+      border-left: 3px solid #2980b9;
     }
   </style>
 </head>
 <body>
 
-<!-- Bouton principal compact -->
-<button id="btn-main" class="no-pdf">
-  <svg class="pdf-icon" viewBox="0 0 48 48" fill="none">
-    <rect x="4" y="2" width="30" height="38" rx="3"
-      fill="#e74c3c" opacity="0.1" stroke="#e74c3c" stroke-width="1.5"/>
-    <path d="M26 2 L34 10 L26 10 Z" fill="#e74c3c" opacity="0.4"/>
-    <text x="19" y="28" text-anchor="middle" font-size="9"
-      font-weight="bold" fill="#e74c3c" font-family="sans-serif">PDF</text>
-    <circle cx="38" cy="38" r="9" fill="#4a90d9"/>
-    <path d="M34 38h8M38 34v8" stroke="white" stroke-width="2.2" stroke-linecap="round"/>
+<button id="btn" class="empty">
+  <!-- Icône PDF -->
+  <svg viewBox="0 0 32 32" fill="none">
+    <rect x="3" y="1" width="20" height="26" rx="2" fill="white" opacity=".2" stroke="white" stroke-width="1.2"/>
+    <path d="M19 1 L23 5 L19 5 Z" fill="white" opacity=".5"/>
+    <text x="13" y="20" text-anchor="middle" font-size="7" font-weight="bold"
+      fill="white" font-family="sans-serif">PDF</text>
+    <circle cx="25" cy="25" r="6" fill="white" opacity=".25" stroke="white" stroke-width="1"/>
+    <path d="M22 25h6M25 22v6" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
   </svg>
-  <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0">
-    <span id="lbl-action">Configurer via ···</span>
-    <span id="lbl-file"></span>
+  <div id="btn-text">
+    <span id="lbl-main">Configurer via ···</span>
+    <span id="lbl-sub"></span>
   </div>
-  <span id="badge-live">● Live</span>
 </button>
 
-<!-- Modal paramètres -->
-<div id="modal-overlay">
+<!-- Modal config (ouverte par ··· → Paramètres) -->
+<div id="overlay">
   <div id="modal">
     <h3>⚙ Paramètres — PDF Viewer</h3>
-    <div class="field">
-      <label>Colonne contenant le PDF</label>
-      <div class="field-row">
-        <select id="col-select"><option value="">— sélectionner —</option></select>
-        <button id="btn-refresh" title="Recharger les colonnes">↺</button>
+    <div class="row">
+      <label>Colonne PDF</label>
+      <div class="row-flex">
+        <select id="col-sel"><option value="">— sélectionner —</option></select>
+        <button id="btn-refresh" title="Recharger">↺</button>
       </div>
     </div>
-    <div class="field">
-      <label>Type de colonne</label>
+    <div class="row">
+      <label>Type</label>
       <select id="col-type">
-        <option value="url">URL (lien texte)</option>
+        <option value="url">URL (texte)</option>
         <option value="attachment">Pièce jointe Grist</option>
       </select>
     </div>
-    <div id="modal-hint">
-      💡 Liste vide ? Dans le panneau Grist → <strong>Données</strong>
-      → sélectionnez votre table, puis cliquez ↺
+    <div id="hint">
+      💡 Liste vide ? Panneau Grist → <strong>Données</strong>
+      → sélectionnez votre table, puis ↺
     </div>
     <div id="modal-err"></div>
-    <div class="modal-actions">
-      <button class="btn-s" id="btn-cancel">Annuler</button>
-      <button class="btn-p" id="btn-save">Enregistrer</button>
+    <div class="actions">
+      <button class="btn-no" id="btn-cancel">Annuler</button>
+      <button class="btn-ok" id="btn-save">Enregistrer</button>
     </div>
   </div>
 </div>
 
 <script>
-const VIEWER_URL = location.href.replace(/\/index\.html.*$/, '') + '/viewer.html';
-const state = { colName: null, colType: 'url', currentUrl: null, currentName: null, popup: null, allCols: [] };
+const VIEWER = location.href.replace(/\/index\.html.*$/, '') + '/viewer.html';
+const st = { col: null, type: 'url', url: null, name: null, popup: null, cols: [] };
 
-const btnMain   = document.getElementById('btn-main');
-const lblAction = document.getElementById('lbl-action');
-const lblFile   = document.getElementById('lbl-file');
-const badgeLive = document.getElementById('badge-live');
-const overlay   = document.getElementById('modal-overlay');
-const colSelect = document.getElementById('col-select');
-const colType   = document.getElementById('col-type');
-const modalErr  = document.getElementById('modal-err');
+const btn      = document.getElementById('btn');
+const lblMain  = document.getElementById('lbl-main');
+const lblSub   = document.getElementById('lbl-sub');
+const overlay  = document.getElementById('overlay');
+const colSel   = document.getElementById('col-sel');
+const colType  = document.getElementById('col-type');
+const modalErr = document.getElementById('modal-err');
 
-// ── Clic = ouvrir le viewer directement ────────────────────────────────────
-btnMain.addEventListener('click', () => {
-  if (!state.currentUrl) return;
-  if (state.popup && !state.popup.closed) {
-    state.popup.focus();
-    state.popup.postMessage({ type: 'PDF_LOAD', url: state.currentUrl, name: state.currentName }, '*');
+// ── Clic bouton → ouvre viewer directement ────────────────────────────────
+btn.addEventListener('click', () => {
+  if (!st.url) return;
+  if (st.popup && !st.popup.closed) {
+    st.popup.focus();
+    st.popup.postMessage({ type: 'PDF_LOAD', url: st.url, name: st.name }, '*');
     return;
   }
-  // URL passée en paramètre → chargement immédiat, pas de page blanche
-  const params  = new URLSearchParams({ url: state.currentUrl, name: state.currentName || '' });
-  const w = 1150, h = 840;
-  state.popup = window.open(
-    VIEWER_URL + '?' + params,
-    'grist-pdf-viewer',
-    `width=${w},height=${h},left=${Math.max(0,(screen.width-w)/2)},top=${Math.max(0,(screen.height-h)/2)},resizable=yes`
+  const w = 1150, h = 840,
+        l = Math.max(0, (screen.width  - w) / 2),
+        t = Math.max(0, (screen.height - h) / 2);
+  const params = new URLSearchParams({ url: st.url, name: st.name || '' });
+  st.popup = window.open(
+    VIEWER + '?' + params,
+    'pdf-viewer',
+    `width=${w},height=${h},left=${l},top=${t},resizable=yes`
   );
-  badgeLive.classList.add('on');
-  lblAction.textContent = '↻ Viewer ouvert — Live';
+  setLive();
 });
 
-// ── Grist ──────────────────────────────────────────────────────────────────
-grist.ready({
-  requiredAccess: 'read table',
-  onEditOptions: () => openModal(),
+// ── Grist ─────────────────────────────────────────────────────────────────
+grist.ready({ requiredAccess: 'read table', onEditOptions: openModal });
+
+grist.onOptions(o => {
+  if (o?.col)  st.col  = o.col;
+  if (o?.type) st.type = o.type;
+  colType.value = st.type;
+  rebuild();
 });
 
-grist.onOptions(opts => {
-  if (opts?.colName) state.colName = opts.colName;
-  if (opts?.colType) state.colType = opts.colType;
-  colType.value = state.colType || 'url';
-  rebuildSelect();
+grist.onRecords(rows => {
+  if (!rows?.length) return;
+  st.cols = Object.keys(rows[0]).filter(k => k !== 'id');
+  rebuild();
 });
 
-grist.onRecords(records => {
-  if (!records?.length) return;
-  state.allCols = Object.keys(records[0]).filter(k => k !== 'id');
-  rebuildSelect();
-});
-
-grist.onRecord(record => {
-  if (!state.colName || !record) { setNoPDF('Configurez via ··· → Paramètres'); return; }
-  const val = record[state.colName];
-  if (!val) { setNoPDF('Valeur vide pour cette ligne'); return; }
-  if (state.colType === 'attachment') {
-    const ids = Array.isArray(val) ? val.filter(v => typeof v === 'number') : [];
-    if (!ids.length) { setNoPDF('Aucune pièce jointe'); return; }
-    setPDF(location.origin + '/api/attachments/' + ids[0] + '/download', 'Pièce jointe #' + ids[0]);
+grist.onRecord(row => {
+  if (!st.col || !row) { setEmpty('Configurez via ··· → Paramètres'); return; }
+  const v = row[st.col];
+  if (!v) { setEmpty('Valeur vide pour cette ligne'); return; }
+  if (st.type === 'attachment') {
+    const ids = Array.isArray(v) ? v.filter(n => typeof n === 'number') : [];
+    if (!ids.length) { setEmpty('Aucune pièce jointe'); return; }
+    setReady(location.origin + '/api/attachments/' + ids[0] + '/download', 'Pièce jointe #' + ids[0]);
   } else {
-    const url  = String(val).trim();
+    const url  = String(v).trim();
     const name = decodeURIComponent(url.split('/').pop().split('?')[0]) || 'document.pdf';
-    setPDF(url, name);
+    setReady(url, name);
   }
 });
 
-function setPDF(url, name) {
-  state.currentUrl = url; state.currentName = name;
-  btnMain.classList.remove('no-pdf');
-  lblFile.textContent = name;
-  if (state.popup && !state.popup.closed) {
-    state.popup.postMessage({ type: 'PDF_LOAD', url, name }, '*');
-    lblAction.textContent = '↻ Viewer ouvert — Live';
-    badgeLive.classList.add('on');
+// ── États du bouton ───────────────────────────────────────────────────────
+function setEmpty(msg) {
+  st.url = null;
+  btn.className = 'empty';
+  lblMain.textContent = msg;
+  lblSub.textContent  = '';
+}
+function setReady(url, name) {
+  st.url = url; st.name = name;
+  if (st.popup && !st.popup.closed) {
+    st.popup.postMessage({ type: 'PDF_LOAD', url, name }, '*');
+    setLive();
   } else {
-    lblAction.textContent = '▶ Ouvrir le PDF';
-    badgeLive.classList.remove('on');
+    btn.className = 'ready';
+    lblMain.textContent = '▶  Ouvrir le PDF';
+    lblSub.textContent  = name;
   }
 }
-
-function setNoPDF(msg) {
-  state.currentUrl = null; btnMain.classList.add('no-pdf');
-  lblAction.textContent = msg; lblFile.textContent = ''; badgeLive.classList.remove('on');
+function setLive() {
+  btn.className = 'live';
+  lblMain.textContent = '● Viewer ouvert — cliquer pour mettre à jour';
+  lblSub.textContent  = st.name || '';
 }
 
 // ── Modal ──────────────────────────────────────────────────────────────────
-async function openModal() { overlay.classList.add('open'); await fetchCols(); }
+async function openModal() { overlay.classList.add('open'); await loadCols(); }
 function closeModal() { overlay.classList.remove('open'); modalErr.style.display = 'none'; }
 
-document.getElementById('btn-cancel').addEventListener('click', closeModal);
+document.getElementById('btn-cancel').onclick = closeModal;
 overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
-document.getElementById('btn-refresh').addEventListener('click', e => { e.stopPropagation(); fetchCols(); });
-
-document.getElementById('btn-save').addEventListener('click', () => {
-  if (!colSelect.value) { modalErr.textContent = 'Sélectionnez une colonne.'; modalErr.style.display = 'block'; return; }
-  state.colName = colSelect.value; state.colType = colType.value;
-  grist.setOptions({ colName: state.colName, colType: state.colType });
+document.getElementById('btn-refresh').onclick = e => { e.stopPropagation(); loadCols(); };
+document.getElementById('btn-save').onclick = () => {
+  if (!colSel.value) { showErr('Sélectionnez une colonne.'); return; }
+  st.col = colSel.value; st.type = colType.value;
+  grist.setOptions({ col: st.col, type: st.type });
   closeModal();
-});
+};
 
-async function fetchCols() {
-  colSelect.disabled = true;
-  const ph = colSelect.querySelector('[value=""]');
-  if (ph) ph.textContent = '⏳ Chargement…';
+async function loadCols() {
+  colSel.disabled = true;
+  colSel.innerHTML = '<option value="">⏳ Chargement…</option>';
   try {
     const data = await grist.docApi.fetchSelectedTable();
-    state.allCols = Object.keys(data).filter(k => k !== 'id');
-    if (!state.allCols.length) throw new Error();
-    rebuildSelect();
+    st.cols = Object.keys(data).filter(k => k !== 'id');
+    if (!st.cols.length) throw new Error();
+    rebuild();
   } catch {
-    modalErr.textContent = 'Liste vide. Vérifiez que le widget est lié à une table (panneau Grist → Données).';
-    modalErr.style.display = 'block';
-    if (ph) ph.textContent = '— sélectionner —';
-  } finally { colSelect.disabled = false; }
+    showErr('Liez d\'abord le widget à une table\n(Panneau Grist → Données).');
+    colSel.innerHTML = '<option value="">— sélectionner —</option>';
+  } finally { colSel.disabled = false; }
 }
 
-function rebuildSelect() {
-  const prev = colSelect.value || state.colName;
-  colSelect.innerHTML = '<option value="">— sélectionner —</option>';
-  state.allCols.forEach(c => {
+function rebuild() {
+  const prev = colSel.value || st.col;
+  colSel.innerHTML = '<option value="">— sélectionner —</option>';
+  st.cols.forEach(c => {
     const o = document.createElement('option');
     o.value = c; o.textContent = c;
     if (c === prev) o.selected = true;
-    colSelect.appendChild(o);
+    colSel.appendChild(o);
   });
-  colType.value = state.colType || 'url';
+  colType.value = st.type || 'url';
 }
+
+function showErr(m) { modalErr.textContent = m; modalErr.style.display = 'block'; }
 </script>
 </body>
 </html>

@@ -419,9 +419,10 @@ async function loadPDF(url, name) {
     buildOutline();
     buildLayers();
   } catch (err) {
-    // Échec PDF.js (souvent CORS) → essaie l'iframe (navigation = pas de CORS)
-    console.warn('PDF.js failed, trying iframe fallback:', err.message);
-    showIframeFallback(url, name);
+    // PDF.js a échoué (CORS ou autre) → navigation directe vers le PDF
+    // Le navigateur l'affiche nativement dans cette même fenêtre
+    console.warn('PDF.js failed (' + err.message + '), navigating directly to URL');
+    window.location.href = url;
   } finally {
     showLoading(false);
   }
