@@ -304,27 +304,13 @@ const bookmarksInner= $('bookmarks-inner');
 const layersInner   = $('layers-inner');
 const docTitle      = $('doc-title');
 
-// ── Chargement immédiat depuis les paramètres URL (élimine la page blanche) ───
-(function() {
-  const params = new URLSearchParams(location.search);
-  const url  = params.get('url');
-  const name = params.get('name') || '';
-  if (url) {
-    // Lance le chargement dès que le module est prêt (pas d'attente postMessage)
-    window.addEventListener('load', () => loadPDF(url, name), { once: true });
-    // Sécurité : si load déjà passé
-    if (document.readyState === 'complete') loadPDF(url, name);
-  }
-})();
-
-// ── postMessage bridge (mises à jour suivantes depuis le widget) ──────────────
+// ── postMessage bridge (mises à jour depuis le widget) ───────────────────────
 window.addEventListener('message', e => {
   if (e.data?.type === 'PDF_LOAD') loadPDF(e.data.url, e.data.name || '');
 });
-// Signale au widget lanceur que la fenêtre est prête
 window.opener?.postMessage({ type: 'VIEWER_READY' }, '*');
 
-// ── Toolbar wiring ─────────────────────────────────────────────────────────────
+// ── Toolbar & sidebar wiring ──────────────────────────────────────────────────
 $('btn-sidebar').addEventListener('click', () => sidebar.classList.toggle('collapsed'));
 
 $('btn-first').addEventListener('click', () => goTo(1));
@@ -762,6 +748,20 @@ function makeLinkService() {
 function showLoading(v) { loading.style.display = v ? 'block' : 'none'; }
 function showErr(m) { errBar.textContent = m; errBar.style.display = 'block'; }
 function hideErr()  { errBar.style.display = 'none'; }
+
+// ── Initialisation depuis les paramètres URL ──────────────────────────────────
+// Placé EN FIN de module pour être sûr que loadPDF est défini
+// index.html passe ?url=...&name=... pour éviter la page blanche
+(function initFromParams() {
+  const p    = new URLSearchParams(location.search);
+  const url  = p.get('url');
+  const name = p.get('name') || '';
+  if (url) {
+    splash.style.display = 'none';
+    // Petit délai pour laisser PDF.js worker s'initialiser
+    setTimeout(() => loadPDF(url, name), 100);
+  }
+})();
 </script>
 </body>
 </html>
