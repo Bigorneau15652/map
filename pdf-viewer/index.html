@@ -11,11 +11,11 @@
     html, body {
       height: 100%; width: 100%; overflow: hidden;
       display: flex; align-items: center; justify-content: center;
-      background: #f4f6f8;
+      background: transparent;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    /* ── Bouton compact ──────────────────────────────────────── */
+    /* ── Bouton compact — visible seulement si le viewer n'est pas ouvert ── */
     #btn {
       display: inline-flex;
       align-items: center;
@@ -36,8 +36,7 @@
     #btn:hover        { background: #3498db; box-shadow: 0 4px 14px rgba(0,0,0,.22); }
     #btn:active       { background: #1c6ea4; }
     #btn.state-empty  { background: #95a5a6; cursor: default; box-shadow: none; }
-    #btn.state-live   { background: #27ae60; }
-    #btn.state-live:hover { background: #2ecc71; }
+    #btn.state-live   { opacity: 0; pointer-events: none; } /* invisible quand viewer ouvert */
 
     #btn svg { width: 22px; height: 22px; flex-shrink: 0; }
     .txt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
@@ -136,7 +135,16 @@
 <script>
 // ── État ───────────────────────────────────────────────────────────────────────
 const WIN_NAME = 'grist-pdf-viewer';
-const st = { col: null, type: 'url', url: null, name: null, cols: [], winFeatures: '' };
+const st = { col: null, type: 'url', url: null, name: null, cols: [] };
+let viewerWin = null; // référence directe à la fenêtre popup
+
+const btn  = document.getElementById('btn');
+const lbl  = document.getElementById('lbl');
+const sub  = document.getElementById('sub');
+const ov   = document.getElementById('ov');
+const csel = document.getElementById('csel');
+const ctype= document.getElementById('ctype');
+const err  = document.getElementById('err');
 
 function getWinFeatures() {
   const w = screen.width  > 1400 ? 1200 : screen.width  - 100;
@@ -147,36 +155,24 @@ function getWinFeatures() {
 }
 
 function openViewer(url) {
-  const win = window.open(url, WIN_NAME, getWinFeatures());
-  if (win) win.focus();
-  return win;
+  viewerWin = window.open(url, WIN_NAME, getWinFeatures());
+  if (viewerWin) viewerWin.focus();
+  return viewerWin;
+}
+
+function isViewerOpen() {
+  // .closed est accessible même cross-origin
+  return viewerWin && !viewerWin.closed;
 }
 
 function updateViewer(url) {
-  // window.open(url, existingName) navigue la fenêtre existante, fonctionne cross-origin
-  // Si aucune fenêtre n'existe, ouvre une nouvelle (peut être bloqué par le navigateur)
-  const test = window.open('', WIN_NAME);
-  if (!test) return false;
-  let hasContent = false;
-  try { hasContent = test.location.href !== 'about:blank'; } catch { hasContent = true; } // cross-origin = contenu réel
-  if (hasContent) {
-    window.open(url, WIN_NAME); // navigue la fenêtre existante vers le nouveau PDF
-    return true;
-  } else {
-    test.close(); // ferme la fenêtre vide qu'on vient d'ouvrir accidentellement
-    return false;
-  }
+  if (!isViewerOpen()) return false;
+  // window.open(url, name) sur une fenêtre existante = navigation, fonctionne cross-origin
+  viewerWin = window.open(url, WIN_NAME);
+  return true;
 }
 
-const btn  = document.getElementById('btn');
-const lbl  = document.getElementById('lbl');
-const sub  = document.getElementById('sub');
-const ov   = document.getElementById('ov');
-const csel = document.getElementById('csel');
-const ctype= document.getElementById('ctype');
-const err  = document.getElementById('err');
-
-// ── Clic sur le bouton ────────────────────────────────────────────────────────
+// ── Clic sur le bouton (fallback si popup bloquée) ────────────────────────────
 btn.addEventListener('click', () => {
   if (!st.url) return;
   openViewer(st.url);
@@ -219,17 +215,16 @@ grist.onRecord(row => {
   st.url = url; st.name = name;
   sub.textContent = name;
 
-  // Tente de mettre à jour la fenêtre déjà ouverte (fonctionne cross-origin)
   if (updateViewer(url)) {
-    btn.className = 'state-live';
-    lbl.textContent = '● Viewer mis à jour';
+    // Viewer déjà ouvert → mis à jour silencieusement
+    btn.className = 'state-live'; // invisible (opacity:0)
   } else {
-    // Aucune fenêtre ouverte — ouvre automatiquement (s'ouvre au 1er clic sur l'onglet Grist)
+    // Pas de viewer ouvert → tente l'auto-ouverture
     const win = openViewer(url);
     if (win) {
-      btn.className = 'state-live';
-      lbl.textContent = '● Viewer ouvert';
+      btn.className = 'state-live'; // invisible : le PDF est ouvert
     } else {
+      // Popup bloquée par le navigateur → montre le bouton pour clic manuel
       btn.className = 'state-ready';
       lbl.textContent = '▶  Ouvrir le PDF';
     }
