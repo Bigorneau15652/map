@@ -248,13 +248,23 @@ document.getElementById('bok').onclick  = () => {
 async function loadCols() {
   csel.disabled = true;
   csel.innerHTML = '<option value="">⏳ Chargement…</option>';
+
+  // Si onRecords a déjà fourni les colonnes, on les utilise directement
+  if (st.cols.length) {
+    rebuild();
+    csel.disabled = false;
+    return;
+  }
+
+  // Sinon on tente fetchSelectedTable
   try {
     const data = await grist.docApi.fetchSelectedTable();
-    st.cols = Object.keys(data).filter(k => k !== 'id');
-    if (!st.cols.length) throw 0;
+    const cols = Object.keys(data).filter(k => k !== 'id');
+    if (!cols.length) throw 0;
+    st.cols = cols;
     rebuild();
   } catch {
-    showErr('Liez d\'abord le widget à une table\n(Panneau Grist → Données → votre table).');
+    showErr('Liste vide : dans Grist, panneau droite → Données → sélectionnez votre table, puis cliquez ↺');
     csel.innerHTML = '<option value="">— sélectionner —</option>';
   } finally { csel.disabled = false; }
 }
