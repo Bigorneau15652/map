@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF Viewer — Lanceur Grist</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #4a90d9;
+      --accent-hover: #357abd;
+      --bg: #f7f8fa;
+      --text: #333;
+      --muted: #888;
+      --border: #ddd;
+      --success: #27ae60;
+      --error: #c0392b;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 14px;
+      padding: 16px;
+    }
+
+    /* PDF icon */
+    .pdf-icon {
+      width: 48px;
+      height: 48px;
+      opacity: 0.7;
+    }
+
+    /* Main open button */
+    #btn-open {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    #btn-open:hover  { background: var(--accent-hover); }
+    #btn-open:disabled { background: #aaa; cursor: default; }
+
+    /* Status badge */
+    #status {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      max-width: 220px;
+      line-height: 1.5;
+    }
+    #status.connected { color: var(--success); }
+    #status.error     { color: var(--error); }
+
+    /* Connected indicator dot */
+    .dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    .dot.on  { background: var(--success); }
+    .dot.off { background: var(--error); }
+
+    /* Config panel */
+    #config {
+      display: none;
+      width: 100%;
+      max-width: 260px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      margin-top: 4px;
+    }
+    #config.open { display: block; }
+    #config label { display: block; margin-bottom: 3px; font-size: 11px; color: var(--muted); }
+    #config select, #config input {
+      width: 100%;
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    #btn-save {
+      width: 100%;
+      padding: 6px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    #btn-save:hover { background: var(--accent-hover); }
+
+    #btn-settings {
+      font-size: 11px;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    #btn-settings:hover { color: var(--text); }
+
+    /* Filename display */
+    #filename {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <svg class="pdf-icon" viewBox="0 0 48 48" fill="none">
+    <rect x="6" y="2" width="28" height="36" rx="3" fill="#e74c3c" opacity="0.15" stroke="#e74c3c" stroke-width="1.5"/>
+    <rect x="6" y="2" width="28" height="36" rx="3" fill="none" stroke="#e74c3c" stroke-width="1.5"/>
+    <path d="M28 2 L34 8" stroke="#e74c3c" stroke-width="1.5"/>
+    <rect x="28" y="2" width="6" height="6" rx="1" fill="#e74c3c" opacity="0.3"/>
+    <text x="20" y="25" text-anchor="middle" font-size="8" font-weight="bold" fill="#e74c3c">PDF</text>
+    <circle cx="38" cy="38" r="9" fill="#4a90d9"/>
+    <path d="M34 38 h8 M38 34 v8" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  </svg>
+
+  <button id="btn-open" disabled>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M1 3h14v10H1V3zm2 2v6h10V5H3zm2 1h6v1H5V6zm0 2h4v1H5V8z" opacity="0.6"/>
+      <path d="M10 1 L15 1 L15 6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+      <path d="M9 7 L15 1" stroke="currentColor" stroke-width="1.5"/>
+    </svg>
+    Ouvrir le PDF
+  </button>
+
+  <div id="filename"></div>
+
+  <div id="status">
+    <span class="dot" id="dot"></span>
+    En attente d'un enregistrement…
+  </div>
+
+  <button id="btn-settings">⚙ Paramètres</button>
+
+  <div id="config">
+    <label>Colonne contenant l'URL ou la pièce jointe</label>
+    <select id="col-select"><option value="">— sélectionner —</option></select>
+
+    <label>Type de colonne</label>
+    <select id="col-type">
+      <option value="url">URL (texte)</option>
+      <option value="attachment">Pièce jointe Grist</option>
+    </select>
+
+    <button id="btn-save">Enregistrer</button>
+  </div>
+
+</div>
+
+<script>
+  const VIEWER_URL = (function() {
+    const base = location.href.replace(/\/index\.html.*$/, '');
+    return base + '/viewer.html';
+  })();
+
+  const state = {
+    columnName: null,
+    columnType: 'url',
+    currentUrl: null,
+    currentName: null,
+    popupWin: null,
+  };
+
+  const btnOpen    = document.getElementById('btn-open');
+  const statusEl   = document.getElementById('status');
+  const dotEl      = document.getElementById('dot');
+  const filenameEl = document.getElementById('filename');
+  const colSelect  = document.getElementById('col-select');
+  const colType    = document.getElementById('col-type');
+  const config     = document.getElementById('config');
+
+  // ── Grist setup ────────────────────────────────────────────────────────────
+  grist.ready({ requiredAccess: 'read table' });
+
+  grist.onOptions((options, interaction) => {
+    if (options?.columnName) state.columnName = options.columnName;
+    if (options?.columnType) state.columnType = options.columnType;
+    populateColumns(interaction?.columns || []);
+  });
+
+  grist.onRecord(record => {
+    if (!state.columnName || !record) {
+      setStatus('Configurez le widget (⚙ Paramètres).', 'off', false);
+      return;
+    }
+
+    const value = record[state.columnName];
+    if (!value) {
+      setStatus('Aucune valeur dans la colonne sélectionnée.', 'off', false);
+      return;
+    }
+
+    if (state.columnType === 'attachment') {
+      resolveAttachment(value, record);
+    } else {
+      const url = String(value).trim();
+      if (!url) { setStatus('URL vide.', 'off', false); return; }
+      setReady(url, url.split('/').pop() || 'document.pdf');
+    }
+  });
+
+  async function resolveAttachment(value, record) {
+    try {
+      const ids = Array.isArray(value) ? value : [value];
+      if (ids.length === 0) { setStatus('Aucune pièce jointe.', 'off', false); return; }
+      // Build attachment download URL via Grist API
+      const docUrl = await grist.docApi.getDocURL?.() || '';
+      const url = `${docUrl}/attachments/${ids[0]}/download`;
+      setReady(url, `pièce jointe #${ids[0]}`);
+    } catch (e) {
+      setStatus('Erreur pièce jointe : ' + e.message, 'off', false);
+    }
+  }
+
+  function setReady(url, name) {
+    state.currentUrl  = url;
+    state.currentName = name;
+    btnOpen.disabled  = false;
+    filenameEl.textContent = name;
+    setStatus('PDF prêt · cliquez pour ouvrir', 'on', true);
+    // If popup is already open, update it live
+    relayToPopup({ type: 'PDF_LOAD', url, name });
+  }
+
+  // ── Popup management ───────────────────────────────────────────────────────
+  btnOpen.addEventListener('click', openViewer);
+
+  function openViewer() {
+    if (!state.currentUrl) return;
+
+    const w = 1100, h = 800;
+    const left = Math.max(0, (screen.width  - w) / 2);
+    const top  = Math.max(0, (screen.height - h) / 2);
+
+    if (state.popupWin && !state.popupWin.closed) {
+      state.popupWin.focus();
+      relayToPopup({ type: 'PDF_LOAD', url: state.currentUrl, name: state.currentName });
+      return;
+    }
+
+    state.popupWin = window.open(
+      VIEWER_URL,
+      'grist-pdf-viewer',
+      `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=no`
+    );
+
+    // Once the popup is ready, send the PDF URL
+    window.addEventListener('message', onPopupMessage);
+
+    // Fallback: send after a short delay in case ready event is missed
+    setTimeout(() => {
+      relayToPopup({ type: 'PDF_LOAD', url: state.currentUrl, name: state.currentName });
+    }, 1500);
+  }
+
+  function onPopupMessage(event) {
+    if (event.data?.type === 'VIEWER_READY') {
+      relayToPopup({ type: 'PDF_LOAD', url: state.currentUrl, name: state.currentName });
+    }
+  }
+
+  function relayToPopup(msg) {
+    if (state.popupWin && !state.popupWin.closed) {
+      state.popupWin.postMessage(msg, '*');
+    }
+  }
+
+  // ── Config ─────────────────────────────────────────────────────────────────
+  document.getElementById('btn-settings').addEventListener('click', () => {
+    config.classList.toggle('open');
+  });
+
+  document.getElementById('btn-save').addEventListener('click', () => {
+    state.columnName = colSelect.value;
+    state.columnType = colType.value;
+    grist.setOptions({ columnName: state.columnName, columnType: state.columnType });
+    config.classList.remove('open');
+  });
+
+  function populateColumns(columns) {
+    colSelect.innerHTML = '<option value="">— sélectionner —</option>';
+    columns.forEach(col => {
+      const opt = document.createElement('option');
+      opt.value = col.name;
+      opt.textContent = col.title || col.name;
+      if (col.name === state.columnName) opt.selected = true;
+      colSelect.appendChild(opt);
+    });
+    colType.value = state.columnType || 'url';
+  }
+
+  // ── UI helpers ─────────────────────────────────────────────────────────────
+  function setStatus(text, dot, enabled) {
+    statusEl.textContent = text;
+    dotEl.className = 'dot ' + (dot || 'off');
+    btnOpen.disabled = !enabled;
+    if (!enabled) filenameEl.textContent = '';
+  }
+
+  setStatus('En attente d\'un enregistrement…', 'off', false);
+</script>
+</body>
+</html>
