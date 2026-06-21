@@ -8,12 +8,9 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html, body {
-      height: 100%; width: 100%; overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
+    html, body { height: 100%; width: 100%; overflow: hidden; }
 
-    /* ── Bouton principal ─────────────────────────────────── */
+    /* ── Bouton unique, pleine surface ────────────────────── */
     #btn {
       display: flex;
       align-items: center;
@@ -22,161 +19,148 @@
       width: 100%; height: 100%;
       border: none;
       background: #2980b9;
-      color: white;
+      color: #fff;
       cursor: pointer;
       font-size: 14px;
       font-weight: 700;
-      letter-spacing: .3px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       transition: background .15s;
       padding: 8px 16px;
     }
-    #btn:hover  { background: #3498db; }
-    #btn:active { background: #1a6a9a; }
-    #btn.ready  { background: #2980b9; }
-    #btn.live   { background: #27ae60; }
-    #btn.live:hover { background: #2ecc71; }
-    #btn.empty  { background: #95a5a6; cursor: default; }
+    #btn:hover        { background: #3498db; }
+    #btn:active       { background: #1c6ea4; }
+    #btn.state-empty  { background: #95a5a6; cursor: default; }
+    #btn.state-live   { background: #27ae60; }
+    #btn.state-live:hover { background: #2ecc71; }
 
-    #btn svg { width: 22px; height: 22px; flex-shrink: 0; }
+    #btn svg { width: 24px; height: 24px; flex-shrink: 0; }
+    .txt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+    #lbl  { font-size: 13px; font-weight: 700; white-space: nowrap; }
+    #sub  { font-size: 10px; opacity: .8;
+            max-width: 200px; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; }
 
-    #btn-text { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
-    #lbl-main { font-size: 13px; font-weight: 700; white-space: nowrap; }
-    #lbl-sub  { font-size: 10px; opacity: .75; max-width: 180px;
-                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    /* ── Modal config ─────────────────────────────────────── */
-    #overlay {
+    /* ── Modal config (menu ···) ──────────────────────────── */
+    #ov {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,.4); z-index: 50;
       align-items: center; justify-content: center;
     }
-    #overlay.open { display: flex; }
-    #modal {
+    #ov.on { display: flex; }
+    #box {
       background: #fff; border-radius: 8px;
-      box-shadow: 0 6px 24px rgba(0,0,0,.2);
+      box-shadow: 0 6px 28px rgba(0,0,0,.22);
       padding: 20px; width: 270px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    #modal h3 { font-size: 13px; margin-bottom: 14px;
-      padding-bottom: 8px; border-bottom: 1px solid #ddd; color: #333; }
+    #box h3 { font-size: 13px; margin-bottom: 14px;
+      padding-bottom: 8px; border-bottom: 1px solid #e0e0e0; color: #333; }
     .row { margin-bottom: 12px; }
-    .row label { display: block; font-size: 11px; font-weight: 700;
-      color: #777; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px; }
-    .row-flex { display: flex; gap: 6px; }
-    .row select {
+    .row label { display: block; font-size: 10px; font-weight: 700;
+      color: #888; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .5px; }
+    .rf { display: flex; gap: 6px; }
+    .rf select, .row select {
       width: 100%; padding: 7px 9px;
       border: 1px solid #ccc; border-radius: 5px;
       font-size: 12px; color: #333; background: #fff;
     }
-    #btn-refresh {
-      padding: 0 10px; border: 1px solid #ccc; border-radius: 5px;
-      background: #fff; cursor: pointer; font-size: 15px; flex-shrink: 0;
-    }
-    .actions { display: flex; gap: 8px; margin-top: 16px; }
-    .btn-ok, .btn-no {
-      flex: 1; padding: 8px; border: none; border-radius: 5px;
-      font-size: 12px; font-weight: 700; cursor: pointer;
-    }
-    .btn-ok { background: #2980b9; color: #fff; }
-    .btn-ok:hover { background: #3498db; }
-    .btn-no { background: #ecf0f1; color: #333; }
-    #modal-err {
-      display: none; margin-top: 8px; font-size: 11px; color: #c0392b;
-      background: #fdf0ef; padding: 6px 8px; border-radius: 4px; line-height: 1.5;
-    }
-    #hint {
-      margin-top: 10px; font-size: 10px; color: #666; line-height: 1.6;
-      background: #eef4ff; padding: 7px 9px; border-radius: 4px;
-      border-left: 3px solid #2980b9;
-    }
+    #bref { padding: 0 10px; border: 1px solid #ccc; border-radius: 5px;
+      background: #fff; cursor: pointer; font-size: 16px; flex-shrink: 0; }
+    .acts { display: flex; gap: 8px; margin-top: 16px; }
+    .ok, .no { flex: 1; padding: 8px; border: none; border-radius: 5px;
+      font-size: 12px; font-weight: 700; cursor: pointer; }
+    .ok { background: #2980b9; color: #fff; }
+    .ok:hover { background: #3498db; }
+    .no { background: #ecf0f1; color: #333; }
+    #err { display:none; margin-top:8px; font-size:11px; color:#c0392b;
+      background:#fdf0ef; padding:6px 8px; border-radius:4px; line-height:1.5; }
+    #hint { margin-top:10px; font-size:10px; color:#666; line-height:1.6;
+      background:#eef6ff; padding:7px 9px; border-radius:4px;
+      border-left:3px solid #2980b9; }
   </style>
 </head>
 <body>
 
-<button id="btn" class="empty">
-  <!-- Icône PDF -->
+<button id="btn" class="state-empty">
   <svg viewBox="0 0 32 32" fill="none">
-    <rect x="3" y="1" width="20" height="26" rx="2" fill="white" opacity=".2" stroke="white" stroke-width="1.2"/>
-    <path d="M19 1 L23 5 L19 5 Z" fill="white" opacity=".5"/>
+    <rect x="3" y="1" width="20" height="26" rx="2"
+      fill="white" opacity=".2" stroke="white" stroke-width="1.2"/>
+    <path d="M19 1L23 5H19V1Z" fill="white" opacity=".5"/>
     <text x="13" y="20" text-anchor="middle" font-size="7" font-weight="bold"
       fill="white" font-family="sans-serif">PDF</text>
-    <circle cx="25" cy="25" r="6" fill="white" opacity=".25" stroke="white" stroke-width="1"/>
-    <path d="M22 25h6M25 22v6" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <circle cx="26" cy="26" r="5" fill="white" opacity=".25" stroke="white"/>
+    <path d="M23 26h6M26 23v6" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
   </svg>
-  <div id="btn-text">
-    <span id="lbl-main">Configurer via ···</span>
-    <span id="lbl-sub"></span>
+  <div class="txt">
+    <span id="lbl">Configurez via ···</span>
+    <span id="sub"></span>
   </div>
 </button>
 
-<!-- Modal config (ouverte par ··· → Paramètres) -->
-<div id="overlay">
-  <div id="modal">
+<!-- Modal paramètres -->
+<div id="ov">
+  <div id="box">
     <h3>⚙ Paramètres — PDF Viewer</h3>
     <div class="row">
       <label>Colonne PDF</label>
-      <div class="row-flex">
-        <select id="col-sel"><option value="">— sélectionner —</option></select>
-        <button id="btn-refresh" title="Recharger">↺</button>
+      <div class="rf">
+        <select id="csel"><option value="">— sélectionner —</option></select>
+        <button id="bref" title="Recharger">↺</button>
       </div>
     </div>
     <div class="row">
       <label>Type</label>
-      <select id="col-type">
+      <select id="ctype">
         <option value="url">URL (texte)</option>
         <option value="attachment">Pièce jointe Grist</option>
       </select>
     </div>
     <div id="hint">
-      💡 Liste vide ? Panneau Grist → <strong>Données</strong>
+      💡 Liste vide ? Dans Grist, panneau de droite → <strong>Données</strong>
       → sélectionnez votre table, puis ↺
     </div>
-    <div id="modal-err"></div>
-    <div class="actions">
-      <button class="btn-no" id="btn-cancel">Annuler</button>
-      <button class="btn-ok" id="btn-save">Enregistrer</button>
+    <div id="err"></div>
+    <div class="acts">
+      <button class="no" id="bno">Annuler</button>
+      <button class="ok" id="bok">Enregistrer</button>
     </div>
   </div>
 </div>
 
 <script>
-const VIEWER = location.href.replace(/\/index\.html.*$/, '') + '/viewer.html';
-const st = { col: null, type: 'url', url: null, name: null, popup: null, cols: [] };
+// ── État ───────────────────────────────────────────────────────────────────────
+const WIN_NAME = 'grist-pdf-viewer';
+const st = { col: null, type: 'url', url: null, name: null, cols: [] };
 
-const btn      = document.getElementById('btn');
-const lblMain  = document.getElementById('lbl-main');
-const lblSub   = document.getElementById('lbl-sub');
-const overlay  = document.getElementById('overlay');
-const colSel   = document.getElementById('col-sel');
-const colType  = document.getElementById('col-type');
-const modalErr = document.getElementById('modal-err');
+const btn  = document.getElementById('btn');
+const lbl  = document.getElementById('lbl');
+const sub  = document.getElementById('sub');
+const ov   = document.getElementById('ov');
+const csel = document.getElementById('csel');
+const ctype= document.getElementById('ctype');
+const err  = document.getElementById('err');
 
-// ── Clic bouton → ouvre viewer directement ────────────────────────────────
+// ── Clic → ouvre le PDF directement, sans intermédiaire ───────────────────────
 btn.addEventListener('click', () => {
   if (!st.url) return;
-  if (st.popup && !st.popup.closed) {
-    st.popup.focus();
-    st.popup.postMessage({ type: 'PDF_LOAD', url: st.url, name: st.name }, '*');
-    return;
-  }
-  const w = 1150, h = 840,
-        l = Math.max(0, (screen.width  - w) / 2),
-        t = Math.max(0, (screen.height - h) / 2);
-  const params = new URLSearchParams({ url: st.url, name: st.name || '' });
-  st.popup = window.open(
-    VIEWER + '?' + params,
-    'pdf-viewer',
-    `width=${w},height=${h},left=${l},top=${t},resizable=yes`
-  );
-  setLive();
+  // window.open avec le même nom réutilise la fenêtre existante
+  // → pas de page blanche, pas de viewer.html, pas de CORS
+  const w = screen.width  > 1400 ? 1200 : screen.width  - 100;
+  const h = screen.height > 900  ? 860  : screen.height - 100;
+  const l = Math.max(0, (screen.width  - w) / 2);
+  const t = Math.max(0, (screen.height - h) / 2);
+  window.open(st.url, WIN_NAME, `width=${w},height=${h},left=${l},top=${t},resizable=yes`);
+  btn.className = 'state-live';
+  lbl.textContent = '● Viewer ouvert';
 });
 
-// ── Grist ─────────────────────────────────────────────────────────────────
+// ── Grist ─────────────────────────────────────────────────────────────────────
 grist.ready({ requiredAccess: 'read table', onEditOptions: openModal });
 
 grist.onOptions(o => {
   if (o?.col)  st.col  = o.col;
   if (o?.type) st.type = o.type;
-  colType.value = st.type;
+  ctype.value = st.type || 'url';
   rebuild();
 });
 
@@ -190,82 +174,82 @@ grist.onRecord(row => {
   if (!st.col || !row) { setEmpty('Configurez via ··· → Paramètres'); return; }
   const v = row[st.col];
   if (!v) { setEmpty('Valeur vide pour cette ligne'); return; }
+
+  let url, name;
   if (st.type === 'attachment') {
     const ids = Array.isArray(v) ? v.filter(n => typeof n === 'number') : [];
     if (!ids.length) { setEmpty('Aucune pièce jointe'); return; }
-    setReady(location.origin + '/api/attachments/' + ids[0] + '/download', 'Pièce jointe #' + ids[0]);
+    url  = location.origin + '/api/attachments/' + ids[0] + '/download';
+    name = 'Pièce jointe #' + ids[0];
   } else {
-    const url  = String(v).trim();
-    const name = decodeURIComponent(url.split('/').pop().split('?')[0]) || 'document.pdf';
-    setReady(url, name);
+    url  = String(v).trim();
+    name = decodeURIComponent(url.split('/').pop().split('?')[0]) || 'document.pdf';
   }
+
+  st.url = url; st.name = name;
+  btn.className = 'state-ready';
+  lbl.textContent = '▶  Ouvrir le PDF';
+  sub.textContent = name;
+
+  // Si la fenêtre viewer est déjà ouverte, la mettre à jour automatiquement
+  try {
+    const w = window.open('', WIN_NAME); // tente de récupérer la fenêtre existante
+    if (w && !w.closed && w.location.href !== 'about:blank') {
+      w.location.href = url;             // navigue vers le nouveau PDF
+      btn.className = 'state-live';
+      lbl.textContent = '● Viewer mis à jour';
+    }
+  } catch { /* fenêtre non accessible (cross-origin normal) */ }
 });
 
-// ── États du bouton ───────────────────────────────────────────────────────
-function setEmpty(msg) {
-  st.url = null;
-  btn.className = 'empty';
-  lblMain.textContent = msg;
-  lblSub.textContent  = '';
-}
-function setReady(url, name) {
-  st.url = url; st.name = name;
-  if (st.popup && !st.popup.closed) {
-    st.popup.postMessage({ type: 'PDF_LOAD', url, name }, '*');
-    setLive();
-  } else {
-    btn.className = 'ready';
-    lblMain.textContent = '▶  Ouvrir le PDF';
-    lblSub.textContent  = name;
-  }
-}
-function setLive() {
-  btn.className = 'live';
-  lblMain.textContent = '● Viewer ouvert — cliquer pour mettre à jour';
-  lblSub.textContent  = st.name || '';
-}
+// ── Modal config ───────────────────────────────────────────────────────────────
+async function openModal() { ov.classList.add('on'); await loadCols(); }
+function closeModal() { ov.classList.remove('on'); err.style.display = 'none'; }
 
-// ── Modal ──────────────────────────────────────────────────────────────────
-async function openModal() { overlay.classList.add('open'); await loadCols(); }
-function closeModal() { overlay.classList.remove('open'); modalErr.style.display = 'none'; }
-
-document.getElementById('btn-cancel').onclick = closeModal;
-overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
-document.getElementById('btn-refresh').onclick = e => { e.stopPropagation(); loadCols(); };
-document.getElementById('btn-save').onclick = () => {
-  if (!colSel.value) { showErr('Sélectionnez une colonne.'); return; }
-  st.col = colSel.value; st.type = colType.value;
+document.getElementById('bno').onclick  = closeModal;
+ov.addEventListener('click', e => { if (e.target === ov) closeModal(); });
+document.getElementById('bref').onclick = e => { e.stopPropagation(); loadCols(); };
+document.getElementById('bok').onclick  = () => {
+  if (!csel.value) { showErr('Sélectionnez une colonne.'); return; }
+  st.col = csel.value; st.type = ctype.value;
   grist.setOptions({ col: st.col, type: st.type });
   closeModal();
 };
 
 async function loadCols() {
-  colSel.disabled = true;
-  colSel.innerHTML = '<option value="">⏳ Chargement…</option>';
+  csel.disabled = true;
+  csel.innerHTML = '<option value="">⏳ Chargement…</option>';
   try {
     const data = await grist.docApi.fetchSelectedTable();
     st.cols = Object.keys(data).filter(k => k !== 'id');
-    if (!st.cols.length) throw new Error();
+    if (!st.cols.length) throw 0;
     rebuild();
   } catch {
-    showErr('Liez d\'abord le widget à une table\n(Panneau Grist → Données).');
-    colSel.innerHTML = '<option value="">— sélectionner —</option>';
-  } finally { colSel.disabled = false; }
+    showErr('Liez d\'abord le widget à une table\n(Panneau Grist → Données → votre table).');
+    csel.innerHTML = '<option value="">— sélectionner —</option>';
+  } finally { csel.disabled = false; }
 }
 
 function rebuild() {
-  const prev = colSel.value || st.col;
-  colSel.innerHTML = '<option value="">— sélectionner —</option>';
+  const prev = csel.value || st.col;
+  csel.innerHTML = '<option value="">— sélectionner —</option>';
   st.cols.forEach(c => {
     const o = document.createElement('option');
     o.value = c; o.textContent = c;
     if (c === prev) o.selected = true;
-    colSel.appendChild(o);
+    csel.appendChild(o);
   });
-  colType.value = st.type || 'url';
+  ctype.value = st.type || 'url';
 }
 
-function showErr(m) { modalErr.textContent = m; modalErr.style.display = 'block'; }
+function setEmpty(msg) {
+  st.url = null;
+  btn.className = 'state-empty';
+  lbl.textContent = msg;
+  sub.textContent = '';
+}
+
+function showErr(m) { err.textContent = m; err.style.display = 'block'; }
 </script>
 </body>
 </html>
