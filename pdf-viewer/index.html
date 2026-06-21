@@ -7,48 +7,44 @@
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; width: 100%; overflow: hidden; background: #f0f0f0; }
 
-    html, body {
-      height: 100%; width: 100%; overflow: hidden;
-      display: flex; align-items: center; justify-content: center;
-      background: transparent;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    /* ── Écran vide ─────────────────────────────────────────── */
+    #empty {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100%; gap: 10px;
+      color: #999; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px; text-align: center; padding: 20px;
     }
+    #empty svg { opacity: .3; }
 
-    /* ── Bouton compact — visible seulement si le viewer n'est pas ouvert ── */
-    #btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
+    /* ── Iframe PDF ─────────────────────────────────────────── */
+    #frame {
+      display: none;
+      width: 100%; height: 100%;
       border: none;
-      border-radius: 8px;
-      background: #2980b9;
-      color: #fff;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 700;
-      font-family: inherit;
-      transition: background .15s, box-shadow .15s;
-      padding: 12px 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.18);
-      white-space: nowrap;
     }
-    #btn:hover        { background: #3498db; box-shadow: 0 4px 14px rgba(0,0,0,.22); }
-    #btn:active       { background: #1c6ea4; }
-    #btn.state-empty  { background: #95a5a6; cursor: default; box-shadow: none; }
-    body.viewer-open  { visibility: hidden; } /* widget invisible quand viewer ouvert */
+    #frame.visible { display: block; }
 
-    #btn svg { width: 22px; height: 22px; flex-shrink: 0; }
-    .txt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-    #lbl  { font-size: 13px; font-weight: 700; white-space: nowrap; }
-    #sub  { font-size: 10px; opacity: .8;
-            max-width: 200px; overflow: hidden;
-            text-overflow: ellipsis; white-space: nowrap; }
+    /* ── Bouton agrandissement (overlay) ────────────────────── */
+    #popbtn {
+      display: none;
+      position: fixed; top: 6px; right: 6px; z-index: 99;
+      background: rgba(0,0,0,.55); color: #fff;
+      border: none; border-radius: 5px;
+      padding: 5px 9px; cursor: pointer; font-size: 13px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      gap: 5px; align-items: center;
+      transition: background .15s;
+    }
+    #popbtn.visible { display: flex; }
+    #popbtn:hover { background: rgba(0,0,0,.8); }
 
-    /* ── Modal config (menu ···) ──────────────────────────── */
+    /* ── Modal config ───────────────────────────────────────── */
     #ov {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,.4); z-index: 50;
+      background: rgba(0,0,0,.4); z-index: 200;
       align-items: center; justify-content: center;
     }
     #ov.on { display: flex; }
@@ -86,20 +82,26 @@
 </head>
 <body>
 
-<button id="btn" class="state-empty">
-  <svg viewBox="0 0 32 32" fill="none">
-    <rect x="3" y="1" width="20" height="26" rx="2"
-      fill="white" opacity=".2" stroke="white" stroke-width="1.2"/>
-    <path d="M19 1L23 5H19V1Z" fill="white" opacity=".5"/>
+<!-- Écran vide -->
+<div id="empty">
+  <svg width="48" height="48" viewBox="0 0 32 32" fill="none">
+    <rect x="3" y="1" width="20" height="26" rx="2" fill="#888" stroke="#888" stroke-width="1.2"/>
+    <path d="M19 1L23 5H19V1Z" fill="#aaa"/>
     <text x="13" y="20" text-anchor="middle" font-size="7" font-weight="bold"
       fill="white" font-family="sans-serif">PDF</text>
-    <circle cx="26" cy="26" r="5" fill="white" opacity=".25" stroke="white"/>
-    <path d="M23 26h6M26 23v6" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
   </svg>
-  <div class="txt">
-    <span id="lbl">Configurez via ···</span>
-    <span id="sub"></span>
-  </div>
+  <span id="emptymsg">Sélectionnez une ligne dans le tableau</span>
+</div>
+
+<!-- Visionneuse PDF intégrée -->
+<iframe id="frame" allowfullscreen></iframe>
+
+<!-- Bouton agrandissement -->
+<button id="popbtn" title="Ouvrir dans une fenêtre séparée">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    <path d="M15 3h6v6M9 21H3v-6M21 3l-9 9M3 21l9-9"/>
+  </svg>
+  Agrandir
 </button>
 
 <!-- Modal paramètres -->
@@ -133,61 +135,44 @@
 </div>
 
 <script>
-// ── État ───────────────────────────────────────────────────────────────────────
 const WIN_NAME = 'grist-pdf-viewer';
-const st = { col: null, type: 'url', url: null, name: null, cols: [] };
-let viewerWin = null; // référence directe à la fenêtre popup
+const st = { col: null, type: 'url', url: null, cols: [] };
 
-const btn  = document.getElementById('btn');
-const lbl  = document.getElementById('lbl');
-const sub  = document.getElementById('sub');
-const ov   = document.getElementById('ov');
-const csel = document.getElementById('csel');
-const ctype= document.getElementById('ctype');
-const err  = document.getElementById('err');
+const frame    = document.getElementById('frame');
+const empty    = document.getElementById('empty');
+const emptymsg = document.getElementById('emptymsg');
+const popbtn   = document.getElementById('popbtn');
+const ov       = document.getElementById('ov');
+const csel     = document.getElementById('csel');
+const ctype    = document.getElementById('ctype');
+const err      = document.getElementById('err');
 
-function getWinFeatures() {
+// ── Affiche le PDF dans l'iframe ──────────────────────────────────────────────
+function showPDF(url) {
+  frame.src = url;
+  frame.classList.add('visible');
+  empty.style.display = 'none';
+  popbtn.classList.add('visible');
+}
+
+function showEmpty(msg) {
+  st.url = null;
+  frame.src = '';
+  frame.classList.remove('visible');
+  empty.style.display = 'flex';
+  emptymsg.textContent = msg;
+  popbtn.classList.remove('visible');
+}
+
+// ── Bouton agrandissement ─────────────────────────────────────────────────────
+popbtn.addEventListener('click', () => {
+  if (!st.url) return;
   const w = screen.width  > 1400 ? 1200 : screen.width  - 100;
   const h = screen.height > 900  ? 860  : screen.height - 100;
   const l = Math.max(0, (screen.width  - w) / 2);
   const t = Math.max(0, (screen.height - h) / 2);
-  return `width=${w},height=${h},left=${l},top=${t},resizable=yes`;
-}
-
-function openViewer(url) {
-  viewerWin = window.open(url, WIN_NAME, getWinFeatures());
-  if (viewerWin) viewerWin.focus();
-  return viewerWin;
-}
-
-function isViewerOpen() {
-  // .closed est accessible même cross-origin
-  return viewerWin && !viewerWin.closed;
-}
-
-function updateViewer(url) {
-  if (!viewerWin || viewerWin.closed) return false;
-  try {
-    viewerWin.location.href = url; // setter cross-origin autorisé (getter interdit)
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// ── Ré-ouverture auto quand le widget redevient visible (ex: clic sur panneau réduit) ──
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && st.url && (!viewerWin || viewerWin.closed)) {
-    const win = openViewer(st.url);
-    if (win) document.body.classList.add('viewer-open');
-  }
-});
-
-// ── Clic sur le bouton (fallback si popup bloquée) ────────────────────────────
-btn.addEventListener('click', () => {
-  if (!st.url) return;
-  openViewer(st.url);
-  document.body.classList.add('viewer-open');
+  const win = window.open(st.url, WIN_NAME, `width=${w},height=${h},left=${l},top=${t},resizable=yes`);
+  if (win) win.focus();
 });
 
 // ── Grist ─────────────────────────────────────────────────────────────────────
@@ -207,39 +192,21 @@ grist.onRecords(rows => {
 });
 
 grist.onRecord(row => {
-  if (!st.col || !row) { setEmpty('Configurez via ··· → Paramètres'); return; }
+  if (!st.col || !row) { showEmpty('Configurez via ··· → Paramètres'); return; }
   const v = row[st.col];
-  if (!v) { setEmpty('Valeur vide pour cette ligne'); return; }
+  if (!v) { showEmpty('Valeur vide pour cette ligne'); return; }
 
-  let url, name;
+  let url;
   if (st.type === 'attachment') {
     const ids = Array.isArray(v) ? v.filter(n => typeof n === 'number') : [];
-    if (!ids.length) { setEmpty('Aucune pièce jointe'); return; }
-    url  = location.origin + '/api/attachments/' + ids[0] + '/download';
-    name = 'Pièce jointe #' + ids[0];
+    if (!ids.length) { showEmpty('Aucune pièce jointe'); return; }
+    url = location.origin + '/api/attachments/' + ids[0] + '/download';
   } else {
-    url  = String(v).trim();
-    name = decodeURIComponent(url.split('/').pop().split('?')[0]) || 'document.pdf';
+    url = String(v).trim();
   }
 
-  st.url = url; st.name = name;
-  sub.textContent = name;
-
-  if (updateViewer(url)) {
-    // Viewer déjà ouvert → mis à jour silencieusement
-    document.body.classList.add('viewer-open');
-  } else {
-    // Pas de viewer ouvert → tente l'auto-ouverture
-    const win = openViewer(url);
-    if (win) {
-      document.body.classList.add('viewer-open'); // cache le widget
-    } else {
-      // Popup bloquée → montre le bouton pour clic manuel
-      document.body.classList.remove('viewer-open');
-      btn.className = 'state-ready';
-      lbl.textContent = '▶  Ouvrir le PDF';
-    }
-  }
+  st.url = url;
+  showPDF(url);
 });
 
 // ── Modal config ───────────────────────────────────────────────────────────────
@@ -259,23 +226,14 @@ document.getElementById('bok').onclick  = () => {
 async function loadCols() {
   csel.disabled = true;
   csel.innerHTML = '<option value="">⏳ Chargement…</option>';
-
-  // Si onRecords a déjà fourni les colonnes, on les utilise directement
-  if (st.cols.length) {
-    rebuild();
-    csel.disabled = false;
-    return;
-  }
-
-  // Sinon on tente fetchSelectedTable
+  if (st.cols.length) { rebuild(); csel.disabled = false; return; }
   try {
     const data = await grist.docApi.fetchSelectedTable();
     const cols = Object.keys(data).filter(k => k !== 'id');
     if (!cols.length) throw 0;
-    st.cols = cols;
-    rebuild();
+    st.cols = cols; rebuild();
   } catch {
-    showErr('Liste vide : dans Grist, panneau droite → Données → sélectionnez votre table, puis cliquez ↺');
+    showErr('Liez le widget à une table (panneau droite → Données), puis ↺');
     csel.innerHTML = '<option value="">— sélectionner —</option>';
   } finally { csel.disabled = false; }
 }
@@ -290,13 +248,6 @@ function rebuild() {
     csel.appendChild(o);
   });
   ctype.value = st.type || 'url';
-}
-
-function setEmpty(msg) {
-  st.url = null;
-  btn.className = 'state-empty';
-  lbl.textContent = msg;
-  sub.textContent = '';
 }
 
 function showErr(m) { err.textContent = m; err.style.display = 'block'; }
