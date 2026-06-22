@@ -133,7 +133,7 @@
       <label>Colonne PDF</label>
       <div class="rf">
         <select id="csel"><option value="">— sélectionner —</option></select>
-        <button id="bref" title="Recharger">↺</button>
+        <button id="bref" title="Recharger colonnes">⟳</button>
       </div>
     </div>
     <div class="row">
@@ -282,17 +282,23 @@ document.getElementById('bok').onclick  = () => {
 
 async function loadCols() {
   csel.disabled = true;
-  csel.innerHTML = '<option value="">⏳ Chargement…</option>';
-  if (st.cols.length) { rebuild(); csel.disabled = false; return; }
+  csel.innerHTML = '<option value="">Chargement...</option>';
+  cfgerr.style.display = 'none';
+
+  // Toujours tenter fetchSelectedTable (plus fiable)
   try {
     const data = await grist.docApi.fetchSelectedTable();
     const cols = Object.keys(data).filter(k => k !== 'id');
-    if (!cols.length) throw 0;
-    st.cols = cols; rebuild();
-  } catch {
-    showCfgErr('Liez le widget à une table (panneau droite → Données), puis ↺');
-    csel.innerHTML = '<option value="">— sélectionner —</option>';
-  } finally { csel.disabled = false; }
+    if (cols.length) { st.cols = cols; rebuild(); csel.disabled = false; return; }
+  } catch { /* pas encore lié */ }
+
+  // Fallback : colonnes reçues via onRecords
+  if (st.cols.length) { rebuild(); csel.disabled = false; return; }
+
+  // Rien : afficher l'aide
+  showCfgErr('Aucune colonne. Dans Grist, panneau droite > Donnees > selectionnez votre table, puis cliquez le bouton Recharger.');
+  csel.innerHTML = '<option value="">— sélectionner —</option>';
+  csel.disabled = false;
 }
 
 function rebuild() {
