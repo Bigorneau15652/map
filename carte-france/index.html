@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carte de France – Widget Grist</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chroma-js@2.4.2/chroma.min.js"></script>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f5f6fa;
+      overflow: hidden;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    #toolbar label { font-size: 12px; color: #555; white-space: nowrap; }
+
+    #toolbar select, #toolbar input[type="color"] {
+      font-size: 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 3px 6px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    #toolbar input[type="color"] {
+      width: 32px;
+      height: 26px;
+      padding: 1px 2px;
+    }
+
+    .sep { width: 1px; height: 20px; background: #ddd; margin: 0 4px; flex-shrink: 0; }
+
+    #btn-reset-zoom {
+      font-size: 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 3px 8px;
+      background: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #btn-reset-zoom:hover { background: #f0f0f0; }
+
+    #btn-save-zoom {
+      font-size: 12px;
+      border: 1px solid #4a90d9;
+      border-radius: 4px;
+      padding: 3px 8px;
+      background: #e8f0fb;
+      color: #2a6099;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #btn-save-zoom:hover { background: #d0e3f7; }
+
+    #domtom-toggle {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: #555;
+      cursor: pointer;
+      user-select: none;
+    }
+    #domtom-toggle input { cursor: pointer; }
+
+    /* ── Map area ── */
+    #map-wrapper {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #map-main {
+      position: absolute;
+      inset: 0;
+      background: #e8eef5;
+    }
+
+    /* ── DOM-TOM insets ── */
+    #domtom-panel {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      z-index: 1000;
+      transition: opacity 0.2s;
+    }
+    #domtom-panel.hidden { opacity: 0; pointer-events: none; }
+
+    .mini-map {
+      width: 90px;
+      height: 80px;
+      border: 1.5px solid #aaa;
+      border-radius: 4px;
+      background: #e8eef5;
+      overflow: hidden;
+    }
+    .mini-map-label {
+      position: absolute;
+      bottom: 2px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 9px;
+      color: #444;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .mini-map-wrapper {
+      position: relative;
+      width: 90px;
+      height: 80px;
+    }
+
+    /* Mayotte spans full width */
+    .mini-map-wrapper.mayotte {
+      grid-column: 1 / -1;
+      width: 100%;
+    }
+    .mini-map-wrapper.mayotte .mini-map {
+      width: 100%;
+    }
+
+    /* ── Legend ── */
+    #legend {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 11px;
+      z-index: 1000;
+      max-width: 180px;
+      max-height: 50vh;
+      overflow-y: auto;
+      display: none;
+    }
+    #legend.visible { display: block; }
+    #legend h4 { font-size: 11px; margin-bottom: 6px; color: #333; }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid rgba(0,0,0,0.15);
+      flex-shrink: 0;
+    }
+
+    /* ── Choropleth gradient legend ── */
+    #choropleth-legend {
+      position: absolute;
+      bottom: 40px;
+      left: 10px;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 11px;
+      z-index: 1000;
+      display: none;
+    }
+    #choropleth-legend.visible { display: block; }
+    #gradient-bar {
+      height: 12px;
+      width: 120px;
+      border-radius: 3px;
+      margin: 4px 0;
+    }
+    .gradient-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #555;
+    }
+
+    /* ── Status bar ── */
+    #status {
+      position: absolute;
+      bottom: 4px;
+      left: 10px;
+      font-size: 10px;
+      color: #666;
+      background: rgba(255,255,255,0.8);
+      padding: 2px 6px;
+      border-radius: 3px;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    /* ── Loading overlay ── */
+    #loading {
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      font-size: 14px;
+      color: #555;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #loading.hidden { display: none; }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid #ddd;
+      border-top-color: #4a90d9;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Leaflet overrides */
+    .leaflet-container { background: #e8eef5 !important; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Toolbar -->
+  <div id="toolbar">
+    <label for="mode-select">Mode :</label>
+    <select id="mode-select">
+      <option value="categorie">Par catégorie</option>
+      <option value="unique">Couleur unique</option>
+      <option value="choropleth">Choroplèthe (valeur)</option>
+    </select>
+
+    <div class="sep"></div>
+
+    <label for="unique-color" id="unique-color-label" style="display:none">Couleur :</label>
+    <input type="color" id="unique-color" value="#e74c3c" style="display:none">
+
+    <label for="cumul-color" id="cumul-color-label">Cumul :</label>
+    <input type="color" id="cumul-color" value="#f39c12" title="Couleur des départements dans plusieurs catégories sélectionnées">
+
+    <div class="sep"></div>
+
+    <label for="choro-col" id="choro-col-label" style="display:none">Colonne valeur :</label>
+    <select id="choro-col" style="display:none"></select>
+    <label id="choro-low-label" style="display:none">Bas :</label>
+    <input type="color" id="choro-low" value="#ffffcc" style="display:none">
+    <label id="choro-high-label" style="display:none">Haut :</label>
+    <input type="color" id="choro-high" value="#006837" style="display:none">
+
+    <div class="sep"></div>
+
+    <label for="dept-opacity">Opacité grisé :</label>
+    <input type="range" id="dept-opacity" min="0" max="100" value="30" style="width:60px">
+
+    <div class="sep"></div>
+
+    <button id="btn-save-zoom">💾 Sauver vue</button>
+    <button id="btn-reset-zoom">↩ Vue initiale</button>
+
+    <div class="sep"></div>
+
+    <label class="domtom-toggle" for="domtom-check">
+      <input type="checkbox" id="domtom-check" checked>
+      DOM-TOM
+    </label>
+  </div>
+
+  <!-- Map -->
+  <div id="map-wrapper">
+    <div id="map-main"></div>
+
+    <!-- DOM-TOM insets -->
+    <div id="domtom-panel">
+      <div class="mini-map-wrapper">
+        <div class="mini-map" id="map-971"></div>
+        <span class="mini-map-label">Guadeloupe 971</span>
+      </div>
+      <div class="mini-map-wrapper">
+        <div class="mini-map" id="map-972"></div>
+        <span class="mini-map-label">Martinique 972</span>
+      </div>
+      <div class="mini-map-wrapper">
+        <div class="mini-map" id="map-973"></div>
+        <span class="mini-map-label">Guyane 973</span>
+      </div>
+      <div class="mini-map-wrapper">
+        <div class="mini-map" id="map-974"></div>
+        <span class="mini-map-label">Réunion 974</span>
+      </div>
+      <div class="mini-map-wrapper mayotte">
+        <div class="mini-map" id="map-976" style="width:100%"></div>
+        <span class="mini-map-label">Mayotte 976</span>
+      </div>
+    </div>
+
+    <!-- Legend (category mode) -->
+    <div id="legend">
+      <h4>Légende</h4>
+      <div id="legend-items"></div>
+    </div>
+
+    <!-- Choropleth legend -->
+    <div id="choropleth-legend">
+      <h4 id="choro-legend-title">Valeur</h4>
+      <div id="gradient-bar"></div>
+      <div class="gradient-labels">
+        <span id="choro-min-label">min</span>
+        <span id="choro-max-label">max</span>
+      </div>
+    </div>
+
+    <div id="status">Chargement…</div>
+
+    <div id="loading">
+      <div class="spinner"></div>
+      <span>Chargement de la carte…</span>
+    </div>
+  </div>
+</div>
+
+<script src="widget.js"></script>
+</body>
+</html>
