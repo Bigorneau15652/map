@@ -687,7 +687,7 @@ function initMaps() {
 }
 
 function getStyle(feature) {
-  const code = feature.properties.code;
+  const code = String(feature.properties?.code || '');
   const d = APP.depts[code];
   const visible = d ? d.visible : true;
   const color = deptColor(code);
@@ -706,15 +706,17 @@ function renderMapLayer(geojson) {
   }
 
   const domtomCodes = Object.keys(DOMTOM);
-  const metro = { type:'FeatureCollection', features: geojson.features.filter(f => !domtomCodes.includes(f.properties.code)) };
+  const features = (geojson && Array.isArray(geojson.features)) ? geojson.features : [];
+  const metro = { type:'FeatureCollection', features: features.filter(f => f.properties?.code && !domtomCodes.includes(String(f.properties.code))) };
   const dtFeatures = {};
-  for (const f of geojson.features) {
-    if (domtomCodes.includes(f.properties.code)) dtFeatures[f.properties.code] = f;
+  for (const f of features) {
+    const code = String(f.properties?.code || '');
+    if (domtomCodes.includes(code)) dtFeatures[code] = f;
   }
 
   function onEach(feature, layer) {
-    const code = feature.properties.code;
-    const nom = feature.properties.nom || code;
+    const code = String(feature.properties?.code || '');
+    const nom = feature.properties?.nom || code;
     layer.on({
       mouseover(e) {
         e.target.setStyle({ weight:2, color:'#222' });
@@ -798,6 +800,71 @@ function updateCumulSwatch() {
   document.getElementById('cumul-swatch').style.background = APP.cumulColor;
 }
 
+// ── Chargement GeoJSON (sources multiples + fallback) ──────
+const DOMTOM_CODES_LIST = ['971','972','973','974','976'];
+
+async function fetchJson(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function loadGeoJSON() {
+  // Source 1 : gregoiredavid CDN (metro uniquement, très fiable)
+  const METRO_URL = 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements-version-simplifiee.geojson';
+  // Source 2 : geo.api.gouv.fr (tentative, inclut DOM-TOM)
+  const GOVAPI_URL = 'https://geo.api.gouv.fr/departements?fields=nom,code,codeRegion&format=geojson&geometry=contour';
+  // DOM-TOM individuels via geo.api.gouv.fr
+  const DOMTOM_URLS = {
+    '971': 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/971-guadeloupe/departement-version-simplifiee.geojson',
+    '972': 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/972-martinique/departement-version-simplifiee.geojson',
+    '973': 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/973-guyane/departement-version-simplifiee.geojson',
+    '974': 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/974-la-reunion/departement-version-simplifiee.geojson',
+    '976': 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/976-mayotte/departement-version-simplifiee.geojson',
+  };
+
+  // Essayer geo.api.gouv.fr en premier (a tout)
+  try {
+    const geo = await fetchJson(GOVAPI_URL);
+    if (geo && Array.isArray(geo.features) && geo.features.length > 50) {
+      // Normaliser les properties (code peut être dans .code ou .properties.code)
+      for (const f of geo.features) {
+        if (!f.properties.code && f.properties.code !== 0) {
+          f.properties.code = f.properties.CODE || f.properties.num_dep || '';
+        }
+      }
+      return geo;
+    }
+  } catch(_) { /* fallback */ }
+
+  // Fallback : gregoiredavid metro + DOM-TOM individuels
+  const metro = await fetchJson(METRO_URL);
+  if (!metro || !Array.isArray(metro.features)) throw new Error('Impossible de charger le GeoJSON métropole');
+
+  // Normaliser les codes gregoiredavid (utilise "code" dans properties)
+  // gregoiredavid a "code" direct dans properties — OK
+
+  const dtFeatures = [];
+  for (const [code, url] of Object.entries(DOMTOM_URLS)) {
+    try {
+      const dt = await fetchJson(url);
+      // gregoiredavid retourne un FeatureCollection à 1 feature
+      const features = dt.features || (dt.type === 'Feature' ? [dt] : []);
+      for (const f of features) {
+        if (!f.properties) f.properties = {};
+        if (!f.properties.code) f.properties.code = code;
+        if (!f.properties.nom)  f.properties.nom  = APP.depts[code]?.nom || code;
+        dtFeatures.push(f);
+      }
+    } catch(_) { /* DOM-TOM optionnel */ }
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features: [...metro.features, ...dtFeatures],
+  };
+}
+
 // ── Bootstrap ──────────────────────────────────────────────
 async function boot() {
   initDepts();
@@ -837,8 +904,7 @@ async function boot() {
   }
 
   try {
-    const r = await fetch('https://geo.api.gouv.fr/departements?fields=nom,code,codeRegion&format=geojson&geometry=contour');
-    const geojson = await r.json();
+    const geojson = await loadGeoJSON();
     renderMapLayer(geojson);
     renderDeptList();
   } catch(e) {
