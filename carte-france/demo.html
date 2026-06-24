@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carte de France – Démo interactive</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chroma-js@2.4.2/chroma.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; overflow: hidden; }
+
+    /* ── Layout ── */
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
+    #header {
+      background: #1a3a5c;
+      color: #fff;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    #header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.3px; }
+    #header .badge {
+      font-size: 10px;
+      background: #4a90d9;
+      padding: 2px 7px;
+      border-radius: 10px;
+      letter-spacing: 0.5px;
+    }
+    #header .spacer { flex: 1; }
+    #header .hint { font-size: 11px; opacity: 0.7; }
+
+    #main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Panneau gauche : carte ── */
+    #map-panel {
+      flex: 1;
+      position: relative;
+      min-width: 0;
+    }
+    #map-main { position: absolute; inset: 0; background: #dce8f5; }
+
+    /* DOM-TOM */
+    #domtom-panel {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      z-index: 1000;
+    }
+    .mini-map-wrap { position: relative; }
+    .mini-map {
+      width: 88px; height: 76px;
+      border: 1.5px solid #999;
+      border-radius: 4px;
+      background: #dce8f5;
+      overflow: hidden;
+    }
+    .mini-label {
+      position: absolute; bottom: 2px; left: 0; right: 0;
+      text-align: center; font-size: 9px; color: #333;
+      pointer-events: none; z-index: 10;
+    }
+    .mini-map-wrap.full { grid-column: 1 / -1; }
+    .mini-map-wrap.full .mini-map { width: 100%; }
+
+    /* Tooltip dpt */
+    #dept-tooltip {
+      position: absolute;
+      bottom: 10px; left: 10px;
+      background: rgba(255,255,255,0.93);
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 5px 9px;
+      font-size: 12px;
+      z-index: 1000;
+      pointer-events: none;
+      display: none;
+    }
+    #dept-tooltip.show { display: block; }
+
+    /* Légende */
+    #legend {
+      position: absolute;
+      top: 10px; left: 10px;
+      background: rgba(255,255,255,0.93);
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 11px;
+      z-index: 1000;
+      min-width: 140px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    #legend h4 { font-size: 11px; color: #333; margin-bottom: 5px; }
+    .leg-item { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+    .leg-swatch { width: 13px; height: 13px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); flex-shrink: 0; }
+
+    /* ── Panneau droit ── */
+    #side-panel {
+      width: 340px;
+      background: #fff;
+      border-left: 1px solid #dde;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .panel-section {
+      border-bottom: 1px solid #eee;
+      flex-shrink: 0;
+    }
+    .panel-section-header {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      background: #f7f8fa;
+      font-size: 12px;
+      font-weight: 600;
+      color: #444;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .panel-section-header .toggle-icon { margin-left: auto; font-size: 10px; }
+    .panel-section-body { padding: 8px 12px; }
+    .panel-section-body.collapsed { display: none; }
+
+    /* Mode */
+    #mode-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+    .mode-btn {
+      flex: 1;
+      font-size: 11px;
+      padding: 5px 4px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .mode-btn.active { background: #1a3a5c; color: #fff; border-color: #1a3a5c; }
+
+    /* Catégories */
+    #cat-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 6px; }
+
+    .cat-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 7px;
+      border: 1px solid #e0e0e0;
+      border-radius: 5px;
+      background: #fafafa;
+    }
+    .cat-row.active-cat { border-color: #4a90d9; background: #f0f6ff; }
+
+    .cat-toggle {
+      width: 14px; height: 14px;
+      accent-color: #1a3a5c;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .cat-name-input {
+      flex: 1;
+      font-size: 12px;
+      border: none;
+      background: transparent;
+      outline: none;
+      min-width: 0;
+    }
+    .cat-color-btn {
+      width: 22px; height: 22px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      flex-shrink: 0;
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .cat-color-btn input[type="color"] {
+      position: absolute;
+      opacity: 0;
+      width: 100%; height: 100%;
+      cursor: pointer;
+      border: none;
+    }
+    .cat-del-btn {
+      font-size: 13px;
+      color: #bbb;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1;
+    }
+    .cat-del-btn:hover { color: #e74c3c; }
+
+    #btn-add-cat {
+      width: 100%;
+      font-size: 12px;
+      padding: 5px;
+      border: 1px dashed #aaa;
+      border-radius: 5px;
+      background: #fff;
+      cursor: pointer;
+      color: #555;
+    }
+    #btn-add-cat:hover { background: #f0f6ff; border-color: #4a90d9; color: #1a3a5c; }
+
+    /* Couleur cumul */
+    .cumul-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      font-size: 11px;
+      color: #666;
+    }
+    .cumul-swatch {
+      width: 22px; height: 22px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .cumul-swatch input[type="color"] {
+      position: absolute; opacity: 0;
+      width: 100%; height: 100%;
+      cursor: pointer;
+    }
+
+    /* Dept list */
+    #dept-section { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    #dept-section .panel-section-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; padding-top: 6px; }
+
+    #dept-search {
+      width: 100%;
+      font-size: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 4px 8px;
+      margin-bottom: 6px;
+    }
+    #dept-search:focus { outline: none; border-color: #4a90d9; }
+
+    .dept-filter-row {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+    .dept-filter-btn {
+      font-size: 10px;
+      padding: 3px 6px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      background: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .dept-filter-btn.on { background: #1a3a5c; color: #fff; border-color: #1a3a5c; }
+
+    #dept-list-wrap { flex: 1; overflow-y: auto; }
+
+    .dept-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 4px;
+      border-radius: 3px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .dept-item:hover { background: #f5f5f5; }
+    .dept-item.grayed { opacity: 0.45; }
+
+    .dept-check-area {
+      display: flex;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+    .dept-cat-dot {
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      border: 1px solid rgba(0,0,0,0.15);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .dept-visible-toggle {
+      width: 12px; height: 12px;
+      accent-color: #666;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .dept-code { font-size: 10px; color: #888; width: 24px; flex-shrink: 0; }
+    .dept-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Choropleth controls */
+    #choro-controls { display: none; }
+    #choro-controls.show { display: block; }
+    .choro-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; font-size: 11px; color: #555; }
+    .choro-row input[type="color"] { width: 28px; height: 24px; border: 1px solid #ccc; border-radius: 3px; padding: 1px; cursor: pointer; }
+    .choro-row input[type="range"] { flex: 1; }
+
+    /* Mode unique color */
+    #unique-controls { display: none; }
+    #unique-controls.show { display: block; }
+    .unique-row { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #555; margin-bottom: 5px; }
+    .unique-row input[type="color"] { width: 28px; height: 24px; border: 1px solid #ccc; border-radius: 3px; padding: 1px; cursor: pointer; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+    /* Leaflet */
+    .leaflet-container { background: #dce8f5 !important; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <h1>🗺 Carte de France – Départements</h1>
+    <span class="badge">DÉMO</span>
+    <span class="spacer"></span>
+    <span class="hint">Widget Grist interactif</span>
+  </div>
+
+  <div id="main">
+    <!-- ── Carte ── -->
+    <div id="map-panel">
+      <div id="map-main"></div>
+      <div id="domtom-panel">
+        <div class="mini-map-wrap"><div class="mini-map" id="m971"></div><span class="mini-label">Guadeloupe</span></div>
+        <div class="mini-map-wrap"><div class="mini-map" id="m972"></div><span class="mini-label">Martinique</span></div>
+        <div class="mini-map-wrap"><div class="mini-map" id="m973"></div><span class="mini-label">Guyane</span></div>
+        <div class="mini-map-wrap"><div class="mini-map" id="m974"></div><span class="mini-label">Réunion</span></div>
+        <div class="mini-map-wrap full"><div class="mini-map" id="m976" style="width:100%"></div><span class="mini-label">Mayotte</span></div>
+      </div>
+      <div id="legend"><h4>Légende</h4><div id="leg-items"></div></div>
+      <div id="dept-tooltip"></div>
+    </div>
+
+    <!-- ── Panneau droit ── -->
+    <div id="side-panel">
+
+      <!-- Mode -->
+      <div class="panel-section">
+        <div class="panel-section-header" onclick="toggleSection(this)">
+          🎨 Mode de coloration <span class="toggle-icon">▾</span>
+        </div>
+        <div class="panel-section-body">
+          <div id="mode-btns">
+            <button class="mode-btn active" data-mode="categorie" onclick="setMode('categorie',this)">Catégorie</button>
+            <button class="mode-btn" data-mode="unique" onclick="setMode('unique',this)">Couleur unique</button>
+            <button class="mode-btn" data-mode="choropleth" onclick="setMode('choropleth',this)">Choroplèthe</button>
+          </div>
+          <div id="unique-controls">
+            <div class="unique-row" style="margin-top:6px">
+              <span>Couleur :</span>
+              <input type="color" id="unique-color" value="#e74c3c" oninput="APP.uniqueColor=this.value;refresh()">
+              <span style="font-size:10px;color:#888">Tous les depts visibles</span>
+            </div>
+          </div>
+          <div id="choro-controls">
+            <div class="choro-row" style="margin-top:6px">
+              <span>Bas :</span>
+              <input type="color" id="choro-low" value="#ffffb2" oninput="APP.choroLow=this.value;refresh()">
+              <span>Haut :</span>
+              <input type="color" id="choro-high" value="#d7191c" oninput="APP.choroHigh=this.value;refresh()">
+            </div>
+            <div style="font-size:10px;color:#888">Basé sur la valeur numérique de chaque département</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Catégories -->
+      <div class="panel-section" id="cat-section">
+        <div class="panel-section-header" onclick="toggleSection(this)">
+          🏷 Catégories <span id="cat-count-badge" style="font-size:10px;font-weight:400;color:#888"></span>
+          <span class="toggle-icon">▾</span>
+        </div>
+        <div class="panel-section-body">
+          <div id="cat-list"></div>
+          <button id="btn-add-cat" onclick="addCategory()">＋ Ajouter une catégorie</button>
+          <div class="cumul-row">
+            <div class="cumul-swatch" id="cumul-swatch" title="Couleur des depts dans plusieurs catégories">
+              <input type="color" id="cumul-color" value="#f39c12" oninput="APP.cumulColor=this.value;updateCumulSwatch();refresh()">
+            </div>
+            <span>Couleur cumul (dept dans plusieurs catégories)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Départements -->
+      <div class="panel-section" id="dept-section" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="panel-section-header" onclick="toggleSection(this)">
+          📍 Départements <span id="dept-count-badge" style="font-size:10px;font-weight:400;color:#888"></span>
+          <span class="toggle-icon">▾</span>
+        </div>
+        <div class="panel-section-body" style="flex:1;overflow:hidden;display:flex;flex-direction:column;">
+          <input type="text" id="dept-search" placeholder="Rechercher un département…" oninput="renderDeptList()">
+          <div class="dept-filter-row">
+            <button class="dept-filter-btn on" id="f-all" onclick="setFilter('all',this)">Tous</button>
+            <button class="dept-filter-btn" id="f-selected" onclick="setFilter('selected',this)">Sélectionnés</button>
+            <button class="dept-filter-btn" id="f-visible" onclick="setFilter('visible',this)">Visibles</button>
+            <button class="dept-filter-btn" id="f-hidden" onclick="setFilter('hidden',this)">Grisés</button>
+          </div>
+          <div id="dept-list-wrap"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Données ────────────────────────────────────────────────
+const NAMED_COLORS = {
+  bleu:'#2980b9', rouge:'#e74c3c', vert:'#27ae60', jaune:'#f1c40f',
+  orange:'#e67e22', violet:'#8e44ad', rose:'#e91e8c', marron:'#795548',
+  gris:'#7f8c8d', noir:'#2c3e50', blanc:'#ecf0f1', cyan:'#00bcd4',
+};
+
+const DOMTOM = {
+  '971':{ el:'m971', center:[16.25,-61.55], zoom:9 },
+  '972':{ el:'m972', center:[14.65,-61.00], zoom:10 },
+  '973':{ el:'m973', center:[3.9,-53.0],    zoom:7 },
+  '974':{ el:'m974', center:[-21.1,55.55],  zoom:10 },
+  '976':{ el:'m976', center:[-12.83,45.15], zoom:11 },
+};
+
+const APP = {
+  mode: 'categorie',
+  uniqueColor: '#e74c3c',
+  cumulColor: '#f39c12',
+  choroLow: '#ffffb2',
+  choroHigh: '#d7191c',
+  deptFilter: 'all',
+  // { id, nom, couleur, active }
+  categories: [],
+  // { code, nom, region, visible, valeur, cats:[catId,...] }
+  depts: {},
+  nextCatId: 1,
+};
+
+// Pré-rempli avec 101 départements
+const DEPT_DATA = [
+  ['01','Ain','Auvergne-Rhône-Alpes'],['02','Aisne','Hauts-de-France'],['03','Allier','Auvergne-Rhône-Alpes'],
+  ['04','Alpes-de-Haute-Provence','PACA'],['05','Hautes-Alpes','PACA'],['06','Alpes-Maritimes','PACA'],
+  ['07','Ardèche','Auvergne-Rhône-Alpes'],['08','Ardennes','Grand Est'],['09','Ariège','Occitanie'],
+  ['10','Aube','Grand Est'],['11','Aude','Occitanie'],['12','Aveyron','Occitanie'],
+  ['13','Bouches-du-Rhône','PACA'],['14','Calvados','Normandie'],['15','Cantal','Auvergne-Rhône-Alpes'],
+  ['16','Charente','Nouvelle-Aquitaine'],['17','Charente-Maritime','Nouvelle-Aquitaine'],['18','Cher','Centre-Val de Loire'],
+  ['19','Corrèze','Nouvelle-Aquitaine'],['21','Côte-d\'Or','Bourgogne-Franche-Comté'],['22','Côtes-d\'Armor','Bretagne'],
+  ['23','Creuse','Nouvelle-Aquitaine'],['24','Dordogne','Nouvelle-Aquitaine'],['25','Doubs','Bourgogne-Franche-Comté'],
+  ['26','Drôme','Auvergne-Rhône-Alpes'],['27','Eure','Normandie'],['28','Eure-et-Loir','Centre-Val de Loire'],
+  ['29','Finistère','Bretagne'],['2A','Corse-du-Sud','Corse'],['2B','Haute-Corse','Corse'],
+  ['30','Gard','Occitanie'],['31','Haute-Garonne','Occitanie'],['32','Gers','Occitanie'],
+  ['33','Gironde','Nouvelle-Aquitaine'],['34','Hérault','Occitanie'],['35','Ille-et-Vilaine','Bretagne'],
+  ['36','Indre','Centre-Val de Loire'],['37','Indre-et-Loire','Centre-Val de Loire'],['38','Isère','Auvergne-Rhône-Alpes'],
+  ['39','Jura','Bourgogne-Franche-Comté'],['40','Landes','Nouvelle-Aquitaine'],['41','Loir-et-Cher','Centre-Val de Loire'],
+  ['42','Loire','Auvergne-Rhône-Alpes'],['43','Haute-Loire','Auvergne-Rhône-Alpes'],['44','Loire-Atlantique','Pays de la Loire'],
+  ['45','Loiret','Centre-Val de Loire'],['46','Lot','Occitanie'],['47','Lot-et-Garonne','Nouvelle-Aquitaine'],
+  ['48','Lozère','Occitanie'],['49','Maine-et-Loire','Pays de la Loire'],['50','Manche','Normandie'],
+  ['51','Marne','Grand Est'],['52','Haute-Marne','Grand Est'],['53','Mayenne','Pays de la Loire'],
+  ['54','Meurthe-et-Moselle','Grand Est'],['55','Meuse','Grand Est'],['56','Morbihan','Bretagne'],
+  ['57','Moselle','Grand Est'],['58','Nièvre','Bourgogne-Franche-Comté'],['59','Nord','Hauts-de-France'],
+  ['60','Oise','Hauts-de-France'],['61','Orne','Normandie'],['62','Pas-de-Calais','Hauts-de-France'],
+  ['63','Puy-de-Dôme','Auvergne-Rhône-Alpes'],['64','Pyrénées-Atlantiques','Nouvelle-Aquitaine'],['65','Hautes-Pyrénées','Occitanie'],
+  ['66','Pyrénées-Orientales','Occitanie'],['67','Bas-Rhin','Grand Est'],['68','Haut-Rhin','Grand Est'],
+  ['69','Rhône','Auvergne-Rhône-Alpes'],['70','Haute-Saône','Bourgogne-Franche-Comté'],['71','Saône-et-Loire','Bourgogne-Franche-Comté'],
+  ['72','Sarthe','Pays de la Loire'],['73','Savoie','Auvergne-Rhône-Alpes'],['74','Haute-Savoie','Auvergne-Rhône-Alpes'],
+  ['75','Paris','Île-de-France'],['76','Seine-Maritime','Normandie'],['77','Seine-et-Marne','Île-de-France'],
+  ['78','Yvelines','Île-de-France'],['79','Deux-Sèvres','Nouvelle-Aquitaine'],['80','Somme','Hauts-de-France'],
+  ['81','Tarn','Occitanie'],['82','Tarn-et-Garonne','Occitanie'],['83','Var','PACA'],
+  ['84','Vaucluse','PACA'],['85','Vendée','Pays de la Loire'],['86','Vienne','Nouvelle-Aquitaine'],
+  ['87','Haute-Vienne','Nouvelle-Aquitaine'],['88','Vosges','Grand Est'],['89','Yonne','Bourgogne-Franche-Comté'],
+  ['90','Territoire de Belfort','Bourgogne-Franche-Comté'],['91','Essonne','Île-de-France'],['92','Hauts-de-Seine','Île-de-France'],
+  ['93','Seine-Saint-Denis','Île-de-France'],['94','Val-de-Marne','Île-de-France'],['95','Val-d\'Oise','Île-de-France'],
+  ['971','Guadeloupe','DOM-TOM'],['972','Martinique','DOM-TOM'],['973','Guyane','DOM-TOM'],
+  ['974','La Réunion','DOM-TOM'],['976','Mayotte','DOM-TOM'],
+];
+
+function initDepts() {
+  for (const [code, nom, region] of DEPT_DATA) {
+    APP.depts[code] = { code, nom, region, visible: true, valeur: Math.round(Math.random()*9000+100), cats: [] };
+  }
+}
+
+// ── Catégories ─────────────────────────────────────────────
+function addCategory(nom, couleur) {
+  const id = APP.nextCatId++;
+  APP.categories.push({
+    id,
+    nom: nom || `Catégorie ${id}`,
+    couleur: couleur || Object.values(NAMED_COLORS)[id % Object.values(NAMED_COLORS).length],
+    active: true,
+  });
+  renderCatList();
+  renderDeptList();
+  refresh();
+}
+
+function deleteCategory(id) {
+  APP.categories = APP.categories.filter(c => c.id !== id);
+  for (const d of Object.values(APP.depts)) d.cats = d.cats.filter(c => c !== id);
+  renderCatList();
+  renderDeptList();
+  refresh();
+}
+
+function renderCatList() {
+  const el = document.getElementById('cat-list');
+  const badge = document.getElementById('cat-count-badge');
+  badge.textContent = APP.categories.length ? `(${APP.categories.length})` : '';
+
+  el.innerHTML = '';
+  for (const cat of APP.categories) {
+    const row = document.createElement('div');
+    row.className = 'cat-row' + (cat.active ? ' active-cat' : '');
+    row.dataset.id = cat.id;
+
+    row.innerHTML = `
+      <input type="checkbox" class="cat-toggle" ${cat.active ? 'checked' : ''} title="Activer sur la carte"
+        onchange="toggleCat(${cat.id},this.checked)">
+      <input class="cat-name-input" value="${cat.nom}" placeholder="Nom…"
+        oninput="renameCat(${cat.id},this.value)">
+      <div class="cat-color-btn" style="background:${cat.couleur}" title="Choisir la couleur">
+        <input type="color" value="${cat.couleur}" oninput="setCatColor(${cat.id},this.value,this.parentElement)">
+      </div>
+      <button class="cat-del-btn" onclick="deleteCategory(${cat.id})" title="Supprimer">✕</button>
+    `;
+    el.appendChild(row);
+  }
+}
+
+function toggleCat(id, val) {
+  const c = APP.categories.find(c => c.id === id);
+  if (c) { c.active = val; renderCatList(); renderDeptList(); refresh(); }
+}
+function renameCat(id, val) {
+  const c = APP.categories.find(c => c.id === id);
+  if (c) { c.nom = val; renderLegend(); }
+}
+function setCatColor(id, val, btn) {
+  const c = APP.categories.find(c => c.id === id);
+  if (c) { c.couleur = val; btn.style.background = val; refresh(); }
+}
+
+// ── Départements ───────────────────────────────────────────
+let deptFilter = 'all';
+
+function setFilter(f, btn) {
+  deptFilter = f;
+  document.querySelectorAll('.dept-filter-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderDeptList();
+}
+
+function renderDeptList() {
+  const wrap = document.getElementById('dept-list-wrap');
+  const search = document.getElementById('dept-search').value.toLowerCase();
+  const badge = document.getElementById('dept-count-badge');
+
+  let list = Object.values(APP.depts);
+
+  // Filtre texte
+  if (search) list = list.filter(d => d.nom.toLowerCase().includes(search) || d.code.toLowerCase().includes(search));
+
+  // Filtre type
+  if (deptFilter === 'selected') list = list.filter(d => d.cats.length > 0);
+  if (deptFilter === 'visible')  list = list.filter(d => d.visible);
+  if (deptFilter === 'hidden')   list = list.filter(d => !d.visible);
+
+  badge.textContent = `(${list.length}/${Object.keys(APP.depts).length})`;
+
+  const activeCats = APP.categories.filter(c => c.active);
+
+  wrap.innerHTML = '';
+  for (const d of list) {
+    const row = document.createElement('div');
+    row.className = 'dept-item' + (d.visible ? '' : ' grayed');
+
+    const dots = activeCats.map(cat => {
+      const on = d.cats.includes(cat.id);
+      return `<div class="dept-cat-dot" title="${cat.nom}"
+        style="background:${on ? cat.couleur : '#eee'};border-color:${on ? cat.couleur : '#ccc'}"
+        onclick="toggleDeptCat('${d.code}',${cat.id})"></div>`;
+    }).join('');
+
+    row.innerHTML = `
+      <input type="checkbox" class="dept-visible-toggle" ${d.visible ? 'checked' : ''}
+        title="Visible / grisé" onchange="toggleVisible('${d.code}',this.checked)">
+      <span class="dept-code">${d.code}</span>
+      <span class="dept-nom">${d.nom}</span>
+      <div class="dept-check-area">${dots || '<span style="font-size:10px;color:#bbb">—</span>'}</div>
+    `;
+    // Store valeur display
+    if (APP.mode === 'choropleth') {
+      const valSpan = document.createElement('span');
+      valSpan.style.cssText = 'font-size:9px;color:#aaa;white-space:nowrap;margin-left:2px';
+      valSpan.textContent = d.valeur;
+      row.appendChild(valSpan);
+    }
+    wrap.appendChild(row);
+  }
+}
+
+function toggleDeptCat(code, catId) {
+  const d = APP.depts[code];
+  if (!d) return;
+  const idx = d.cats.indexOf(catId);
+  if (idx === -1) d.cats.push(catId);
+  else d.cats.splice(idx, 1);
+  renderDeptList();
+  refresh();
+}
+
+function toggleVisible(code, val) {
+  if (APP.depts[code]) APP.depts[code].visible = val;
+  refresh();
+}
+
+// ── Mode ───────────────────────────────────────────────────
+function setMode(mode, btn) {
+  APP.mode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('unique-controls').classList.toggle('show', mode === 'unique');
+  document.getElementById('choro-controls').classList.toggle('show', mode === 'choropleth');
+  renderDeptList();
+  refresh();
+}
+
+// ── Couleur d'un département ───────────────────────────────
+function deptColor(code) {
+  const d = APP.depts[code];
+  if (!d) return null;
+
+  if (APP.mode === 'unique') {
+    return d.visible ? APP.uniqueColor : null;
+  }
+
+  if (APP.mode === 'choropleth') {
+    const all = Object.values(APP.depts).map(x => x.valeur);
+    const min = Math.min(...all), max = Math.max(...all);
+    if (min === max) return APP.choroHigh;
+    const scale = chroma.scale([APP.choroLow, APP.choroHigh]).mode('lab');
+    return scale((d.valeur - min) / (max - min)).hex();
+  }
+
+  // mode catégorie
+  const activeCats = APP.categories.filter(c => c.active);
+  const matched = activeCats.filter(c => d.cats.includes(c.id));
+  if (!matched.length) return null;
+  if (matched.length === 1) return matched[0].couleur;
+  return APP.cumulColor;
+}
+
+// ── Leaflet ────────────────────────────────────────────────
+let mainMap, geoLayer;
+const miniMaps = {}, miniLayers = {};
+
+function initMaps() {
+  mainMap = L.map('map-main', { zoomControl: true, attributionControl: false })
+    .setView([46.5, 2.5], 6);
+
+  for (const [code, cfg] of Object.entries(DOMTOM)) {
+    miniMaps[code] = L.map(cfg.el, {
+      zoomControl: false, dragging: false, scrollWheelZoom: false,
+      doubleClickZoom: false, touchZoom: false, attributionControl: false,
+    }).setView(cfg.center, cfg.zoom);
+  }
+}
+
+function getStyle(feature) {
+  const code = feature.properties.code;
+  const d = APP.depts[code];
+  const visible = d ? d.visible : true;
+  const color = deptColor(code);
+  return {
+    color: '#555', weight: 0.7,
+    fillColor: color || '#c8d6e5',
+    fillOpacity: color ? (visible ? 0.75 : 0.35) : (visible ? 0.3 : 0.12),
+    opacity: 1,
+  };
+}
+
+function renderMapLayer(geojson) {
+  if (geoLayer) { mainMap.removeLayer(geoLayer); geoLayer = null; }
+  for (const c of Object.keys(DOMTOM)) {
+    if (miniLayers[c]) { miniMaps[c].removeLayer(miniLayers[c]); delete miniLayers[c]; }
+  }
+
+  const domtomCodes = Object.keys(DOMTOM);
+  const metro = { type:'FeatureCollection', features: geojson.features.filter(f => !domtomCodes.includes(f.properties.code)) };
+  const dtFeatures = {};
+  for (const f of geojson.features) {
+    if (domtomCodes.includes(f.properties.code)) dtFeatures[f.properties.code] = f;
+  }
+
+  function onEach(feature, layer) {
+    const code = feature.properties.code;
+    const nom = feature.properties.nom || code;
+    layer.on({
+      mouseover(e) {
+        e.target.setStyle({ weight:2, color:'#222' });
+        e.target.bringToFront();
+        const tt = document.getElementById('dept-tooltip');
+        const d = APP.depts[code];
+        const cats = d ? APP.categories.filter(c => d.cats.includes(c.id)).map(c => c.nom).join(', ') : '';
+        tt.innerHTML = `<b>${nom}</b> (${code})` + (cats ? `<br><span style="color:#555;font-size:10px">${cats}</span>` : '');
+        tt.classList.add('show');
+      },
+      mouseout(e) {
+        if (geoLayer) geoLayer.resetStyle(e.target);
+        document.getElementById('dept-tooltip').classList.remove('show');
+      },
+      click() { mainMap.fitBounds(layer.getBounds(), { padding:[30,30] }); },
+    });
+    layer.bindTooltip(`<b>${nom}</b> (${code})`, { sticky:true, opacity:0.85 });
+  }
+
+  geoLayer = L.geoJSON(metro, { style: f => getStyle(f), onEachFeature: onEach }).addTo(mainMap);
+
+  for (const [code, feat] of Object.entries(dtFeatures)) {
+    if (!miniMaps[code]) continue;
+    const fc = { type:'FeatureCollection', features:[feat] };
+    const layer = L.geoJSON(fc, {
+      style: f => getStyle(f),
+      onEachFeature: (f,l) => l.bindTooltip(f.properties.nom || code, {sticky:true}),
+    }).addTo(miniMaps[code]);
+    miniLayers[code] = layer;
+  }
+
+  renderLegend();
+}
+
+function refresh() {
+  if (!geoLayer) return;
+  geoLayer.eachLayer(l => l.setStyle(getStyle(l.feature)));
+  for (const [c, layer] of Object.entries(miniLayers)) {
+    layer.eachLayer(l => l.setStyle(getStyle(l.feature)));
+  }
+  renderLegend();
+}
+
+// ── Légende ────────────────────────────────────────────────
+function renderLegend() {
+  const el = document.getElementById('leg-items');
+  el.innerHTML = '';
+
+  if (APP.mode === 'unique') {
+    el.innerHTML = `<div class="leg-item"><div class="leg-swatch" style="background:${APP.uniqueColor}"></div><span>Tous visibles</span></div>`;
+    return;
+  }
+  if (APP.mode === 'choropleth') {
+    el.innerHTML = `
+      <div style="font-size:10px;color:#666;margin-bottom:3px">Valeur aléatoire</div>
+      <div style="height:10px;width:110px;border-radius:3px;background:linear-gradient(to right,${APP.choroLow},${APP.choroHigh});margin-bottom:2px"></div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:#888"><span>min</span><span>max</span></div>`;
+    return;
+  }
+
+  const active = APP.categories.filter(c => c.active);
+  if (!active.length) { el.innerHTML = '<span style="color:#aaa;font-size:10px">Aucune catégorie active</span>'; return; }
+
+  for (const cat of active) {
+    el.innerHTML += `<div class="leg-item"><div class="leg-swatch" style="background:${cat.couleur}"></div><span>${cat.nom}</span></div>`;
+  }
+  if (active.length > 1) {
+    el.innerHTML += `<div class="leg-item"><div class="leg-swatch" style="background:${APP.cumulColor};border-style:dashed"></div><span><i>Cumul</i></span></div>`;
+  }
+}
+
+// ── UI helpers ─────────────────────────────────────────────
+function toggleSection(header) {
+  const body = header.nextElementSibling;
+  const icon = header.querySelector('.toggle-icon');
+  const collapsed = body.classList.toggle('collapsed');
+  icon.textContent = collapsed ? '▸' : '▾';
+}
+
+function updateCumulSwatch() {
+  document.getElementById('cumul-swatch').style.background = APP.cumulColor;
+}
+
+// ── Bootstrap ──────────────────────────────────────────────
+async function boot() {
+  initDepts();
+  initMaps();
+  renderCatList();
+  renderDeptList();
+  updateCumulSwatch();
+
+  // Pré-charger des catégories exemple
+  addCategory('Élevage bovin', '#e74c3c');
+  addCategory('Grande culture', '#27ae60');
+  addCategory('Viticulture', '#8e44ad');
+  addCategory('Industrie', '#2980b9');
+
+  // Quelques depts pré-assignés pour la démo
+  const examples = {
+    '63':['rouge'], '15':['rouge'], '12':['rouge','vert'],
+    '33':['violet'], '34':['violet'], '84':['violet'],
+    '59':['cyan_demo'], '62':['cyan_demo'],
+  };
+  // assigner bovin à quelques depts
+  const bovin = APP.categories[0].id;
+  const culture = APP.categories[1].id;
+  const viti = APP.categories[2].id;
+
+  for (const c of ['63','15','19','87','23','03','43','48']) {
+    if (APP.depts[c]) APP.depts[c].cats.push(bovin);
+  }
+  for (const c of ['02','51','10','28','45','27','76','80']) {
+    if (APP.depts[c]) APP.depts[c].cats.push(culture);
+  }
+  for (const c of ['33','34','11','12','30','84','13','66','81']) {
+    if (APP.depts[c]) APP.depts[c].cats.push(viti);
+  }
+  for (const c of ['12','11','34']) {
+    if (APP.depts[c]) APP.depts[c].cats.push(culture); // cumul
+  }
+
+  try {
+    const r = await fetch('https://geo.api.gouv.fr/departements?fields=nom,code,codeRegion&format=geojson&geometry=contour');
+    const geojson = await r.json();
+    renderMapLayer(geojson);
+    renderDeptList();
+  } catch(e) {
+    document.getElementById('map-main').innerHTML =
+      `<div style="padding:20px;color:#c00">Erreur chargement carte : ${e.message}<br>Vérifiez votre connexion internet.</div>`;
+  }
+
+  setTimeout(() => {
+    mainMap.invalidateSize();
+    for (const m of Object.values(miniMaps)) m.invalidateSize();
+  }, 200);
+}
+
+const ro = new ResizeObserver(() => {
+  if (mainMap) mainMap.invalidateSize();
+  for (const m of Object.values(miniMaps)) m.invalidateSize();
+});
+ro.observe(document.getElementById('map-panel'));
+
+window.addEventListener('DOMContentLoaded', boot);
+</script>
+</body>
+</html>
