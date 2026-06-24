@@ -575,7 +575,14 @@ function renderDeptList() {
   const search = document.getElementById('dept-search').value.toLowerCase();
   const badge = document.getElementById('dept-count-badge');
 
-  let list = Object.values(APP.depts);
+  // Tri numérique des départements (01→95, 2A, 2B, puis 971→976)
+  function deptSortKey(code) {
+    if (code === '2A') return 20.1;
+    if (code === '2B') return 20.2;
+    return parseInt(code, 10);
+  }
+
+  let list = Object.values(APP.depts).sort((a, b) => deptSortKey(a.code) - deptSortKey(b.code));
 
   // Filtre texte
   if (search) list = list.filter(d => d.nom.toLowerCase().includes(search) || d.code.toLowerCase().includes(search));
