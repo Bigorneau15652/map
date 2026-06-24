@@ -229,20 +229,9 @@ popbtn.addEventListener('click', () => { if (st.url) openPopup(st.url); });
 // ── Grist ─────────────────────────────────────────────────────────────────────
 grist.ready({ requiredAccess: 'read table', onEditOptions: openModal });
 
-grist.onOptions(o => {
-  if (o?.col)  st.col  = o.col;
-  if (o?.type) st.type = o.type;
-  ctype.value = st.type || 'url';
-  rebuild();
-});
+let lastRow = null;
 
-grist.onRecords(rows => {
-  if (!rows?.length) return;
-  st.cols = Object.keys(rows[0]).filter(k => k !== 'id');
-  rebuild();
-});
-
-grist.onRecord(row => {
+function processRow(row) {
   if (!st.col || !row) { showEmpty('Configurez via ··· → Paramètres'); return; }
   const v = row[st.col];
   if (!v) { showEmpty('Valeur vide pour cette ligne'); return; }
@@ -257,13 +246,30 @@ grist.onRecord(row => {
   }
 
   st.url = url;
-  // PDF même origine (pièce jointe Grist) → iframe OK
-  // PDF externe (drive, URL tierce) → iframe bloqué → bouton direct
   if (isSameOrigin(url)) {
     showPDF(url);
   } else {
     showBlocked(url);
   }
+}
+
+grist.onOptions(o => {
+  if (o?.col)  st.col  = o.col;
+  if (o?.type) st.type = o.type;
+  ctype.value = st.type || 'url';
+  rebuild();
+  if (lastRow) processRow(lastRow); // retraite la ligne courante si config change
+});
+
+grist.onRecords(rows => {
+  if (!rows?.length) return;
+  st.cols = Object.keys(rows[0]).filter(k => k !== 'id');
+  rebuild();
+});
+
+grist.onRecord(row => {
+  lastRow = row;
+  processRow(row);
 });
 
 // ── Modal config ──────────────────────────────────────────────────────────────
