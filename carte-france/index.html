@@ -131,19 +131,23 @@
     .btn-secondary:hover{background:#f5f5f5}
 
     /* Guide modal */
-    .guide-section{margin-bottom:18px}
-    .guide-section h3{font-size:13px;font-weight:700;color:#1a3a5c;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e0e0e0}
-    .guide-section p,.guide-section li{font-size:12px;color:#333;line-height:1.6;margin-bottom:4px}
-    .guide-section ul{padding-left:16px}
-    .guide-section table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
-    .guide-section th{background:#1a3a5c;color:#fff;padding:5px 8px;text-align:left}
-    .guide-section td{padding:4px 8px;border-bottom:1px solid #eee}
+    .guide-section{margin-bottom:14px}
+    .guide-section h3{font-size:12px;font-weight:700;color:#1a3a5c;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e0e0e0}
+    .guide-section p,.guide-section li{font-size:11px;color:#333;line-height:1.5;margin-bottom:3px}
+    .guide-section ul{padding-left:14px}
+    .guide-section table{width:100%;border-collapse:collapse;font-size:10px;margin-top:4px}
+    .guide-section th{background:#1a3a5c;color:#fff;padding:4px 7px;text-align:left}
+    .guide-section td{padding:3px 7px;border-bottom:1px solid #eee}
     .guide-section tr:hover td{background:#f5f5f5}
-    code{background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:11px;font-family:monospace}
+    code{background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:10px;font-family:monospace}
     .tag{display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600}
     .tag.r{background:#fde;color:#c00}
     .tag.g{background:#dfd;color:#060}
     .tag.b{background:#ddf;color:#004}
+    /* Config test result */
+    #cfg-test-result{margin-top:10px;font-size:11px;border-radius:4px;padding:7px 10px;display:none}
+    #cfg-test-result.ok{background:#e8f5e9;color:#1b5e20;display:block}
+    #cfg-test-result.err{background:#fce4ec;color:#880e4f;display:block}
 
     ::-webkit-scrollbar{width:5px}
     ::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
@@ -253,89 +257,72 @@
         <input id="cfg-col-cat" placeholder="ex: categorie" value="">
       </div>
     </div>
+    <div id="cfg-test-result"></div>
     <div class="mft">
+      <button class="btn-secondary" onclick="testConfig()">🔍 Tester la connexion</button>
       <button class="btn-secondary" onclick="closeModal('cfg-modal')">Annuler</button>
-      <button class="btn-primary" onclick="saveConfig()">💾 Enregistrer et recharger</button>
+      <button class="btn-primary" onclick="saveConfig()">💾 Enregistrer</button>
     </div>
   </div>
 </div>
 
 <!-- ── Modal Guide ── -->
 <div class="modal-bg gone" id="guide-modal">
-  <div class="modal">
-    <div class="mhd"><h2>❓ Guide d'utilisation – Carte de France Grist</h2><button onclick="closeModal('guide-modal')">✕</button></div>
-    <div class="mbody">
+  <div class="modal" style="width:min(460px,94vw)">
+    <div class="mhd"><h2>❓ Guide – Carte de France</h2><button onclick="closeModal('guide-modal')">✕</button></div>
+    <div class="mbody" style="padding:12px">
 
       <div class="guide-section">
-        <h3>1. Tables à créer dans Grist</h3>
-        <p>Ce widget utilise <b>3 tables</b> dans votre document Grist :</p>
+        <h3>📋 3 tables à créer dans Grist</h3>
         <table>
-          <tr><th>Table</th><th>Rôle</th></tr>
-          <tr><td><code>Departements</code></td><td>Les 101 départements (importer le CSV fourni)</td></tr>
-          <tr><td><code>Categories</code></td><td>Vos thèmes de coloration (ex: Zone montagne)</td></tr>
-          <tr><td><code>Departement_categories</code></td><td>Les liens dept ↔ catégorie (géré par le widget)</td></tr>
+          <tr><th>Table</th><th>Colonnes clés</th></tr>
+          <tr><td><code>Departements</code></td><td><code>code_dept</code>, <code>nom_dept</code>, <code>visible</code> (Bascule)</td></tr>
+          <tr><td><code>Categories</code></td><td><code>nom</code>, <code>couleur</code>, <code>active</code> (Bascule)</td></tr>
+          <tr><td><code>Departement_categories</code></td><td><code>dept</code> (Réf→Depts), <code>categorie</code> (Réf→Cats)</td></tr>
         </table>
+        <p style="margin-top:5px">Importer les 101 départements depuis :<br><code>https://bigorneau15652.github.io/map/carte-france/departements.csv</code></p>
       </div>
 
       <div class="guide-section">
-        <h3>2. Colonnes requises</h3>
-        <p><b>Table Departements</b> — importer depuis :<br>
-        <code>https://bigorneau15652.github.io/map/carte-france/departements.csv</code></p>
+        <h3>🔌 Ajouter le widget</h3>
         <ul>
-          <li><code>code_dept</code> — code INSEE (01, 75, 971…)</li>
-          <li><code>nom_dept</code> — nom du département</li>
-          <li><code>visible</code> — <span class="tag b">Bascule</span> — si décoché, le département est grisé sur la carte</li>
-        </ul>
-        <p style="margin-top:8px"><b>Table Categories</b></p>
-        <ul>
-          <li><code>nom</code> — ex: Zone montagne</li>
-          <li><code>couleur</code> — nom FR (<code>rouge</code>, <code>bleu</code>…) ou HEX (<code>#e74c3c</code>)</li>
-          <li><code>active</code> — <span class="tag b">Bascule</span> — si coché, la catégorie est visible sur la carte</li>
-        </ul>
-        <p style="margin-top:8px"><b>Table Departement_categories</b> — laisser vide, le widget la remplit</p>
-        <ul>
-          <li><code>dept</code> — <span class="tag r">Référence</span> → Departements</li>
-          <li><code>categorie</code> — <span class="tag r">Référence</span> → Categories</li>
-          <li><code>valeur</code> — Numérique (optionnel, pour mode Choroplèthe)</li>
-        </ul>
-      </div>
-
-      <div class="guide-section">
-        <h3>3. Ajouter le widget dans Grist</h3>
-        <ul>
-          <li>Dans une page Grist : <b>Ajouter un widget → Widget personnalisé</b></li>
+          <li><b>Ajouter un widget → Widget personnalisé</b></li>
           <li>URL : <code>https://bigorneau15652.github.io/map/carte-france/</code></li>
-          <li>Niveau d'accès : <b>Accès complet au document</b></li>
-          <li>Pas besoin de lier à une table spécifique</li>
+          <li>Accès : <b>Accès complet au document</b> (obligatoire)</li>
         </ul>
       </div>
 
       <div class="guide-section">
-        <h3>4. Configurer les noms de tables (⚙️)</h3>
-        <p>Si vos tables s'appellent différemment, cliquez <b>⚙️</b> en haut à droite du widget et entrez les noms exacts.</p>
-        <p>Pour trouver le nom interne d'une table Grist : <b>Outils → Vue du code</b> et repérez l'identifiant Python.</p>
+        <h3>⚙️ Si vos tables ont des noms différents</h3>
+        <p>Cliquez <b>⚙️</b> en haut à droite → entrez les noms exacts → <b>Tester</b> pour vérifier → <b>Enregistrer</b>.</p>
+        <p>Nom interne d'une table : <b>Outils → Vue du code</b> dans Grist.</p>
       </div>
 
       <div class="guide-section">
-        <h3>5. Couleurs disponibles</h3>
-        <table>
-          <tr><th>Nom à saisir</th><th>Couleur</th><th>Nom à saisir</th><th>Couleur</th></tr>
-          <tr><td><code>rouge</code></td><td style="color:#e74c3c">●</td><td><code>bleu</code></td><td style="color:#2980b9">●</td></tr>
-          <tr><td><code>vert</code></td><td style="color:#27ae60">●</td><td><code>orange</code></td><td style="color:#e67e22">●</td></tr>
-          <tr><td><code>violet</code></td><td style="color:#8e44ad">●</td><td><code>jaune</code></td><td style="color:#f1c40f">●</td></tr>
-          <tr><td><code>rose</code></td><td style="color:#e91e8c">●</td><td><code>marron</code></td><td style="color:#795548">●</td></tr>
-          <tr><td><code>cyan</code></td><td style="color:#00bcd4">●</td><td><code>noir</code></td><td style="color:#2c3e50">●</td></tr>
-        </table>
-        <p style="margin-top:6px">Ou entrez directement un code HEX : <code>#3498db</code></p>
+        <h3>🎨 Couleurs disponibles</h3>
+        <p>Dans la colonne <code>couleur</code> de la table Catégories, entrez :</p>
+        <p>
+          <span style="color:#e74c3c">● rouge</span> &nbsp;
+          <span style="color:#2980b9">● bleu</span> &nbsp;
+          <span style="color:#27ae60">● vert</span> &nbsp;
+          <span style="color:#e67e22">● orange</span> &nbsp;
+          <span style="color:#8e44ad">● violet</span> &nbsp;
+          <span style="color:#f1c40f">● jaune</span><br>
+          <span style="color:#e91e8c">● rose</span> &nbsp;
+          <span style="color:#795548">● marron</span> &nbsp;
+          <span style="color:#00bcd4">● cyan</span> &nbsp;
+          <span style="color:#2c3e50">● noir</span>
+          &nbsp;— ou un code HEX : <code>#3498db</code>
+        </p>
       </div>
 
       <div class="guide-section">
-        <h3>6. Workflow d'utilisation</h3>
+        <h3>🖱️ Utilisation</h3>
         <ul>
-          <li>Cochez <code>active</code> sur une catégorie → ses départements s'illuminent</li>
-          <li>Dans le widget, cliquez la <b>pastille colorée</b> d'un département pour l'ajouter/retirer de la catégorie</li>
-          <li>Décochez la case à gauche d'un département → il devient grisé sur la carte</li>
-          <li>Un département dans plusieurs catégories actives prend la <b>couleur cumul</b> (réglable via le sélecteur orange)</li>
+          <li>Cochez <code>active</code> sur une catégorie → la carte se colore</li>
+          <li>Cliquez la <b>pastille colorée</b> d'un département → l'ajoute/retire de la catégorie</li>
+          <li>Décochez la case à gauche → le département devient grisé</li>
+          <li>Plusieurs catégories actives sur un même dept → <b>couleur cumul</b> (sélecteur orange)</li>
         </ul>
       </div>
 
@@ -376,18 +363,43 @@ function showConfig(){
   document.getElementById('cfg-dc').value=CFG.dc;
   document.getElementById('cfg-col-dept').value=CFG.colDept;
   document.getElementById('cfg-col-cat').value=CFG.colCat;
+  const r=document.getElementById('cfg-test-result');r.className='';r.style.display='none';r.textContent='';
   document.getElementById('cfg-modal').classList.remove('gone');
 }
 
+function readFormCFG(){
+  return{
+    depts: document.getElementById('cfg-depts').value.trim()||CFG.depts,
+    cats:  document.getElementById('cfg-cats').value.trim()||CFG.cats,
+    dc:    document.getElementById('cfg-dc').value.trim()||CFG.dc,
+    colDept: document.getElementById('cfg-col-dept').value.trim()||CFG.colDept,
+    colCat:  document.getElementById('cfg-col-cat').value.trim()||CFG.colCat,
+  };
+}
+
+async function testConfig(){
+  const c=readFormCFG();
+  const r=document.getElementById('cfg-test-result');
+  r.style.display='block';r.textContent='Test en cours…';r.className='';
+  const lines=[];let ok=true;
+  for(const[label,name]of[['Départements',c.depts],['Catégories',c.cats],['Affiliations',c.dc]]){
+    try{await grist.docApi.fetchTable(name);lines.push(`✅ ${label} → "${name}" trouvée`);}
+    catch(e){lines.push(`❌ ${label} → "${name}" introuvable`);ok=false;}
+  }
+  r.className=ok?'ok':'err';r.innerHTML=lines.join('<br>');
+}
+
 async function saveConfig(){
-  CFG.depts = document.getElementById('cfg-depts').value.trim()||CFG.depts;
-  CFG.cats  = document.getElementById('cfg-cats').value.trim()||CFG.cats;
-  CFG.dc    = document.getElementById('cfg-dc').value.trim()||CFG.dc;
-  CFG.colDept = document.getElementById('cfg-col-dept').value.trim()||CFG.colDept;
-  CFG.colCat  = document.getElementById('cfg-col-cat').value.trim()||CFG.colCat;
-  closeModal('cfg-modal');
-  try { await grist.setOptions({tableDepts:CFG.depts,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat}); } catch(_){}
-  await fetchAllTables();
+  const c=readFormCFG();
+  Object.assign(CFG,c);
+  const r=document.getElementById('cfg-test-result');
+  try{
+    await grist.setOptions({tableDepts:CFG.depts,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat});
+    r.className='ok';r.style.display='block';r.textContent='✅ Configuration sauvegardée !';
+    setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},800);
+  }catch(e){
+    r.className='err';r.style.display='block';r.textContent='❌ Erreur sauvegarde : '+e.message+'\n(Vérifiez que le widget a bien "Accès complet au document")';
+  }
 }
 
 function showGuide(){ document.getElementById('guide-modal').classList.remove('gone'); }
@@ -616,29 +628,31 @@ async function boot(){
   initMaps();
   document.getElementById('cumsw').style.background=APP.cumulColor;
 
-  grist.ready({requiredAccess:'full'});
-
-  // Charger config sauvegardée
-  try{const opts=await grist.getOptions();if(opts)loadConfig(opts)}catch(_){}
-
-  // Carte GeoJSON
+  // Carte GeoJSON (en parallèle du chargement Grist)
   document.getElementById('ldg').classList.remove('gone');
   document.getElementById('ldg-msg').textContent='Chargement de la carte…';
-  try{
-    const geo=await loadGeoJSON();
-    renderMap(geo);
-  }catch(e){
-    document.getElementById('ldg-msg').textContent=`Erreur carte: ${e.message}`;return;
-  }
+  let geo;
+  try{geo=await loadGeoJSON();renderMap(geo);}
+  catch(e){document.getElementById('ldg-msg').textContent=`Erreur carte: ${e.message}`;}
   document.getElementById('ldg').classList.add('gone');
 
-  // Données Grist
-  await fetchAllTables();
+  // Grist : ready + onOptions (remplace getOptions appelé trop tôt)
+  grist.ready({requiredAccess:'full'});
 
-  grist.onRecords(async()=>{await fetchAllTables()});
-  grist.onRecord(async()=>{await fetchAllTables()});
+  let optionsLoaded=false;
+  grist.onOptions(async(opts)=>{
+    if(opts){loadConfig(opts);}
+    if(!optionsLoaded){optionsLoaded=true;await fetchAllTables();}
+    else{await fetchAllTables();}
+  });
 
-  setTimeout(()=>{mainMap.invalidateSize();for(const m of Object.values(mMaps))m.invalidateSize()},200);
+  // Fallback si onOptions ne se déclenche pas (widget sans options sauvegardées)
+  setTimeout(async()=>{if(!optionsLoaded){optionsLoaded=true;await fetchAllTables();}},1500);
+
+  grist.onRecords(async()=>{await fetchAllTables();});
+  grist.onRecord(async()=>{await fetchAllTables();});
+
+  setTimeout(()=>{mainMap.invalidateSize();for(const m of Object.values(mMaps))m.invalidateSize();},300);
 }
 
 new ResizeObserver(()=>{if(mainMap)mainMap.invalidateSize();for(const m of Object.values(mMaps))m.invalidateSize()}).observe(document.getElementById('mp'));
