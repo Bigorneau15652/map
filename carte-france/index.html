@@ -122,8 +122,8 @@
     .cfg-group{margin-bottom:14px}
     .cfg-group label{display:block;font-size:12px;font-weight:600;color:#333;margin-bottom:4px}
     .cfg-group small{display:block;font-size:10px;color:#888;margin-bottom:4px}
-    .cfg-group input{width:100%;font-size:12px;border:1px solid #ccc;border-radius:4px;padding:5px 8px}
-    .cfg-group input:focus{outline:none;border-color:#4a90d9}
+    .cfg-group input,.cfg-group select{width:100%;font-size:12px;border:1px solid #ccc;border-radius:4px;padding:5px 8px;background:#fff}
+    .cfg-group input:focus,.cfg-group select:focus{outline:none;border-color:#4a90d9}
     .cfg-note{background:#e3f2fd;border-radius:5px;padding:8px 10px;font-size:11px;color:#0d47a1;margin-bottom:14px}
     .btn-primary{font-size:12px;padding:6px 16px;background:#1a3a5c;color:#fff;border:none;border-radius:4px;cursor:pointer}
     .btn-primary:hover{background:#254d80}
@@ -226,40 +226,42 @@
 <!-- ── Modal Configuration ── -->
 <div class="modal-bg gone" id="cfg-modal">
   <div class="modal">
-    <div class="mhd"><h2>⚙️ Configuration – Noms des tables Grist</h2><button onclick="closeModal('cfg-modal')">✕</button></div>
+    <div class="mhd"><h2>⚙️ Configuration – Tables Grist</h2><button onclick="closeModal('cfg-modal')">✕</button></div>
     <div class="mbody">
-      <div class="cfg-note">
-        💡 Pour trouver le nom exact d'une table dans Grist : faites un clic droit sur la table dans le menu gauche → <b>"Renommer"</b> pour voir son nom interne, ou ouvrez <b>Vue du code</b> (menu Outils) et notez l'identifiant Python (ex: <code>Departements</code>).
+      <div id="cfg-loading" style="text-align:center;padding:20px;color:#888;font-size:12px">
+        <div class="spin" style="margin:0 auto 8px"></div>Chargement des tables Grist…
       </div>
-      <div class="cfg-group">
-        <label>Table des Départements</label>
-        <small>Contient les 101 départements avec code, nom, visible</small>
-        <input id="cfg-depts" placeholder="ex: Departements" value="">
+      <div id="cfg-form" style="display:none">
+        <div class="cfg-group">
+          <label>Table des Départements</label>
+          <small>Contient les 101 départements (code, nom, visible)</small>
+          <select id="cfg-depts" onchange="onTableChange('depts')"></select>
+        </div>
+        <div class="cfg-group">
+          <label>Table des Catégories</label>
+          <small>Contient les catégories de coloration (nom, couleur, active)</small>
+          <select id="cfg-cats" onchange="onTableChange('cats')"></select>
+        </div>
+        <div class="cfg-group">
+          <label>Table des Affiliations</label>
+          <small>Table de liaison département ↔ catégorie</small>
+          <select id="cfg-dc" onchange="onTableChange('dc')"></select>
+        </div>
+        <div class="cfg-group">
+          <label>Colonne "département" dans Affiliations</label>
+          <small>Référence vers la table Départements</small>
+          <select id="cfg-col-dept"></select>
+        </div>
+        <div class="cfg-group">
+          <label>Colonne "catégorie" dans Affiliations</label>
+          <small>Référence vers la table Catégories</small>
+          <select id="cfg-col-cat"></select>
+        </div>
       </div>
-      <div class="cfg-group">
-        <label>Table des Catégories</label>
-        <small>Contient nom, couleur, active</small>
-        <input id="cfg-cats" placeholder="ex: Categories" value="">
-      </div>
-      <div class="cfg-group">
-        <label>Table des Affiliations (Dept_Categories)</label>
-        <small>Table de liaison entre départements et catégories</small>
-        <input id="cfg-dc" placeholder="ex: Departement_categories" value="">
-      </div>
-      <div class="cfg-group">
-        <label>Colonne "département" dans la table Affiliations</label>
-        <small>Nom de la colonne Référence vers Départements</small>
-        <input id="cfg-col-dept" placeholder="ex: dept" value="">
-      </div>
-      <div class="cfg-group">
-        <label>Colonne "catégorie" dans la table Affiliations</label>
-        <small>Nom de la colonne Référence vers Catégories</small>
-        <input id="cfg-col-cat" placeholder="ex: categorie" value="">
-      </div>
+      <div id="cfg-error" style="display:none;background:#fce4ec;border-radius:4px;padding:8px 10px;font-size:11px;color:#880e4f;margin-top:8px"></div>
     </div>
     <div id="cfg-test-result"></div>
     <div class="mft">
-      <button class="btn-secondary" onclick="testConfig()">🔍 Tester la connexion</button>
       <button class="btn-secondary" onclick="closeModal('cfg-modal')">Annuler</button>
       <button class="btn-primary" onclick="saveConfig()">💾 Enregistrer</button>
     </div>
@@ -357,48 +359,97 @@ function loadConfig(opts){
   if(opts?.colCat)     CFG.colCat=opts.colCat;
 }
 
-function showConfig(){
-  document.getElementById('cfg-depts').value=CFG.depts;
-  document.getElementById('cfg-cats').value=CFG.cats;
-  document.getElementById('cfg-dc').value=CFG.dc;
-  document.getElementById('cfg-col-dept').value=CFG.colDept;
-  document.getElementById('cfg-col-cat').value=CFG.colCat;
-  const r=document.getElementById('cfg-test-result');r.className='';r.style.display='none';r.textContent='';
-  document.getElementById('cfg-modal').classList.remove('gone');
-}
+// ── Config avec menus déroulants ──────────────────────────
+let ALL_TABLES=[];   // [{id, label}]
+let TABLE_COLS={};   // {tableId: [colId, ...]}
 
-function readFormCFG(){
-  return{
-    depts: document.getElementById('cfg-depts').value.trim()||CFG.depts,
-    cats:  document.getElementById('cfg-cats').value.trim()||CFG.cats,
-    dc:    document.getElementById('cfg-dc').value.trim()||CFG.dc,
-    colDept: document.getElementById('cfg-col-dept').value.trim()||CFG.colDept,
-    colCat:  document.getElementById('cfg-col-cat').value.trim()||CFG.colCat,
-  };
-}
-
-async function testConfig(){
-  const c=readFormCFG();
-  const r=document.getElementById('cfg-test-result');
-  r.style.display='block';r.textContent='Test en cours…';r.className='';
-  const lines=[];let ok=true;
-  for(const[label,name]of[['Départements',c.depts],['Catégories',c.cats],['Affiliations',c.dc]]){
-    try{await grist.docApi.fetchTable(name);lines.push(`✅ ${label} → "${name}" trouvée`);}
-    catch(e){lines.push(`❌ ${label} → "${name}" introuvable`);ok=false;}
+function makeOptions(sel,list,current){
+  sel.innerHTML='<option value="">— choisir —</option>';
+  for(const{id,label}of list){
+    const o=document.createElement('option');
+    o.value=id;o.textContent=label+(id!==label?` (${id})`:''  );
+    if(id===current)o.selected=true;
+    sel.appendChild(o);
   }
-  r.className=ok?'ok':'err';r.innerHTML=lines.join('<br>');
+}
+
+async function loadTableCols(tableId){
+  if(!tableId||TABLE_COLS[tableId])return;
+  try{
+    const t=await grist.docApi.fetchTable(tableId);
+    TABLE_COLS[tableId]=Object.keys(t).filter(k=>k!=='id'&&!k.startsWith('_'));
+  }catch(_){TABLE_COLS[tableId]=[];}
+}
+
+function makeColOptions(sel,tableId,current){
+  const cols=(TABLE_COLS[tableId]||[]).map(c=>({id:c,label:c}));
+  makeOptions(sel,cols,current);
+}
+
+async function onTableChange(which){
+  const tableId=document.getElementById('cfg-'+which).value;
+  if(which==='dc'){
+    await loadTableCols(tableId);
+    makeColOptions(document.getElementById('cfg-col-dept'),tableId,CFG.colDept);
+    makeColOptions(document.getElementById('cfg-col-cat'),tableId,CFG.colCat);
+  }
+}
+
+async function showConfig(){
+  document.getElementById('cfg-modal').classList.remove('gone');
+  document.getElementById('cfg-loading').style.display='block';
+  document.getElementById('cfg-form').style.display='none';
+  document.getElementById('cfg-error').style.display='none';
+  const r=document.getElementById('cfg-test-result');r.className='';r.style.display='none';
+
+  try{
+    // Lister toutes les tables via _grist_Tables
+    const meta=await grist.docApi.fetchTable('_grist_Tables');
+    const ids=meta.tableId||[];
+    const labels=meta.tableRef||meta.label||ids;
+    ALL_TABLES=ids.map((id,i)=>({id,label:String(labels[i]||id)}))
+      .filter(t=>!t.id.startsWith('_'));
+
+    makeOptions(document.getElementById('cfg-depts'),ALL_TABLES,CFG.depts);
+    makeOptions(document.getElementById('cfg-cats'),ALL_TABLES,CFG.cats);
+    makeOptions(document.getElementById('cfg-dc'),ALL_TABLES,CFG.dc);
+
+    // Charger colonnes de la table affiliations courante
+    await loadTableCols(CFG.dc);
+    makeColOptions(document.getElementById('cfg-col-dept'),CFG.dc,CFG.colDept);
+    makeColOptions(document.getElementById('cfg-col-cat'),CFG.dc,CFG.colCat);
+
+    document.getElementById('cfg-loading').style.display='none';
+    document.getElementById('cfg-form').style.display='block';
+  }catch(e){
+    document.getElementById('cfg-loading').style.display='none';
+    const err=document.getElementById('cfg-error');
+    err.style.display='block';
+    err.textContent='Impossible de lire les tables Grist : '+e.message+'. Vérifiez que le widget a bien "Accès complet au document".';
+  }
 }
 
 async function saveConfig(){
-  const c=readFormCFG();
+  const c={
+    depts: document.getElementById('cfg-depts').value,
+    cats:  document.getElementById('cfg-cats').value,
+    dc:    document.getElementById('cfg-dc').value,
+    colDept: document.getElementById('cfg-col-dept').value,
+    colCat:  document.getElementById('cfg-col-cat').value,
+  };
+  if(!c.depts||!c.cats||!c.dc){
+    const r=document.getElementById('cfg-test-result');
+    r.className='err';r.style.display='block';r.textContent='⚠️ Veuillez sélectionner les 3 tables.';
+    return;
+  }
   Object.assign(CFG,c);
   const r=document.getElementById('cfg-test-result');
   try{
     await grist.setOptions({tableDepts:CFG.depts,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat});
     r.className='ok';r.style.display='block';r.textContent='✅ Configuration sauvegardée !';
-    setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},800);
+    setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},700);
   }catch(e){
-    r.className='err';r.style.display='block';r.textContent='❌ Erreur sauvegarde : '+e.message+'\n(Vérifiez que le widget a bien "Accès complet au document")';
+    r.className='err';r.style.display='block';r.textContent='❌ Erreur : '+e.message;
   }
 }
 
