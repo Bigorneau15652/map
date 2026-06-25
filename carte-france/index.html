@@ -10,21 +10,14 @@
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;overflow:hidden}
+    html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;overflow:hidden;color:#222}
     #app{display:flex;flex-direction:column;height:100vh}
 
     /* ── Header ── */
-    #hdr{
-      background:#1a3a5c;color:#fff;
-      padding:6px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap
-    }
-    #hdr h1{font-size:14px;font-weight:600}
+    #hdr{background:#1a3a5c;color:#fff;padding:6px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+    #hdr h1{font-size:14px;font-weight:600;color:#fff}
     #hdr .sp{flex:1}
-    .hbtn{
-      font-size:11px;padding:3px 8px;
-      border:1px solid rgba(255,255,255,0.35);border-radius:3px;
-      background:transparent;color:#fff;cursor:pointer;white-space:nowrap
-    }
+    .hbtn{font-size:11px;padding:3px 8px;border:1px solid rgba(255,255,255,0.35);border-radius:3px;background:transparent;color:#fff;cursor:pointer;white-space:nowrap}
     .hbtn.on{background:rgba(255,255,255,0.22);border-color:#fff}
     .hbtn.icon{font-size:14px;padding:2px 6px}
     #uc-wrap,#ch-wrap{display:none;align-items:center;gap:4px;font-size:11px;color:#cce}
@@ -39,21 +32,22 @@
     #map{position:absolute;inset:0;background:#dce8f5}
     .leaflet-container{background:#dce8f5!important}
 
-    /* DOM-TOM */
-    #dtp{position:absolute;bottom:8px;right:8px;display:grid;grid-template-columns:1fr 1fr;gap:3px;z-index:1000}
+    /* Insets (DOM-TOM + IDF) */
+    #dtp{position:absolute;bottom:8px;right:8px;display:grid;grid-template-columns:1fr 1fr;gap:3px;z-index:1000;width:175px}
     .mw{position:relative}.mw.full{grid-column:1/-1}
-    .mm{width:84px;height:70px;border:1.5px solid #999;border-radius:4px;background:#dce8f5;overflow:hidden}
-    .mw.full .mm{width:100%}
-    .ml{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:9px;color:#333;pointer-events:none;z-index:10}
+    .mm{width:84px;height:68px;border:1.5px solid #999;border-radius:4px;background:#dce8f5;overflow:hidden}
+    .mw.full .mm{width:100%;height:78px}
+    #midf{height:90px!important}
+    .ml{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:9px;color:#333;background:rgba(255,255,255,0.6);pointer-events:none;z-index:10;padding:1px 0}
 
     /* Légende */
-    #leg{position:absolute;top:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:6px;padding:7px 10px;font-size:11px;z-index:1000;min-width:120px;max-height:180px;overflow-y:auto}
+    #leg{position:absolute;top:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:6px;padding:7px 10px;font-size:11px;z-index:1000;min-width:120px;max-height:180px;overflow-y:auto;color:#333}
     #leg h4{font-size:11px;margin-bottom:4px;font-weight:600;color:#333}
-    .lr{display:flex;align-items:center;gap:5px;margin-bottom:3px}
+    .lr{display:flex;align-items:center;gap:5px;margin-bottom:3px;color:#333}
     .ld{width:12px;height:12px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,0.15)}
 
     /* Tooltip */
-    #tip{position:absolute;bottom:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:5px;padding:4px 8px;font-size:11px;z-index:1000;pointer-events:none;display:none}
+    #tip{position:absolute;bottom:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:5px;padding:4px 8px;font-size:11px;z-index:1000;pointer-events:none;display:none;color:#222}
     #tip.show{display:block}
 
     /* Loading */
@@ -63,7 +57,7 @@
     @keyframes sp{to{transform:rotate(360deg)}}
 
     /* ── Panneau droit ── */
-    #side{width:310px;background:#fff;border-left:1px solid #dde;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+    #side{width:310px;background:#fff;border-left:1px solid #dde;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;color:#222}
 
     /* Config banner */
     #cfg-banner{background:#fff3e0;border-bottom:1px solid #ffcc80;padding:7px 11px;font-size:11px;color:#5d4037;display:none;cursor:pointer}
@@ -84,51 +78,53 @@
     .cchk{width:14px;height:14px;accent-color:#1a3a5c;cursor:pointer;flex-shrink:0}
     .cn{flex:1;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333}
     .csw{width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,0.2);flex-shrink:0}
-    .nc{font-size:11px;color:#aaa;padding:4px 0}
-    .cumr{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:#666}
+    .nc{font-size:11px;color:#888;padding:4px 0}
+    .cumr{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:#555}
     .cumv{width:20px;height:20px;border-radius:3px;border:1px solid #ccc;cursor:pointer;position:relative;overflow:hidden;flex-shrink:0}
     .cumv input{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer}
 
     /* Depts */
     #ds{flex:1;overflow:hidden;display:flex;flex-direction:column}
     #ds .sb{flex:1;overflow:hidden;display:flex;flex-direction:column}
-    #dsearch{width:100%;font-size:12px;border:1px solid #ddd;border-radius:4px;padding:4px 8px;margin-bottom:5px}
+    #dsearch{width:100%;font-size:12px;border:1px solid #ddd;border-radius:4px;padding:4px 8px;margin-bottom:5px;color:#222;background:#fff}
     #dsearch:focus{outline:none;border-color:#4a90d9}
     .fbs{display:flex;gap:3px;margin-bottom:6px}
-    .fb{font-size:10px;padding:3px 6px;border:1px solid #ddd;border-radius:3px;background:#fff;cursor:pointer}
+    .fb{font-size:10px;padding:3px 6px;border:1px solid #ddd;border-radius:3px;background:#fff;cursor:pointer;color:#444}
     .fb.on{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
     #dw{flex:1;overflow-y:auto}
-    .dr{display:flex;align-items:center;gap:5px;padding:3px 2px;border-radius:3px;font-size:11px}
-    .dr:hover{background:#f5f5f5}
-    .dr.gray{opacity:.38}
-    .dvis{width:12px;height:12px;accent-color:#666;cursor:pointer;flex-shrink:0}
-    .dc{font-size:10px;color:#888;width:26px;flex-shrink:0;text-align:right}
-    .dn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .dr{display:flex;align-items:center;gap:5px;padding:3px 2px;border-radius:3px;font-size:11px;color:#222}
+    .dr:hover{background:#f0f0f0}
+    .dr.gray{opacity:.45}
+    .dvis{width:12px;height:12px;cursor:pointer;flex-shrink:0}
+    .dc{font-size:10px;color:#777;width:26px;flex-shrink:0;text-align:right}
+    .dn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#222}
     .dcs{display:flex;gap:3px;flex-shrink:0}
-    .cdot{width:11px;height:11px;border-radius:2px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);flex-shrink:0;transition:transform .1s}
-    .cdot:hover{transform:scale(1.3)}
+    .cdot{width:13px;height:13px;border-radius:3px;cursor:pointer;border:1.5px solid rgba(0,0,0,0.2);flex-shrink:0;transition:transform .1s}
+    .cdot:hover{transform:scale(1.35)}
 
     /* ── Modal générique ── */
     .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:5000;display:flex;align-items:center;justify-content:center}
     .modal-bg.gone{display:none}
-    .modal{background:#fff;border-radius:8px;width:min(520px,94vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.25)}
+    .modal{background:#fff;border-radius:8px;width:min(520px,94vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.25);color:#222}
     .mhd{background:#1a3a5c;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
-    .mhd h2{font-size:14px}
+    .mhd h2{font-size:14px;color:#fff}
     .mhd button{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1}
     .mbody{flex:1;overflow-y:auto;padding:16px}
-    .mft{padding:10px 16px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end}
+    .mft{padding:10px 16px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end;background:#fff}
 
     /* Config modal */
     .cfg-group{margin-bottom:14px}
     .cfg-group label{display:block;font-size:12px;font-weight:600;color:#333;margin-bottom:4px}
-    .cfg-group small{display:block;font-size:10px;color:#888;margin-bottom:4px}
-    .cfg-group input,.cfg-group select{width:100%;font-size:12px;border:1px solid #ccc;border-radius:4px;padding:5px 8px;background:#fff}
-    .cfg-group input:focus,.cfg-group select:focus{outline:none;border-color:#4a90d9}
-    .cfg-note{background:#e3f2fd;border-radius:5px;padding:8px 10px;font-size:11px;color:#0d47a1;margin-bottom:14px}
+    .cfg-group small{display:block;font-size:10px;color:#777;margin-bottom:4px}
+    .cfg-group select{width:100%;font-size:12px;border:1px solid #ccc;border-radius:4px;padding:5px 8px;background:#fff;color:#222}
+    .cfg-group select:focus{outline:none;border-color:#4a90d9}
     .btn-primary{font-size:12px;padding:6px 16px;background:#1a3a5c;color:#fff;border:none;border-radius:4px;cursor:pointer}
     .btn-primary:hover{background:#254d80}
     .btn-secondary{font-size:12px;padding:6px 14px;background:#fff;color:#333;border:1px solid #ccc;border-radius:4px;cursor:pointer}
     .btn-secondary:hover{background:#f5f5f5}
+    #cfg-msg{margin:8px 16px;font-size:11px;border-radius:4px;padding:7px 10px;display:none}
+    #cfg-msg.ok{background:#e8f5e9;color:#1b5e20;display:block}
+    #cfg-msg.err{background:#fce4ec;color:#880e4f;display:block}
 
     /* Guide modal */
     .guide-section{margin-bottom:14px}
@@ -137,17 +133,8 @@
     .guide-section ul{padding-left:14px}
     .guide-section table{width:100%;border-collapse:collapse;font-size:10px;margin-top:4px}
     .guide-section th{background:#1a3a5c;color:#fff;padding:4px 7px;text-align:left}
-    .guide-section td{padding:3px 7px;border-bottom:1px solid #eee}
-    .guide-section tr:hover td{background:#f5f5f5}
-    code{background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:10px;font-family:monospace}
-    .tag{display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600}
-    .tag.r{background:#fde;color:#c00}
-    .tag.g{background:#dfd;color:#060}
-    .tag.b{background:#ddf;color:#004}
-    /* Config test result */
-    #cfg-test-result{margin-top:10px;font-size:11px;border-radius:4px;padding:7px 10px;display:none}
-    #cfg-test-result.ok{background:#e8f5e9;color:#1b5e20;display:block}
-    #cfg-test-result.err{background:#fce4ec;color:#880e4f;display:block}
+    .guide-section td{padding:3px 7px;border-bottom:1px solid #eee;color:#333}
+    code{background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:10px;font-family:monospace;color:#333}
 
     ::-webkit-scrollbar{width:5px}
     ::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
@@ -175,12 +162,14 @@
     <!-- Carte -->
     <div id="mp">
       <div id="map"></div>
+      <!-- Insets : IDF + DOM-TOM -->
       <div id="dtp">
+        <div class="mw full"><div class="mm" id="midf"></div><span class="ml">Île-de-France</span></div>
         <div class="mw"><div class="mm" id="m971"></div><span class="ml">Guadeloupe</span></div>
         <div class="mw"><div class="mm" id="m972"></div><span class="ml">Martinique</span></div>
         <div class="mw"><div class="mm" id="m973"></div><span class="ml">Guyane</span></div>
         <div class="mw"><div class="mm" id="m974"></div><span class="ml">Réunion</span></div>
-        <div class="mw full"><div class="mm" id="m976" style="width:100%"></div><span class="ml">Mayotte</span></div>
+        <div class="mw full"><div class="mm" id="m976"></div><span class="ml">Mayotte</span></div>
       </div>
       <div id="leg"><h4>Légende</h4><div id="li"></div></div>
       <div id="tip"></div>
@@ -190,17 +179,17 @@
     <!-- Panneau droit -->
     <div id="side">
       <div id="cfg-banner" onclick="showConfig()">
-        ⚠️ <span id="cfg-banner-msg">Tables Grist non trouvées.</span> Cliquez ici pour configurer les noms de tables. →
+        ⚠️ <span id="cfg-banner-msg">Tables Grist non configurées.</span> Cliquez ici → ⚙️
       </div>
 
       <!-- Catégories -->
       <div class="sec">
         <div class="sh" onclick="tog(this)">🏷 Catégories <span id="cbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span><span class="arr">▾</span></div>
         <div class="sb">
-          <div id="cl"><div class="nc">Aucune catégorie. Ajoutez des lignes dans la table <b>Catégories</b> de Grist.</div></div>
+          <div id="cl"><div class="nc">Configurez les tables Grist via ⚙️</div></div>
           <div class="cumr">
             <div class="cumv" id="cumsw" title="Couleur cumul"><input type="color" id="cumc" value="#f39c12" oninput="APP.cumulColor=this.value;cumsw.style.background=this.value;refresh()"></div>
-            <span>Couleur quand plusieurs catégories actives sur un même département</span>
+            <span>Couleur si plusieurs catégories actives sur un même département</span>
           </div>
         </div>
       </div>
@@ -228,39 +217,40 @@
   <div class="modal">
     <div class="mhd"><h2>⚙️ Configuration – Tables Grist</h2><button onclick="closeModal('cfg-modal')">✕</button></div>
     <div class="mbody">
-      <div id="cfg-loading" style="text-align:center;padding:20px;color:#888;font-size:12px">
-        <div class="spin" style="margin:0 auto 8px"></div>Chargement des tables Grist…
+      <div id="cfg-loading" style="text-align:center;padding:20px;color:#666;font-size:12px">
+        <div class="spin" style="margin:0 auto 10px"></div>Chargement de la liste des tables…
       </div>
       <div id="cfg-form" style="display:none">
         <div class="cfg-group">
           <label>Table des Départements</label>
           <small>Contient les 101 départements (code, nom, visible)</small>
-          <select id="cfg-depts" onchange="onTableChange('depts')"></select>
+          <select id="cfg-depts" onchange="onCfgTableChange('dc')"></select>
         </div>
         <div class="cfg-group">
           <label>Table des Catégories</label>
           <small>Contient les catégories de coloration (nom, couleur, active)</small>
-          <select id="cfg-cats" onchange="onTableChange('cats')"></select>
+          <select id="cfg-cats" onchange="onCfgTableChange('dc')"></select>
         </div>
         <div class="cfg-group">
-          <label>Table des Affiliations</label>
-          <small>Table de liaison département ↔ catégorie</small>
-          <select id="cfg-dc" onchange="onTableChange('dc')"></select>
+          <label>Table des Affiliations (liaison dept ↔ catégorie)</label>
+          <small>Laisser vide : le widget la remplit automatiquement</small>
+          <select id="cfg-dc" onchange="onCfgTableChange('dc')"></select>
         </div>
-        <div class="cfg-group">
-          <label>Colonne "département" dans Affiliations</label>
-          <small>Référence vers la table Départements</small>
-          <select id="cfg-col-dept"></select>
-        </div>
-        <div class="cfg-group">
-          <label>Colonne "catégorie" dans Affiliations</label>
-          <small>Référence vers la table Catégories</small>
-          <select id="cfg-col-cat"></select>
+        <div id="cfg-cols" style="display:none">
+          <div class="cfg-group">
+            <label>Colonne "département" dans Affiliations</label>
+            <small>Référence vers la table Départements</small>
+            <select id="cfg-col-dept"></select>
+          </div>
+          <div class="cfg-group">
+            <label>Colonne "catégorie" dans Affiliations</label>
+            <small>Référence vers la table Catégories</small>
+            <select id="cfg-col-cat"></select>
+          </div>
         </div>
       </div>
-      <div id="cfg-error" style="display:none;background:#fce4ec;border-radius:4px;padding:8px 10px;font-size:11px;color:#880e4f;margin-top:8px"></div>
     </div>
-    <div id="cfg-test-result"></div>
+    <div id="cfg-msg"></div>
     <div class="mft">
       <button class="btn-secondary" onclick="closeModal('cfg-modal')">Annuler</button>
       <button class="btn-primary" onclick="saveConfig()">💾 Enregistrer</button>
@@ -271,7 +261,7 @@
 <!-- ── Modal Guide ── -->
 <div class="modal-bg gone" id="guide-modal">
   <div class="modal" style="width:min(460px,94vw)">
-    <div class="mhd"><h2>❓ Guide – Carte de France</h2><button onclick="closeModal('guide-modal')">✕</button></div>
+    <div class="mhd"><h2>❓ Guide – Carte de France Grist</h2><button onclick="closeModal('guide-modal')">✕</button></div>
     <div class="mbody" style="padding:12px">
 
       <div class="guide-section">
@@ -295,36 +285,35 @@
       </div>
 
       <div class="guide-section">
-        <h3>⚙️ Si vos tables ont des noms différents</h3>
-        <p>Cliquez <b>⚙️</b> en haut à droite → entrez les noms exacts → <b>Tester</b> pour vérifier → <b>Enregistrer</b>.</p>
-        <p>Nom interne d'une table : <b>Outils → Vue du code</b> dans Grist.</p>
+        <h3>⚙️ Configurer les tables</h3>
+        <p>Cliquez <b>⚙️</b> en haut à droite → des menus déroulants listent automatiquement vos tables → sélectionnez → <b>Enregistrer</b>.</p>
       </div>
 
       <div class="guide-section">
-        <h3>🎨 Couleurs disponibles</h3>
-        <p>Dans la colonne <code>couleur</code> de la table Catégories, entrez :</p>
+        <h3>🎨 Couleurs disponibles (colonne <code>couleur</code>)</h3>
         <p>
           <span style="color:#e74c3c">● rouge</span> &nbsp;
           <span style="color:#2980b9">● bleu</span> &nbsp;
           <span style="color:#27ae60">● vert</span> &nbsp;
           <span style="color:#e67e22">● orange</span> &nbsp;
-          <span style="color:#8e44ad">● violet</span> &nbsp;
-          <span style="color:#f1c40f">● jaune</span><br>
+          <span style="color:#8e44ad">● violet</span><br>
+          <span style="color:#f1c40f">● jaune</span> &nbsp;
           <span style="color:#e91e8c">● rose</span> &nbsp;
           <span style="color:#795548">● marron</span> &nbsp;
           <span style="color:#00bcd4">● cyan</span> &nbsp;
           <span style="color:#2c3e50">● noir</span>
-          &nbsp;— ou un code HEX : <code>#3498db</code>
+          &nbsp;— ou HEX : <code>#3498db</code>
         </p>
       </div>
 
       <div class="guide-section">
         <h3>🖱️ Utilisation</h3>
         <ul>
-          <li>Cochez <code>active</code> sur une catégorie → la carte se colore</li>
+          <li>Cochez <code>active</code> dans Grist sur une catégorie → la carte se colore</li>
           <li>Cliquez la <b>pastille colorée</b> d'un département → l'ajoute/retire de la catégorie</li>
-          <li>Décochez la case à gauche → le département devient grisé</li>
-          <li>Plusieurs catégories actives sur un même dept → <b>couleur cumul</b> (sélecteur orange)</li>
+          <li>Décochez la case ☑ à gauche → le département devient grisé sur la carte</li>
+          <li>Plusieurs catégories sur un même dept → <b>couleur cumul</b> (sélecteur orange)</li>
+          <li>Les insets <b>Île-de-France</b> et <b>DOM-TOM</b> sont cliquables</li>
         </ul>
       </div>
 
@@ -342,15 +331,12 @@
 const NAMED={bleu:'#2980b9',rouge:'#e74c3c',vert:'#27ae60',jaune:'#f1c40f',orange:'#e67e22',violet:'#8e44ad',rose:'#e91e8c',marron:'#795548',gris:'#7f8c8d',noir:'#2c3e50',blanc:'#ecf0f1',cyan:'#00bcd4',turquoise:'#1abc9c',emeraude:'#2ecc71',brique:'#c0392b'};
 function col(raw){if(!raw)return null;const k=String(raw).trim().toLowerCase();return NAMED[k]||(/^#[0-9a-f]{3,8}$/i.test(raw)?raw:null)}
 
-// ── DOM-TOM ────────────────────────────────────────────────
+// ── Codes IDF et DOM-TOM ──────────────────────────────────
+const IDF_CODES=new Set(['75','77','78','91','92','93','94','95']);
 const DT={'971':{el:'m971',c:[16.25,-61.55],z:9},'972':{el:'m972',c:[14.65,-61.00],z:10},'973':{el:'m973',c:[3.9,-53.0],z:7},'974':{el:'m974',c:[-21.1,55.55],z:10},'976':{el:'m976',c:[-12.83,45.15],z:11}};
 
-// ── Config (noms de tables/colonnes) ──────────────────────
-let CFG={
-  depts:'Departements', cats:'Categories', dc:'Departement_categories',
-  colDept:'dept', colCat:'categorie'
-};
-
+// ── Config ────────────────────────────────────────────────
+let CFG={depts:'Departements',cats:'Categories',dc:'Departement_categories',colDept:'dept',colCat:'categorie'};
 function loadConfig(opts){
   if(opts?.tableDepts) CFG.depts=opts.tableDepts;
   if(opts?.tableCats)  CFG.cats=opts.tableCats;
@@ -359,39 +345,34 @@ function loadConfig(opts){
   if(opts?.colCat)     CFG.colCat=opts.colCat;
 }
 
-// ── Config avec menus déroulants ──────────────────────────
-let ALL_TABLES=[];   // [{id, label}]
-let TABLE_COLS={};   // {tableId: [colId, ...]}
+// ── Config modal avec menus déroulants ────────────────────
+let ALL_TABLES=[];
+let TABLE_COLS={};
 
-function makeOptions(sel,list,current){
+function makeOpts(sel,list,current){
   sel.innerHTML='<option value="">— choisir —</option>';
   for(const{id,label}of list){
     const o=document.createElement('option');
-    o.value=id;o.textContent=label+(id!==label?` (${id})`:''  );
+    o.value=id;o.textContent=label;
     if(id===current)o.selected=true;
     sel.appendChild(o);
   }
 }
-
 async function loadTableCols(tableId){
   if(!tableId||TABLE_COLS[tableId])return;
-  try{
-    const t=await grist.docApi.fetchTable(tableId);
-    TABLE_COLS[tableId]=Object.keys(t).filter(k=>k!=='id'&&!k.startsWith('_'));
-  }catch(_){TABLE_COLS[tableId]=[];}
+  try{const t=await grist.docApi.fetchTable(tableId);TABLE_COLS[tableId]=Object.keys(t).filter(k=>k!=='id'&&!k.startsWith('manualSort'));}
+  catch(_){TABLE_COLS[tableId]=[];}
 }
-
-function makeColOptions(sel,tableId,current){
-  const cols=(TABLE_COLS[tableId]||[]).map(c=>({id:c,label:c}));
-  makeOptions(sel,cols,current);
-}
-
-async function onTableChange(which){
-  const tableId=document.getElementById('cfg-'+which).value;
-  if(which==='dc'){
-    await loadTableCols(tableId);
-    makeColOptions(document.getElementById('cfg-col-dept'),tableId,CFG.colDept);
-    makeColOptions(document.getElementById('cfg-col-cat'),tableId,CFG.colCat);
+async function onCfgTableChange(){
+  const dcId=document.getElementById('cfg-dc').value;
+  if(dcId){
+    await loadTableCols(dcId);
+    const cols=(TABLE_COLS[dcId]||[]).map(c=>({id:c,label:c}));
+    makeOpts(document.getElementById('cfg-col-dept'),cols,CFG.colDept);
+    makeOpts(document.getElementById('cfg-col-cat'),cols,CFG.colCat);
+    document.getElementById('cfg-cols').style.display='block';
+  }else{
+    document.getElementById('cfg-cols').style.display='none';
   }
 }
 
@@ -399,96 +380,107 @@ async function showConfig(){
   document.getElementById('cfg-modal').classList.remove('gone');
   document.getElementById('cfg-loading').style.display='block';
   document.getElementById('cfg-form').style.display='none';
-  document.getElementById('cfg-error').style.display='none';
-  const r=document.getElementById('cfg-test-result');r.className='';r.style.display='none';
+  document.getElementById('cfg-cols').style.display='none';
+  const msg=document.getElementById('cfg-msg');msg.className='';msg.style.display='none';
 
   try{
-    // Lister toutes les tables via _grist_Tables
     const meta=await grist.docApi.fetchTable('_grist_Tables');
     const ids=meta.tableId||[];
-    const labels=meta.tableRef||meta.label||ids;
-    ALL_TABLES=ids.map((id,i)=>({id,label:String(labels[i]||id)}))
-      .filter(t=>!t.id.startsWith('_'));
+    ALL_TABLES=ids.filter(id=>!String(id).startsWith('_')).map(id=>({id:String(id),label:String(id)}));
 
-    makeOptions(document.getElementById('cfg-depts'),ALL_TABLES,CFG.depts);
-    makeOptions(document.getElementById('cfg-cats'),ALL_TABLES,CFG.cats);
-    makeOptions(document.getElementById('cfg-dc'),ALL_TABLES,CFG.dc);
+    if(!ALL_TABLES.length)throw new Error('Aucune table trouvée');
 
-    // Charger colonnes de la table affiliations courante
-    await loadTableCols(CFG.dc);
-    makeColOptions(document.getElementById('cfg-col-dept'),CFG.dc,CFG.colDept);
-    makeColOptions(document.getElementById('cfg-col-cat'),CFG.dc,CFG.colCat);
+    makeOpts(document.getElementById('cfg-depts'),ALL_TABLES,CFG.depts);
+    makeOpts(document.getElementById('cfg-cats'),ALL_TABLES,CFG.cats);
+    makeOpts(document.getElementById('cfg-dc'),ALL_TABLES,CFG.dc);
+
+    if(CFG.dc){
+      await loadTableCols(CFG.dc);
+      const cols=(TABLE_COLS[CFG.dc]||[]).map(c=>({id:c,label:c}));
+      makeOpts(document.getElementById('cfg-col-dept'),cols,CFG.colDept);
+      makeOpts(document.getElementById('cfg-col-cat'),cols,CFG.colCat);
+      document.getElementById('cfg-cols').style.display='block';
+    }
 
     document.getElementById('cfg-loading').style.display='none';
     document.getElementById('cfg-form').style.display='block';
   }catch(e){
     document.getElementById('cfg-loading').style.display='none';
-    const err=document.getElementById('cfg-error');
-    err.style.display='block';
-    err.textContent='Impossible de lire les tables Grist : '+e.message+'. Vérifiez que le widget a bien "Accès complet au document".';
+    msg.className='err';msg.style.display='block';
+    msg.innerHTML='❌ Impossible de lire les tables Grist : <b>'+e.message+'</b><br>👉 Dans les paramètres du widget (⋮), vérifiez que l\'accès est <b>"Accès complet au document"</b>.';
   }
 }
 
 async function saveConfig(){
   const c={
-    depts: document.getElementById('cfg-depts').value,
-    cats:  document.getElementById('cfg-cats').value,
-    dc:    document.getElementById('cfg-dc').value,
-    colDept: document.getElementById('cfg-col-dept').value,
-    colCat:  document.getElementById('cfg-col-cat').value,
+    depts:document.getElementById('cfg-depts').value,
+    cats:document.getElementById('cfg-cats').value,
+    dc:document.getElementById('cfg-dc').value,
+    colDept:document.getElementById('cfg-col-dept').value||CFG.colDept,
+    colCat:document.getElementById('cfg-col-cat').value||CFG.colCat,
   };
-  if(!c.depts||!c.cats||!c.dc){
-    const r=document.getElementById('cfg-test-result');
-    r.className='err';r.style.display='block';r.textContent='⚠️ Veuillez sélectionner les 3 tables.';
-    return;
+  const msg=document.getElementById('cfg-msg');
+  if(!c.depts||!c.cats){
+    msg.className='err';msg.style.display='block';msg.textContent='⚠️ Sélectionnez au minimum les tables Départements et Catégories.';return;
   }
   Object.assign(CFG,c);
-  const r=document.getElementById('cfg-test-result');
   try{
     await grist.setOptions({tableDepts:CFG.depts,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat});
-    r.className='ok';r.style.display='block';r.textContent='✅ Configuration sauvegardée !';
+    msg.className='ok';msg.style.display='block';msg.textContent='✅ Configuration sauvegardée !';
     setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},700);
   }catch(e){
-    r.className='err';r.style.display='block';r.textContent='❌ Erreur : '+e.message;
+    msg.className='err';msg.style.display='block';msg.textContent='❌ Erreur sauvegarde : '+e.message;
   }
 }
 
-function showGuide(){ document.getElementById('guide-modal').classList.remove('gone'); }
-function closeModal(id){ document.getElementById(id).classList.add('gone'); }
+function showGuide(){document.getElementById('guide-modal').classList.remove('gone');}
+function closeModal(id){document.getElementById(id).classList.add('gone');}
 
-// ── État ───────────────────────────────────────────────────
+// ── État ──────────────────────────────────────────────────
 const APP={mode:'categorie',uniqueColor:'#e74c3c',cumulColor:'#f39c12',choroLow:'#ffffb2',choroHigh:'#d7191c',cats:[],depts:{},dcRows:{},deptRowId:{}};
 let deptFilter='all';
 
-// ── Maps ───────────────────────────────────────────────────
-let mainMap,geoLayer;
+// ── Maps ──────────────────────────────────────────────────
+let mainMap,geoLayer,idfMap,idfLayer;
 const mMaps={},mLayers={};
+const MAP_OPT={zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false,attributionControl:false};
 
 function initMaps(){
   mainMap=L.map('map',{zoomControl:true,attributionControl:false}).setView([46.5,2.5],6);
+  idfMap=L.map('midf',MAP_OPT).setView([48.72,2.45],9);
   for(const[c,cfg]of Object.entries(DT))
-    mMaps[c]=L.map(cfg.el,{zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false,attributionControl:false}).setView(cfg.c,cfg.z);
+    mMaps[c]=L.map(cfg.el,MAP_OPT).setView(cfg.c,cfg.z);
 }
 
-// ── GeoJSON ────────────────────────────────────────────────
+// ── GeoJSON ───────────────────────────────────────────────
 async function fetchJson(url){const r=await fetch(url);if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}
 async function loadGeoJSON(){
   const GOV='https://geo.api.gouv.fr/departements?fields=nom,code&format=geojson&geometry=contour';
   const METRO='https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements-version-simplifiee.geojson';
-  const DT_URLS={'971':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/971-guadeloupe/departement-version-simplifiee.geojson','972':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/972-martinique/departement-version-simplifiee.geojson','973':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/973-guyane/departement-version-simplifiee.geojson','974':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/974-la-reunion/departement-version-simplifiee.geojson','976':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/976-mayotte/departement-version-simplifiee.geojson'};
+  const DT_URLS={
+    '971':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/971-guadeloupe/departement-version-simplifiee.geojson',
+    '972':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/972-martinique/departement-version-simplifiee.geojson',
+    '973':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/973-guyane/departement-version-simplifiee.geojson',
+    '974':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/974-la-reunion/departement-version-simplifiee.geojson',
+    '976':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/976-mayotte/departement-version-simplifiee.geojson'
+  };
   try{const g=await fetchJson(GOV);if(g?.features?.length>50)return g}catch(_){}
   const metro=await fetchJson(METRO);
   const features=[...(metro.features||[])];
   for(const[code,url]of Object.entries(DT_URLS)){
-    try{const dt=await fetchJson(url);const ff=dt.features||(dt.type==='Feature'?[dt]:[]);for(const f of ff){if(!f.properties)f.properties={};if(!f.properties.code)f.properties.code=code;if(!f.properties.nom)f.properties.nom=APP.depts[code]?.nom||code;features.push(f)}}catch(_){}
+    try{
+      const dt=await fetchJson(url);
+      const ff=dt.features||(dt.type==='Feature'?[dt]:[]);
+      for(const f of ff){if(!f.properties)f.properties={};if(!f.properties.code)f.properties.code=code;features.push(f)}
+    }catch(_){}
   }
   return{type:'FeatureCollection',features};
 }
 
-// ── Style ──────────────────────────────────────────────────
+// ── Style ─────────────────────────────────────────────────
 function deptColor(code){
   const d=APP.depts[code];if(!d)return null;
-  if(APP.mode==='unique')return d.visible?APP.uniqueColor:null;
+  if(APP.mode==='unique')return APP.uniqueColor;
   if(APP.mode==='choropleth'){
     const vals=Object.values(APP.depts).map(x=>x.valeur).filter(v=>typeof v==='number'&&!isNaN(v));
     if(!vals.length)return null;
@@ -502,42 +494,83 @@ function deptColor(code){
   if(matched.length===1)return col(matched[0].couleur)||NAMED.bleu;
   return APP.cumulColor;
 }
+
 function getStyle(f){
-  const code=String(f.properties?.code||'');const d=APP.depts[code];const vis=d?d.visible:true;const c=deptColor(code);
-  return{color:'#555',weight:0.7,fillColor:c||'#c8d6e5',fillOpacity:c?(vis?0.78:0.3):(vis?0.28:0.1),opacity:1};
+  const code=String(f.properties?.code||'');
+  const d=APP.depts[code];
+  const vis=d?d.visible:true;
+  // Département grisé : couleur grise claire, contour fin, transparence forte
+  if(!vis){
+    return{color:'#aaa',weight:0.5,fillColor:'#cccccc',fillOpacity:0.55,opacity:0.6};
+  }
+  const c=deptColor(code);
+  return{color:'#555',weight:0.7,fillColor:c||'#c8d6e5',fillOpacity:c?0.8:0.3,opacity:1};
+}
+
+function makeOnEach(forMainMap){
+  return function(feat,layer){
+    const code=String(feat.properties?.code||''),nom=feat.properties?.nom||APP.depts[code]?.nom||code;
+    layer.bindTooltip(`<b>${nom}</b> (${code})`,{sticky:true,opacity:0.9});
+    layer.on({
+      mouseover(e){
+        e.target.setStyle({weight:2,color:'#111'});e.target.bringToFront();
+        if(forMainMap){
+          const d=APP.depts[code];const cats=d?APP.cats.filter(c=>d.catIds.includes(c._id)&&c.active).map(c=>c.nom).join(', '):'';
+          const tip=document.getElementById('tip');
+          tip.innerHTML=`<b>${nom}</b> (${code})`+(cats?`<br><span style="font-size:10px;color:#666">${cats}</span>`:'');
+          tip.classList.add('show');
+        }
+      },
+      mouseout(e){
+        if(geoLayer)geoLayer.resetStyle(e.target);
+        if(idfLayer)idfLayer.resetStyle(e.target);
+        for(const ml of Object.values(mLayers))try{ml.resetStyle(e.target)}catch(_){}
+        if(forMainMap)document.getElementById('tip').classList.remove('show');
+      },
+      click(){mainMap.fitBounds(layer.getBounds(),{padding:[30,30]});}
+    });
+  };
 }
 
 function renderMap(geojson){
-  if(geoLayer){mainMap.removeLayer(geoLayer);geoLayer=null}
-  for(const c of Object.keys(DT)){if(mLayers[c]){mMaps[c].removeLayer(mLayers[c]);delete mLayers[c]}}
-  const dtCodes=Object.keys(DT);
+  if(geoLayer){mainMap.removeLayer(geoLayer);geoLayer=null;}
+  if(idfLayer){idfMap.removeLayer(idfLayer);idfLayer=null;}
+  for(const c of Object.keys(DT)){if(mLayers[c]){mMaps[c].removeLayer(mLayers[c]);delete mLayers[c];}}
+
+  const dtCodes=new Set(Object.keys(DT));
   const feats=(geojson?.features||[]);
-  const metro={type:'FeatureCollection',features:feats.filter(f=>!dtCodes.includes(String(f.properties?.code||'')))};
-  const dtF={};for(const f of feats){const c=String(f.properties?.code||'');if(dtCodes.includes(c))dtF[c]=f}
-  function onEach(feat,layer){
-    const code=String(feat.properties?.code||''),nom=feat.properties?.nom||code;
-    layer.on({
-      mouseover(e){e.target.setStyle({weight:2,color:'#111'});e.target.bringToFront();
-        const d=APP.depts[code];const cats=d?APP.cats.filter(c=>d.catIds.includes(c._id)&&c.active).map(c=>c.nom).join(', '):'';
-        const tip=document.getElementById('tip');tip.innerHTML=`<b>${nom}</b> (${code})`+(cats?`<br><span style="font-size:10px;color:#666">${cats}</span>`:'');tip.classList.add('show')},
-      mouseout(e){if(geoLayer)geoLayer.resetStyle(e.target);document.getElementById('tip').classList.remove('show')},
-      click(){mainMap.fitBounds(layer.getBounds(),{padding:[30,30]})},
-    });
-    layer.bindTooltip(`<b>${nom}</b> (${code})`,{sticky:true,opacity:0.85});
+
+  const metroFeats=feats.filter(f=>!dtCodes.has(String(f.properties?.code||'')));
+  const dtF={};
+  const idfFeats=[];
+  for(const f of feats){
+    const c=String(f.properties?.code||'');
+    if(dtCodes.has(c))dtF[c]=f;
+    if(IDF_CODES.has(c))idfFeats.push(f);
   }
-  geoLayer=L.geoJSON(metro,{style:f=>getStyle(f),onEachFeature:onEach}).addTo(mainMap);
-  for(const[code,feat]of Object.entries(dtF)){if(!mMaps[code])continue;const layer=L.geoJSON({type:'FeatureCollection',features:[feat]},{style:f=>getStyle(f),onEachFeature:(_,l)=>l.bindTooltip(feat.properties?.nom||code,{sticky:true})}).addTo(mMaps[code]);mLayers[code]=layer}
+
+  // Carte principale (métro complet)
+  geoLayer=L.geoJSON({type:'FeatureCollection',features:metroFeats},{style:f=>getStyle(f),onEachFeature:makeOnEach(true)}).addTo(mainMap);
+
+  // Inset IDF
+  idfLayer=L.geoJSON({type:'FeatureCollection',features:idfFeats},{style:f=>getStyle(f),onEachFeature:makeOnEach(false)}).addTo(idfMap);
+
+  // Insets DOM-TOM
+  for(const[code,feat]of Object.entries(dtF)){
+    if(!mMaps[code])continue;
+    mLayers[code]=L.geoJSON({type:'FeatureCollection',features:[feat]},{style:f=>getStyle(f),onEachFeature:makeOnEach(false)}).addTo(mMaps[code]);
+  }
   renderLegend();
 }
 
 function refresh(){
-  if(!geoLayer)return;
-  geoLayer.eachLayer(l=>l.setStyle(getStyle(l.feature)));
+  if(geoLayer)geoLayer.eachLayer(l=>l.setStyle(getStyle(l.feature)));
+  if(idfLayer)idfLayer.eachLayer(l=>l.setStyle(getStyle(l.feature)));
   for(const layer of Object.values(mLayers))layer.eachLayer(l=>l.setStyle(getStyle(l.feature)));
   renderLegend();
 }
 
-// ── Légende ────────────────────────────────────────────────
+// ── Légende ───────────────────────────────────────────────
 function renderLegend(){
   const el=document.getElementById('li');el.innerHTML='';
   if(APP.mode==='unique'){el.innerHTML=`<div class="lr"><div class="ld" style="background:${APP.uniqueColor}"></div>Tous visibles</div>`;return}
@@ -548,11 +581,11 @@ function renderLegend(){
   if(active.length>1)el.innerHTML+=`<div class="lr"><div class="ld" style="background:${APP.cumulColor};border-style:dashed"></div><i>Cumul</i></div>`;
 }
 
-// ── Panneau catégories ─────────────────────────────────────
+// ── Panneau catégories ────────────────────────────────────
 function renderCats(){
   const el=document.getElementById('cl');
   document.getElementById('cbadge').textContent=APP.cats.length?`(${APP.cats.length})`:'';
-  if(!APP.cats.length){el.innerHTML='<div class="nc">Aucune catégorie. Ajoutez des lignes dans la table <b>Catégories</b> de Grist.</div>';return}
+  if(!APP.cats.length){el.innerHTML='<div class="nc">Aucune catégorie. Ajoutez des lignes dans la table Catégories de Grist.</div>';return}
   el.innerHTML='';
   for(const cat of APP.cats){
     const co=col(cat.couleur)||NAMED.bleu;
@@ -563,9 +596,9 @@ function renderCats(){
   }
 }
 
-// ── Liste départements ─────────────────────────────────────
-function sk(c){if(c==='2A')return 20.1;if(c==='2B')return 20.2;return parseInt(c,10)||999}
-function setF(f,btn){deptFilter=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderDepts()}
+// ── Liste départements ────────────────────────────────────
+function sk(c){if(c==='2A')return 20.1;if(c==='2B')return 20.2;const n=parseInt(c,10);return isNaN(n)?999:n}
+function setF(f,btn){deptFilter=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderDepts();}
 
 function renderDepts(){
   const wrap=document.getElementById('dw');
@@ -581,50 +614,59 @@ function renderDepts(){
   for(const d of list){
     const row=document.createElement('div');
     row.className='dr'+(d.visible?'':' gray');
-    const dots=activeCats.map(cat=>{const on=d.catIds.includes(cat._id);const co=col(cat.couleur)||NAMED.bleu;return`<div class="cdot" title="${cat.nom}" style="background:${on?co:'#eee'};border-color:${on?co:'#ccc'}" onclick="toggleDeptCat('${d.code}',${cat._id})"></div>`}).join('');
-    row.innerHTML=`<input type="checkbox" class="dvis" ${d.visible?'checked':''} title="Visible/grisé" onchange="toggleVis('${d.code}',this.checked)"><span class="dc">${d.code}</span><span class="dn">${d.nom}</span><div class="dcs">${dots||'<span style="font-size:10px;color:#ccc">—</span>'}</div>`;
+    const dots=activeCats.map(cat=>{
+      const on=d.catIds.includes(cat._id);
+      const co=col(cat.couleur)||NAMED.bleu;
+      return `<div class="cdot" title="${cat.nom}" style="background:${on?co:'#ddd'};border-color:${on?co:'#bbb'}" onclick="toggleDeptCat('${d.code}',${cat._id})"></div>`;
+    }).join('');
+    row.innerHTML=`<input type="checkbox" class="dvis" ${d.visible?'checked':''} title="Visible/grisé" onchange="toggleVis('${d.code}',this.checked)"><span class="dc">${d.code}</span><span class="dn">${d.nom}</span><div class="dcs">${dots||'<span style="font-size:10px;color:#bbb">—</span>'}</div>`;
     wrap.appendChild(row);
   }
 }
 
-// ── Interactions → Grist ───────────────────────────────────
+// ── Interactions → Grist ──────────────────────────────────
 async function toggleCat(catId,val){
-  try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.cats,catId,{active:val}]])}catch(e){console.warn('toggleCat:',CFG.cats,e.message)}
+  try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.cats,catId,{active:val}]]);}
+  catch(e){console.warn('toggleCat:',e.message);}
 }
 async function toggleVis(code,val){
   const rowId=APP.deptRowId[code];if(!rowId)return;
-  try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.depts,rowId,{visible:val}]])}catch(e){console.warn('toggleVis:',CFG.depts,e.message)}
+  try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.depts,rowId,{visible:val}]]);}
+  catch(e){console.warn('toggleVis:',e.message);}
 }
 async function toggleDeptCat(code,catId){
   const deptRowId=APP.deptRowId[code];if(!deptRowId)return;
   const existing=Object.entries(APP.dcRows).find(([,v])=>v.dept_id===deptRowId&&v.cat_id===catId);
   try{
-    if(existing){await grist.docApi.applyUserActions([['RemoveRecord',CFG.dc,parseInt(existing[0])]])}
-    else{
+    if(existing){
+      await grist.docApi.applyUserActions([['RemoveRecord',CFG.dc,parseInt(existing[0])]]);
+    }else{
       const rec={};rec[CFG.colDept]=deptRowId;rec[CFG.colCat]=catId;
       await grist.docApi.applyUserActions([['AddRecord',CFG.dc,null,rec]]);
     }
-  }catch(e){console.warn('toggleDeptCat:',CFG.dc,e.message)}
+  }catch(e){console.warn('toggleDeptCat:',e.message);}
 }
 
-// ── Mode ───────────────────────────────────────────────────
+// ── Mode ──────────────────────────────────────────────────
 function setMode(m,btn){
-  APP.mode=m;document.querySelectorAll('.hbtn[onclick^="setMode"]').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  APP.mode=m;
+  document.querySelectorAll('.hbtn[onclick^="setMode"]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
   document.getElementById('uc-wrap').classList.toggle('show',m==='unique');
   document.getElementById('ch-wrap').classList.toggle('show',m==='choropleth');
   renderDepts();refresh();
 }
-function tog(h){const b=h.nextElementSibling,a=h.querySelector('.arr');b.classList.toggle('closed');a.textContent=b.classList.contains('closed')?'▸':'▾'}
+function tog(h){const b=h.nextElementSibling,a=h.querySelector('.arr');b.classList.toggle('closed');a.textContent=b.classList.contains('closed')?'▸':'▾';}
 
-// ── Fetch tables Grist ─────────────────────────────────────
-function findCol(t,...cs){for(const c of cs)if(t[c]!==undefined)return c;return null}
+// ── Fetch tables Grist ────────────────────────────────────
+function findCol(t,...cs){for(const c of cs)if(t[c]!==undefined)return c;return null;}
 
 async function fetchAllTables(){
   let missing=[];
   let dTable=null,cTable=null,dcTable=null;
-  try{dTable=await grist.docApi.fetchTable(CFG.depts)}catch(_){}
-  try{cTable=await grist.docApi.fetchTable(CFG.cats)}catch(_){}
-  try{dcTable=await grist.docApi.fetchTable(CFG.dc)}catch(_){}
+  try{dTable=await grist.docApi.fetchTable(CFG.depts);}catch(_){}
+  try{cTable=await grist.docApi.fetchTable(CFG.cats);}catch(_){}
+  try{if(CFG.dc)dcTable=await grist.docApi.fetchTable(CFG.dc);}catch(_){}
 
   // Departements
   APP.depts={};APP.deptRowId={};
@@ -633,13 +675,16 @@ async function fetchAllTables(){
     const colNom=findCol(dTable,'nom_dept','nom','name','Nom','Name');
     const colVis=findCol(dTable,'visible','Visible','actif');
     const colVal=findCol(dTable,'valeur','Valeur','value','Value');
-    const ids=dTable.id||[],n=ids.length;
-    for(let i=0;i<n;i++){
+    const ids=dTable.id||[];
+    for(let i=0;i<ids.length;i++){
       const code=colCode?String(dTable[colCode][i]||'').trim():'';if(!code)continue;
-      APP.depts[code]={_id:ids[i],code,nom:colNom?dTable[colNom][i]||code:code,visible:colVis?dTable[colVis][i]!==false:true,valeur:colVal?dTable[colVal][i]??null:null,catIds:[]};
+      const rawVis=colVis?dTable[colVis][i]:true;
+      // Grist renvoie true/false ou 1/0 pour les bascules
+      const visible=(rawVis===true||rawVis===1);
+      APP.depts[code]={_id:ids[i],code,nom:colNom?String(dTable[colNom][i]||code):code,visible,valeur:colVal?dTable[colVal][i]??null:null,catIds:[]};
       APP.deptRowId[code]=ids[i];
     }
-  }else missing.push(`Départements (<code>${CFG.depts}</code>)`);
+  }else missing.push(`Départements (${CFG.depts})`);
 
   // Categories
   APP.cats=[];
@@ -647,66 +692,76 @@ async function fetchAllTables(){
     const colNom=findCol(cTable,'nom','name','Nom','Name','label');
     const colCol=findCol(cTable,'couleur','color','Color','Couleur');
     const colAct=findCol(cTable,'active','Active','selectionnee','visible');
-    const ids=cTable.id||[],n=ids.length;
-    for(let i=0;i<n;i++) APP.cats.push({_id:ids[i],nom:colNom?cTable[colNom][i]||`Cat ${ids[i]}`:`Cat ${ids[i]}`,couleur:colCol?cTable[colCol][i]||'bleu':'bleu',active:colAct?cTable[colAct][i]===true:false});
-  }else missing.push(`Catégories (<code>${CFG.cats}</code>)`);
+    const ids=cTable.id||[];
+    for(let i=0;i<ids.length;i++){
+      const rawAct=colAct?cTable[colAct][i]:false;
+      APP.cats.push({_id:ids[i],nom:colNom?String(cTable[colNom][i]||`Cat${ids[i]}`):String(ids[i]),couleur:colCol?String(cTable[colCol][i]||'bleu'):'bleu',active:(rawAct===true||rawAct===1)});
+    }
+  }else missing.push(`Catégories (${CFG.cats})`);
 
   // Dept_Categories
   APP.dcRows={};
   if(dcTable){
     const colD=findCol(dcTable,CFG.colDept,'dept','Dept','departement','Departement');
     const colC=findCol(dcTable,CFG.colCat,'categorie','Categorie','cat','Categories');
-    const ids=dcTable.id||[],n=ids.length;
-    for(let i=0;i<n;i++){
+    const ids=dcTable.id||[];
+    for(let i=0;i<ids.length;i++){
       const rowId=ids[i],deptId=colD?dcTable[colD][i]:null,catId=colC?dcTable[colC][i]:null;
       if(!deptId||!catId)continue;
       APP.dcRows[rowId]={dept_id:deptId,cat_id:catId};
       const entry=Object.values(APP.depts).find(d=>d._id===deptId);
       if(entry&&!entry.catIds.includes(catId))entry.catIds.push(catId);
     }
-  }else missing.push(`Affiliations (<code>${CFG.dc}</code>)`);
+  }
 
   // Bannière
   const banner=document.getElementById('cfg-banner');
-  if(missing.length){document.getElementById('cfg-banner-msg').innerHTML=`Tables non trouvées : ${missing.join(', ')}`;banner.classList.add('show')}
+  if(missing.length){document.getElementById('cfg-banner-msg').textContent='Tables non trouvées : '+missing.join(', ');banner.classList.add('show');}
   else banner.classList.remove('show');
 
   renderCats();renderDepts();refresh();
 }
 
-// ── Boot ───────────────────────────────────────────────────
+// ── Boot ──────────────────────────────────────────────────
 async function boot(){
   initMaps();
   document.getElementById('cumsw').style.background=APP.cumulColor;
 
-  // Carte GeoJSON (en parallèle du chargement Grist)
+  // Carte GeoJSON
   document.getElementById('ldg').classList.remove('gone');
   document.getElementById('ldg-msg').textContent='Chargement de la carte…';
-  let geo;
-  try{geo=await loadGeoJSON();renderMap(geo);}
-  catch(e){document.getElementById('ldg-msg').textContent=`Erreur carte: ${e.message}`;}
+  try{const geo=await loadGeoJSON();renderMap(geo);}
+  catch(e){document.getElementById('ldg-msg').textContent='Erreur carte: '+e.message;}
   document.getElementById('ldg').classList.add('gone');
 
-  // Grist : ready + onOptions (remplace getOptions appelé trop tôt)
+  // Grist
   grist.ready({requiredAccess:'full'});
 
   let optionsLoaded=false;
   grist.onOptions(async(opts)=>{
-    if(opts){loadConfig(opts);}
+    if(opts)loadConfig(opts);
     if(!optionsLoaded){optionsLoaded=true;await fetchAllTables();}
-    else{await fetchAllTables();}
+    else await fetchAllTables();
   });
-
-  // Fallback si onOptions ne se déclenche pas (widget sans options sauvegardées)
+  // Fallback si pas d'options sauvegardées
   setTimeout(async()=>{if(!optionsLoaded){optionsLoaded=true;await fetchAllTables();}},1500);
 
-  grist.onRecords(async()=>{await fetchAllTables();});
-  grist.onRecord(async()=>{await fetchAllTables();});
+  grist.onRecords(async()=>fetchAllTables());
+  grist.onRecord(async()=>fetchAllTables());
 
-  setTimeout(()=>{mainMap.invalidateSize();for(const m of Object.values(mMaps))m.invalidateSize();},300);
+  setTimeout(()=>{
+    mainMap.invalidateSize();
+    idfMap.invalidateSize();
+    for(const m of Object.values(mMaps))m.invalidateSize();
+  },300);
 }
 
-new ResizeObserver(()=>{if(mainMap)mainMap.invalidateSize();for(const m of Object.values(mMaps))m.invalidateSize()}).observe(document.getElementById('mp'));
+new ResizeObserver(()=>{
+  if(mainMap)mainMap.invalidateSize();
+  if(idfMap)idfMap.invalidateSize();
+  for(const m of Object.values(mMaps))m.invalidateSize();
+}).observe(document.getElementById('mp'));
+
 window.addEventListener('DOMContentLoaded',boot);
 </script>
 </body>
