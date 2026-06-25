@@ -10,345 +10,665 @@
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; overflow: hidden; }
 
-    html, body {
-      height: 100%;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #f5f6fa;
-      overflow: hidden;
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ── Header ── */
+    #header {
+      background: #1a3a5c; color: #fff;
+      padding: 7px 14px; display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    #header h1 { font-size: 14px; font-weight: 600; }
+    #header .spacer { flex: 1; }
+    #mode-btns { display: flex; gap: 4px; }
+    .mode-btn {
+      font-size: 11px; padding: 3px 8px;
+      border: 1px solid rgba(255,255,255,0.4); border-radius: 3px;
+      background: transparent; color: #fff; cursor: pointer;
+    }
+    .mode-btn.active { background: rgba(255,255,255,0.25); border-color: #fff; }
+    #unique-color-wrap, #choro-wrap {
+      display: none; align-items: center; gap: 5px; font-size: 11px; color: #ccc;
+    }
+    #unique-color-wrap.show, #choro-wrap.show { display: flex; }
+    #unique-color-wrap input, #choro-wrap input[type="color"] {
+      width: 26px; height: 22px; border: none; border-radius: 3px; cursor: pointer; padding: 1px;
     }
 
-    #app {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
+    /* ── Main ── */
+    #main { display: flex; flex: 1; overflow: hidden; }
 
-    /* ── Toolbar ── */
-    #toolbar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 10px;
-      background: #fff;
-      border-bottom: 1px solid #e0e0e0;
-      flex-shrink: 0;
-      flex-wrap: wrap;
-    }
+    /* ── Carte ── */
+    #map-panel { flex: 1; position: relative; min-width: 0; }
+    #map-main { position: absolute; inset: 0; background: #dce8f5; }
+    .leaflet-container { background: #dce8f5 !important; }
 
-    #toolbar label { font-size: 12px; color: #555; white-space: nowrap; }
-
-    #toolbar select, #toolbar input[type="color"] {
-      font-size: 12px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      padding: 3px 6px;
-      background: #fff;
-      cursor: pointer;
-    }
-
-    #toolbar input[type="color"] {
-      width: 32px;
-      height: 26px;
-      padding: 1px 2px;
-    }
-
-    .sep { width: 1px; height: 20px; background: #ddd; margin: 0 4px; flex-shrink: 0; }
-
-    #btn-reset-zoom {
-      font-size: 12px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      padding: 3px 8px;
-      background: #fff;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    #btn-reset-zoom:hover { background: #f0f0f0; }
-
-    #btn-save-zoom {
-      font-size: 12px;
-      border: 1px solid #4a90d9;
-      border-radius: 4px;
-      padding: 3px 8px;
-      background: #e8f0fb;
-      color: #2a6099;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    #btn-save-zoom:hover { background: #d0e3f7; }
-
-    #domtom-toggle {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      color: #555;
-      cursor: pointer;
-      user-select: none;
-    }
-    #domtom-toggle input { cursor: pointer; }
-
-    /* ── Map area ── */
-    #map-wrapper {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
-    }
-
-    #map-main {
-      position: absolute;
-      inset: 0;
-      background: #e8eef5;
-    }
-
-    /* ── DOM-TOM insets ── */
+    /* DOM-TOM */
     #domtom-panel {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4px;
-      z-index: 1000;
-      transition: opacity 0.2s;
+      position: absolute; bottom: 10px; right: 10px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px; z-index: 1000;
     }
-    #domtom-panel.hidden { opacity: 0; pointer-events: none; }
-
+    .mm-wrap { position: relative; }
+    .mm-wrap.full { grid-column: 1 / -1; }
     .mini-map {
-      width: 90px;
-      height: 80px;
-      border: 1.5px solid #aaa;
-      border-radius: 4px;
-      background: #e8eef5;
-      overflow: hidden;
+      width: 86px; height: 72px;
+      border: 1.5px solid #999; border-radius: 4px; background: #dce8f5; overflow: hidden;
     }
-    .mini-map-label {
-      position: absolute;
-      bottom: 2px;
-      left: 0;
-      right: 0;
-      text-align: center;
-      font-size: 9px;
-      color: #444;
-      pointer-events: none;
-      z-index: 10;
-    }
-    .mini-map-wrapper {
-      position: relative;
-      width: 90px;
-      height: 80px;
+    .mm-wrap.full .mini-map { width: 100%; }
+    .mm-label {
+      position: absolute; bottom: 2px; left: 0; right: 0;
+      text-align: center; font-size: 9px; color: #333; pointer-events: none; z-index: 10;
     }
 
-    /* Mayotte spans full width */
-    .mini-map-wrapper.mayotte {
-      grid-column: 1 / -1;
-      width: 100%;
-    }
-    .mini-map-wrapper.mayotte .mini-map {
-      width: 100%;
-    }
-
-    /* ── Legend ── */
+    /* Légende */
     #legend {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(255,255,255,0.92);
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      padding: 8px 10px;
-      font-size: 11px;
-      z-index: 1000;
-      max-width: 180px;
-      max-height: 50vh;
-      overflow-y: auto;
-      display: none;
+      position: absolute; top: 8px; left: 8px;
+      background: rgba(255,255,255,0.93); border: 1px solid #ccc;
+      border-radius: 6px; padding: 7px 10px;
+      font-size: 11px; z-index: 1000; min-width: 130px; max-height: 180px; overflow-y: auto;
     }
-    #legend.visible { display: block; }
-    #legend h4 { font-size: 11px; margin-bottom: 6px; color: #333; }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 4px;
+    #legend h4 { font-size: 11px; color: #333; margin-bottom: 4px; font-weight: 600; }
+    .leg-row { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+    .leg-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.15); }
+
+    /* Tooltip */
+    #tip {
+      position: absolute; bottom: 8px; left: 8px;
+      background: rgba(255,255,255,0.93); border: 1px solid #ccc;
+      border-radius: 5px; padding: 4px 8px; font-size: 11px; z-index: 1000;
+      pointer-events: none; display: none;
     }
-    .legend-swatch {
-      width: 14px;
-      height: 14px;
-      border-radius: 3px;
-      border: 1px solid rgba(0,0,0,0.15);
-      flex-shrink: 0;
+    #tip.show { display: block; }
+
+    /* ── Panneau droit ── */
+    #side {
+      width: 320px; background: #fff; border-left: 1px solid #dde;
+      display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
     }
 
-    /* ── Choropleth gradient legend ── */
-    #choropleth-legend {
-      position: absolute;
-      bottom: 40px;
-      left: 10px;
-      background: rgba(255,255,255,0.92);
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      padding: 8px 10px;
-      font-size: 11px;
-      z-index: 1000;
-      display: none;
+    /* Setup banner */
+    #setup-banner {
+      background: #fff8e1; border-bottom: 1px solid #ffe082;
+      padding: 8px 12px; font-size: 11px; color: #5d4037; display: none;
     }
-    #choropleth-legend.visible { display: block; }
-    #gradient-bar {
-      height: 12px;
-      width: 120px;
-      border-radius: 3px;
-      margin: 4px 0;
-    }
-    .gradient-labels {
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      color: #555;
-    }
+    #setup-banner.show { display: block; }
+    #setup-banner a { color: #1565c0; }
 
-    /* ── Status bar ── */
-    #status {
-      position: absolute;
-      bottom: 4px;
-      left: 10px;
-      font-size: 10px;
-      color: #666;
-      background: rgba(255,255,255,0.8);
-      padding: 2px 6px;
-      border-radius: 3px;
-      z-index: 1000;
-      pointer-events: none;
+    /* Section */
+    .sec { border-bottom: 1px solid #eee; flex-shrink: 0; }
+    .sec-head {
+      display: flex; align-items: center; padding: 7px 11px;
+      background: #f7f8fa; font-size: 12px; font-weight: 600; color: #444;
+      cursor: pointer; user-select: none;
     }
+    .sec-head .arr { margin-left: auto; font-size: 10px; }
+    .sec-body { padding: 8px 11px; }
+    .sec-body.closed { display: none; }
 
-    /* ── Loading overlay ── */
+    /* Catégories */
+    #cat-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 6px; }
+    .cat-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 7px; border: 1px solid #e0e0e0; border-radius: 5px; background: #fafafa;
+    }
+    .cat-row.on { border-color: #4a90d9; background: #f0f6ff; }
+    .cat-chk { width: 14px; height: 14px; accent-color: #1a3a5c; cursor: pointer; flex-shrink: 0; }
+    .cat-name { flex: 1; font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; }
+    .cat-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.2); flex-shrink: 0; }
+    .no-cats { font-size: 11px; color: #aaa; padding: 4px 0; }
+
+    /* Cumul */
+    .cumul-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; color: #666; }
+    .cumul-swatch { width: 20px; height: 20px; border-radius: 3px; border: 1px solid #ccc; cursor: pointer; position: relative; overflow: hidden; flex-shrink: 0; }
+    .cumul-swatch input { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+
+    /* Dept section */
+    #dept-sec { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    #dept-sec .sec-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    #dept-search {
+      width: 100%; font-size: 12px; border: 1px solid #ddd; border-radius: 4px;
+      padding: 4px 8px; margin-bottom: 5px;
+    }
+    #dept-search:focus { outline: none; border-color: #4a90d9; }
+    .filter-btns { display: flex; gap: 3px; margin-bottom: 6px; }
+    .fb {
+      font-size: 10px; padding: 3px 6px;
+      border: 1px solid #ddd; border-radius: 3px; background: #fff; cursor: pointer;
+    }
+    .fb.on { background: #1a3a5c; color: #fff; border-color: #1a3a5c; }
+    #dept-wrap { flex: 1; overflow-y: auto; }
+
+    .dept-row {
+      display: flex; align-items: center; gap: 5px;
+      padding: 3px 2px; border-radius: 3px; font-size: 11px;
+    }
+    .dept-row:hover { background: #f5f5f5; }
+    .dept-row.grayed { opacity: 0.4; }
+    .dept-vis { width: 12px; height: 12px; accent-color: #666; cursor: pointer; flex-shrink: 0; }
+    .dept-code { font-size: 10px; color: #888; width: 26px; flex-shrink: 0; text-align: right; }
+    .dept-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dept-cats { display: flex; gap: 3px; flex-shrink: 0; }
+    .cat-dot {
+      width: 11px; height: 11px; border-radius: 2px; cursor: pointer;
+      border: 1px solid rgba(0,0,0,0.15); flex-shrink: 0; transition: transform 0.1s;
+    }
+    .cat-dot:hover { transform: scale(1.3); }
+
+    /* Loading */
     #loading {
-      position: absolute;
-      inset: 0;
-      background: rgba(255,255,255,0.85);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 2000;
-      font-size: 14px;
-      color: #555;
-      flex-direction: column;
-      gap: 12px;
+      position: absolute; inset: 0; background: rgba(255,255,255,0.9);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 2000; flex-direction: column; gap: 10px; font-size: 13px; color: #555;
     }
-    #loading.hidden { display: none; }
-    .spinner {
-      width: 32px; height: 32px;
-      border: 3px solid #ddd;
-      border-top-color: #4a90d9;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+    #loading.gone { display: none; }
+    .spin {
+      width: 30px; height: 30px; border: 3px solid #ddd;
+      border-top-color: #1a3a5c; border-radius: 50%;
+      animation: sp 0.8s linear infinite;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes sp { to { transform: rotate(360deg); } }
 
-    /* Leaflet overrides */
-    .leaflet-container { background: #e8eef5 !important; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
   </style>
 </head>
 <body>
 <div id="app">
-  <!-- Toolbar -->
-  <div id="toolbar">
-    <label for="mode-select">Mode :</label>
-    <select id="mode-select">
-      <option value="categorie">Par catégorie</option>
-      <option value="unique">Couleur unique</option>
-      <option value="choropleth">Choroplèthe (valeur)</option>
-    </select>
-
-    <div class="sep"></div>
-
-    <label for="unique-color" id="unique-color-label" style="display:none">Couleur :</label>
-    <input type="color" id="unique-color" value="#e74c3c" style="display:none">
-
-    <label for="cumul-color" id="cumul-color-label">Cumul :</label>
-    <input type="color" id="cumul-color" value="#f39c12" title="Couleur des départements dans plusieurs catégories sélectionnées">
-
-    <div class="sep"></div>
-
-    <label for="choro-col" id="choro-col-label" style="display:none">Colonne valeur :</label>
-    <select id="choro-col" style="display:none"></select>
-    <label id="choro-low-label" style="display:none">Bas :</label>
-    <input type="color" id="choro-low" value="#ffffcc" style="display:none">
-    <label id="choro-high-label" style="display:none">Haut :</label>
-    <input type="color" id="choro-high" value="#006837" style="display:none">
-
-    <div class="sep"></div>
-
-    <label for="dept-opacity">Opacité grisé :</label>
-    <input type="range" id="dept-opacity" min="0" max="100" value="30" style="width:60px">
-
-    <div class="sep"></div>
-
-    <button id="btn-save-zoom">💾 Sauver vue</button>
-    <button id="btn-reset-zoom">↩ Vue initiale</button>
-
-    <div class="sep"></div>
-
-    <label class="domtom-toggle" for="domtom-check">
-      <input type="checkbox" id="domtom-check" checked>
-      DOM-TOM
-    </label>
+  <!-- Header -->
+  <div id="header">
+    <h1>🗺 Carte de France</h1>
+    <span class="spacer"></span>
+    <div id="mode-btns">
+      <button class="mode-btn active" onclick="setMode('categorie',this)">Catégorie</button>
+      <button class="mode-btn" onclick="setMode('unique',this)">Unique</button>
+      <button class="mode-btn" onclick="setMode('choropleth',this)">Choroplèthe</button>
+    </div>
+    <div id="unique-color-wrap">
+      Couleur : <input type="color" id="uc" value="#e74c3c" oninput="APP.uniqueColor=this.value;refresh()">
+    </div>
+    <div id="choro-wrap">
+      Bas: <input type="color" id="cl" value="#ffffb2" oninput="APP.choroLow=this.value;refresh()">
+      Haut: <input type="color" id="ch" value="#d7191c" oninput="APP.choroHigh=this.value;refresh()">
+    </div>
   </div>
 
-  <!-- Map -->
-  <div id="map-wrapper">
-    <div id="map-main"></div>
-
-    <!-- DOM-TOM insets -->
-    <div id="domtom-panel">
-      <div class="mini-map-wrapper">
-        <div class="mini-map" id="map-971"></div>
-        <span class="mini-map-label">Guadeloupe 971</span>
+  <div id="main">
+    <!-- Carte -->
+    <div id="map-panel">
+      <div id="map-main"></div>
+      <div id="domtom-panel">
+        <div class="mm-wrap"><div class="mini-map" id="m971"></div><span class="mm-label">Guadeloupe</span></div>
+        <div class="mm-wrap"><div class="mini-map" id="m972"></div><span class="mm-label">Martinique</span></div>
+        <div class="mm-wrap"><div class="mini-map" id="m973"></div><span class="mm-label">Guyane</span></div>
+        <div class="mm-wrap"><div class="mini-map" id="m974"></div><span class="mm-label">Réunion</span></div>
+        <div class="mm-wrap full"><div class="mini-map" id="m976" style="width:100%"></div><span class="mm-label">Mayotte</span></div>
       </div>
-      <div class="mini-map-wrapper">
-        <div class="mini-map" id="map-972"></div>
-        <span class="mini-map-label">Martinique 972</span>
-      </div>
-      <div class="mini-map-wrapper">
-        <div class="mini-map" id="map-973"></div>
-        <span class="mini-map-label">Guyane 973</span>
-      </div>
-      <div class="mini-map-wrapper">
-        <div class="mini-map" id="map-974"></div>
-        <span class="mini-map-label">Réunion 974</span>
-      </div>
-      <div class="mini-map-wrapper mayotte">
-        <div class="mini-map" id="map-976" style="width:100%"></div>
-        <span class="mini-map-label">Mayotte 976</span>
-      </div>
+      <div id="legend"><h4>Légende</h4><div id="leg-items"></div></div>
+      <div id="tip"></div>
+      <div id="loading"><div class="spin"></div><span id="loading-msg">Chargement…</span></div>
     </div>
 
-    <!-- Legend (category mode) -->
-    <div id="legend">
-      <h4>Légende</h4>
-      <div id="legend-items"></div>
-    </div>
-
-    <!-- Choropleth legend -->
-    <div id="choropleth-legend">
-      <h4 id="choro-legend-title">Valeur</h4>
-      <div id="gradient-bar"></div>
-      <div class="gradient-labels">
-        <span id="choro-min-label">min</span>
-        <span id="choro-max-label">max</span>
+    <!-- Panneau droit -->
+    <div id="side">
+      <div id="setup-banner">
+        ⚙️ Tables introuvables. <a href="#" onclick="showSetup()">Voir le guide de configuration</a>
       </div>
-    </div>
 
-    <div id="status">Chargement…</div>
+      <!-- Catégories -->
+      <div class="sec">
+        <div class="sec-head" onclick="toggle(this)">
+          🏷 Catégories <span id="cat-badge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span>
+          <span class="arr">▾</span>
+        </div>
+        <div class="sec-body" id="cat-body">
+          <div id="cat-list"><div class="no-cats">Aucune catégorie dans Grist.<br>Ajoutez des lignes dans la table <b>Categories</b>.</div></div>
+          <div class="cumul-row">
+            <div class="cumul-swatch" id="cumul-sw" title="Couleur cumul">
+              <input type="color" id="cumul-c" value="#f39c12" oninput="APP.cumulColor=this.value;updateCumul();refresh()">
+            </div>
+            <span>Couleur quand plusieurs catégories actives</span>
+          </div>
+        </div>
+      </div>
 
-    <div id="loading">
-      <div class="spinner"></div>
-      <span>Chargement de la carte…</span>
+      <!-- Départements -->
+      <div class="sec" id="dept-sec">
+        <div class="sec-head" onclick="toggle(this)">
+          📍 Départements <span id="dept-badge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span>
+          <span class="arr">▾</span>
+        </div>
+        <div class="sec-body">
+          <input type="text" id="dept-search" placeholder="Rechercher (nom ou code)…" oninput="renderDepts()">
+          <div class="filter-btns">
+            <button class="fb on" onclick="setF('all',this)">Tous</button>
+            <button class="fb" onclick="setF('sel',this)">Sélectionnés</button>
+            <button class="fb" onclick="setF('vis',this)">Visibles</button>
+            <button class="fb" onclick="setF('hid',this)">Grisés</button>
+          </div>
+          <div id="dept-wrap"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<script src="widget.js"></script>
+<script>
+'use strict';
+
+// ── Couleurs nommées ───────────────────────────────────────
+const NAMED = {
+  bleu:'#2980b9',rouge:'#e74c3c',vert:'#27ae60',jaune:'#f1c40f',
+  orange:'#e67e22',violet:'#8e44ad',rose:'#e91e8c',marron:'#795548',
+  gris:'#7f8c8d',noir:'#2c3e50',blanc:'#ecf0f1',cyan:'#00bcd4',
+  turquoise:'#1abc9c',emeraude:'#2ecc71',brique:'#c0392b',indigo:'#3498db',
+};
+function color(raw) {
+  if (!raw) return null;
+  const k = String(raw).trim().toLowerCase();
+  return NAMED[k] || (/^#[0-9a-f]{3,8}$/i.test(raw) ? raw : null);
+}
+
+// ── DOM-TOM ────────────────────────────────────────────────
+const DT = {
+  '971':{el:'m971',center:[16.25,-61.55],zoom:9},
+  '972':{el:'m972',center:[14.65,-61.00],zoom:10},
+  '973':{el:'m973',center:[3.9,-53.0],zoom:7},
+  '974':{el:'m974',center:[-21.1,55.55],zoom:10},
+  '976':{el:'m976',center:[-12.83,45.15],zoom:11},
+};
+
+// ── État ───────────────────────────────────────────────────
+const APP = {
+  mode: 'categorie',
+  uniqueColor: '#e74c3c',
+  cumulColor: '#f39c12',
+  choroLow: '#ffffb2',
+  choroHigh: '#d7191c',
+  deptFilter: 'all',
+  // données Grist
+  cats: [],        // [{_id, nom, couleur, active}]
+  depts: {},       // {code → {_id, code, nom, visible, valeur, catIds:[]}}
+  dcRows: {},      // {_id → {dept_id, cat_id}} – lignes Dept_Categories
+  // rowId lookup
+  deptRowId: {},   // {code → rowId dans table Departements}
+};
+
+// ── Maps ───────────────────────────────────────────────────
+let mainMap, geoLayer;
+const mMaps = {}, mLayers = {};
+
+function initMaps() {
+  mainMap = L.map('map-main',{zoomControl:true,attributionControl:false})
+    .setView([46.5,2.5],6);
+  for (const [c,cfg] of Object.entries(DT)) {
+    mMaps[c] = L.map(cfg.el,{
+      zoomControl:false,dragging:false,scrollWheelZoom:false,
+      doubleClickZoom:false,touchZoom:false,attributionControl:false,
+    }).setView(cfg.center,cfg.zoom);
+  }
+}
+
+// ── GeoJSON (multi-sources robuste) ───────────────────────
+async function fetchJson(url) {
+  const r = await fetch(url); if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json();
+}
+async function loadGeoJSON() {
+  const GOV = 'https://geo.api.gouv.fr/departements?fields=nom,code&format=geojson&geometry=contour';
+  const METRO = 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements-version-simplifiee.geojson';
+  const DT_URLS = {
+    '971':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/971-guadeloupe/departement-version-simplifiee.geojson',
+    '972':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/972-martinique/departement-version-simplifiee.geojson',
+    '973':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/973-guyane/departement-version-simplifiee.geojson',
+    '974':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/974-la-reunion/departement-version-simplifiee.geojson',
+    '976':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/976-mayotte/departement-version-simplifiee.geojson',
+  };
+  try {
+    const g = await fetchJson(GOV);
+    if (g && Array.isArray(g.features) && g.features.length > 50) return g;
+  } catch(_) {}
+  // fallback
+  const metro = await fetchJson(METRO);
+  const features = [...(metro.features||[])];
+  for (const [code,url] of Object.entries(DT_URLS)) {
+    try {
+      const dt = await fetchJson(url);
+      const ff = dt.features || (dt.type==='Feature'?[dt]:[]);
+      for (const f of ff) {
+        if (!f.properties) f.properties={};
+        if (!f.properties.code) f.properties.code = code;
+        if (!f.properties.nom)  f.properties.nom = APP.depts[code]?.nom || code;
+        features.push(f);
+      }
+    } catch(_) {}
+  }
+  return {type:'FeatureCollection',features};
+}
+
+// ── Style ──────────────────────────────────────────────────
+function deptColor(code) {
+  const d = APP.depts[code]; if(!d) return null;
+  if (APP.mode === 'unique') return d.visible ? APP.uniqueColor : null;
+  if (APP.mode === 'choropleth') {
+    const vals = Object.values(APP.depts).map(x=>x.valeur).filter(v=>typeof v==='number'&&!isNaN(v));
+    if (!vals.length) return null;
+    const mn=Math.min(...vals), mx=Math.max(...vals);
+    if (mn===mx) return APP.choroHigh;
+    return chroma.scale([APP.choroLow,APP.choroHigh]).mode('lab')((d.valeur-mn)/(mx-mn)).hex();
+  }
+  const active = APP.cats.filter(c=>c.active);
+  const matched = active.filter(c=>d.catIds.includes(c._id));
+  if (!matched.length) return null;
+  if (matched.length===1) return color(matched[0].couleur) || NAMED.bleu;
+  return APP.cumulColor;
+}
+
+function getStyle(f) {
+  const code = String(f.properties?.code||'');
+  const d = APP.depts[code];
+  const vis = d?d.visible:true;
+  const c = deptColor(code);
+  return {
+    color:'#555',weight:0.7,
+    fillColor: c||'#c8d6e5',
+    fillOpacity: c?(vis?0.78:0.3):(vis?0.28:0.1),
+    opacity:1,
+  };
+}
+
+function renderMap(geojson) {
+  if (geoLayer){mainMap.removeLayer(geoLayer);geoLayer=null;}
+  for (const c of Object.keys(DT)) {if(mLayers[c]){mMaps[c].removeLayer(mLayers[c]);delete mLayers[c];}}
+
+  const dtCodes = Object.keys(DT);
+  const feats = (geojson?.features||[]);
+  const metro = {type:'FeatureCollection',features:feats.filter(f=>!dtCodes.includes(String(f.properties?.code||'')))};
+  const dtF = {};
+  for (const f of feats) {const c=String(f.properties?.code||''); if(dtCodes.includes(c)) dtF[c]=f;}
+
+  function onEach(feat,layer) {
+    const code=String(feat.properties?.code||''), nom=feat.properties?.nom||code;
+    layer.on({
+      mouseover(e){
+        e.target.setStyle({weight:2,color:'#111'}); e.target.bringToFront();
+        const d=APP.depts[code];
+        const cats=d?APP.cats.filter(c=>d.catIds.includes(c._id)&&c.active).map(c=>c.nom).join(', '):'';
+        const tip=document.getElementById('tip');
+        tip.innerHTML=`<b>${nom}</b> (${code})`+(cats?`<br><span style="font-size:10px;color:#666">${cats}</span>`:'');
+        tip.classList.add('show');
+      },
+      mouseout(e){if(geoLayer)geoLayer.resetStyle(e.target);document.getElementById('tip').classList.remove('show');},
+      click(){mainMap.fitBounds(layer.getBounds(),{padding:[30,30]});},
+    });
+    layer.bindTooltip(`<b>${nom}</b> (${code})`,{sticky:true,opacity:0.85});
+  }
+
+  geoLayer = L.geoJSON(metro,{style:f=>getStyle(f),onEachFeature:onEach}).addTo(mainMap);
+  for (const [code,feat] of Object.entries(dtF)) {
+    if(!mMaps[code]) continue;
+    const layer=L.geoJSON({type:'FeatureCollection',features:[feat]},{
+      style:f=>getStyle(f),
+      onEachFeature:(_,l)=>l.bindTooltip(feat.properties?.nom||code,{sticky:true}),
+    }).addTo(mMaps[code]);
+    mLayers[code]=layer;
+  }
+  renderLegend();
+}
+
+function refresh() {
+  if(!geoLayer) return;
+  geoLayer.eachLayer(l=>l.setStyle(getStyle(l.feature)));
+  for (const layer of Object.values(mLayers)) layer.eachLayer(l=>l.setStyle(getStyle(l.feature)));
+  renderLegend();
+}
+
+// ── Légende ────────────────────────────────────────────────
+function renderLegend() {
+  const el=document.getElementById('leg-items'); el.innerHTML='';
+  if (APP.mode==='unique') {
+    el.innerHTML=`<div class="leg-row"><div class="leg-dot" style="background:${APP.uniqueColor}"></div>Tous visibles</div>`; return;
+  }
+  if (APP.mode==='choropleth') {
+    el.innerHTML=`<div style="height:10px;width:110px;border-radius:3px;background:linear-gradient(to right,${APP.choroLow},${APP.choroHigh});margin-bottom:3px"></div><div style="display:flex;justify-content:space-between;font-size:9px;color:#888"><span>min</span><span>max</span></div>`; return;
+  }
+  const active=APP.cats.filter(c=>c.active);
+  if (!active.length){el.innerHTML='<span style="color:#aaa;font-size:10px">Aucune catégorie active</span>';return;}
+  for (const c of active) {
+    const col=color(c.couleur)||NAMED.bleu;
+    el.innerHTML+=`<div class="leg-row"><div class="leg-dot" style="background:${col}"></div>${c.nom}</div>`;
+  }
+  if (active.length>1) el.innerHTML+=`<div class="leg-row"><div class="leg-dot" style="background:${APP.cumulColor};border-style:dashed"></div><i>Cumul</i></div>`;
+}
+
+// ── Rendu panneau catégories ───────────────────────────────
+function renderCats() {
+  const el=document.getElementById('cat-list');
+  document.getElementById('cat-badge').textContent=APP.cats.length?`(${APP.cats.length})`:'';
+  if (!APP.cats.length) {
+    el.innerHTML='<div class="no-cats">Ajoutez des lignes dans la table <b>Categories</b> de Grist.</div>'; return;
+  }
+  el.innerHTML='';
+  for (const cat of APP.cats) {
+    const col=color(cat.couleur)||NAMED.bleu;
+    const row=document.createElement('div');
+    row.className='cat-row'+(cat.active?' on':'');
+    row.innerHTML=`
+      <input type="checkbox" class="cat-chk" ${cat.active?'checked':''} onchange="toggleCat(${cat._id},this.checked)">
+      <span class="cat-name" title="${cat.nom}">${cat.nom}</span>
+      <div class="cat-swatch" style="background:${col}" title="${cat.couleur||''}"></div>
+    `;
+    el.appendChild(row);
+  }
+}
+
+// ── Rendu liste départements ───────────────────────────────
+let deptFilter='all';
+function setF(f,btn) {
+  deptFilter=f;
+  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on'); renderDepts();
+}
+
+function deptSortKey(c){
+  if(c==='2A') return 20.1; if(c==='2B') return 20.2; return parseInt(c,10)||999;
+}
+
+function renderDepts() {
+  const wrap=document.getElementById('dept-wrap');
+  const search=document.getElementById('dept-search').value.toLowerCase();
+  let list=Object.values(APP.depts).sort((a,b)=>deptSortKey(a.code)-deptSortKey(b.code));
+  if (search) list=list.filter(d=>d.nom.toLowerCase().includes(search)||d.code.toLowerCase().includes(search));
+  if (deptFilter==='sel') list=list.filter(d=>d.catIds.length>0);
+  if (deptFilter==='vis') list=list.filter(d=>d.visible);
+  if (deptFilter==='hid') list=list.filter(d=>!d.visible);
+  document.getElementById('dept-badge').textContent=`(${list.length}/${Object.keys(APP.depts).length})`;
+
+  const activeCats=APP.cats.filter(c=>c.active);
+  wrap.innerHTML='';
+  for (const d of list) {
+    const row=document.createElement('div');
+    row.className='dept-row'+(d.visible?'':' grayed');
+
+    const dots=activeCats.map(cat=>{
+      const on=d.catIds.includes(cat._id);
+      const col=color(cat.couleur)||NAMED.bleu;
+      return `<div class="cat-dot" title="${cat.nom}" style="background:${on?col:'#eee'};border-color:${on?col:'#ccc'}"
+        onclick="toggleDeptCat('${d.code}',${cat._id})"></div>`;
+    }).join('');
+
+    row.innerHTML=`
+      <input type="checkbox" class="dept-vis" ${d.visible?'checked':''} title="Visible / grisé"
+        onchange="toggleVis('${d.code}',this.checked)">
+      <span class="dept-code">${d.code}</span>
+      <span class="dept-name">${d.nom}</span>
+      <div class="dept-cats">${dots||'<span style="font-size:10px;color:#ccc">—</span>'}</div>
+    `;
+    wrap.appendChild(row);
+  }
+}
+
+// ── Interactions → écriture Grist ─────────────────────────
+async function toggleCat(catId, val) {
+  try {
+    await grist.docApi.applyUserActions([['UpdateRecord','Categories',catId,{active:val}]]);
+  } catch(e) { console.warn('toggleCat:', e); }
+}
+
+async function toggleVis(code, val) {
+  const rowId=APP.deptRowId[code]; if(!rowId) return;
+  try {
+    await grist.docApi.applyUserActions([['UpdateRecord','Departements',rowId,{visible:val}]]);
+  } catch(e) { console.warn('toggleVis:', e); }
+}
+
+async function toggleDeptCat(code, catId) {
+  const deptRowId=APP.deptRowId[code]; if(!deptRowId) return;
+  // Chercher si la ligne existe déjà dans Dept_Categories
+  const existing=Object.entries(APP.dcRows).find(([,v])=>v.dept_id===deptRowId&&v.cat_id===catId);
+  try {
+    if (existing) {
+      await grist.docApi.applyUserActions([['RemoveRecord','Dept_Categories',parseInt(existing[0])]]);
+    } else {
+      await grist.docApi.applyUserActions([['AddRecord','Dept_Categories',null,{dept:deptRowId,categorie:catId}]]);
+    }
+  } catch(e) { console.warn('toggleDeptCat:', e); }
+}
+
+// ── Mode ───────────────────────────────────────────────────
+function setMode(m, btn) {
+  APP.mode=m;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('unique-color-wrap').classList.toggle('show',m==='unique');
+  document.getElementById('choro-wrap').classList.toggle('show',m==='choropleth');
+  renderDepts(); refresh();
+}
+
+function updateCumul() { document.getElementById('cumul-sw').style.background=APP.cumulColor; }
+
+function toggle(h) {
+  const b=h.nextElementSibling, a=h.querySelector('.arr');
+  b.classList.toggle('closed'); a.textContent=b.classList.contains('closed')?'▸':'▾';
+}
+
+// ── Sync données Grist ─────────────────────────────────────
+function applyData(dTable, cTable, dcTable) {
+  // Departements
+  APP.depts={}; APP.deptRowId={};
+  if (dTable) {
+    const ids=dTable.id||[], n=ids.length;
+    for (let i=0;i<n;i++) {
+      const code=String(dTable.code_dept?.[i]||'').trim();
+      if (!code) continue;
+      APP.depts[code]={
+        _id:ids[i], code,
+        nom: dTable.nom_dept?.[i]||code,
+        visible: dTable.visible?.[i]!==false,
+        valeur: dTable.valeur?.[i]??null,
+        catIds:[],
+      };
+      APP.deptRowId[code]=ids[i];
+    }
+  }
+
+  // Categories
+  APP.cats=[];
+  if (cTable) {
+    const ids=cTable.id||[], n=ids.length;
+    for (let i=0;i<n;i++) {
+      APP.cats.push({
+        _id:ids[i],
+        nom: cTable.nom?.[i]||`Cat ${ids[i]}`,
+        couleur: cTable.couleur?.[i]||'bleu',
+        active: cTable.active?.[i]===true,
+      });
+    }
+  }
+
+  // Dept_Categories
+  APP.dcRows={};
+  if (dcTable) {
+    const ids=dcTable.id||[], n=ids.length;
+    for (let i=0;i<n;i++) {
+      const rowId=ids[i], deptId=dcTable.dept?.[i], catId=dcTable.categorie?.[i];
+      if (!deptId||!catId) continue;
+      APP.dcRows[rowId]={dept_id:deptId, cat_id:catId};
+      // Lier au code dept
+      const codeEntry=Object.values(APP.depts).find(d=>d._id===deptId);
+      if (codeEntry && !codeEntry.catIds.includes(catId)) codeEntry.catIds.push(catId);
+    }
+  }
+
+  renderCats();
+  renderDepts();
+  refresh();
+}
+
+// ── Init Grist ─────────────────────────────────────────────
+let geojsonCache=null;
+let fetchPending=false;
+
+async function fetchAllTables() {
+  if (fetchPending) return; fetchPending=true;
+  try {
+    const [d,c,dc]=await Promise.all([
+      grist.docApi.fetchTable('Departements').catch(()=>null),
+      grist.docApi.fetchTable('Categories').catch(()=>null),
+      grist.docApi.fetchTable('Dept_Categories').catch(()=>null),
+    ]);
+    // Vérifier si les tables existent
+    const missingTables=[];
+    if (!d) missingTables.push('Departements');
+    if (!c) missingTables.push('Categories');
+    if (!dc) missingTables.push('Dept_Categories');
+    document.getElementById('setup-banner').classList.toggle('show', missingTables.length>0);
+    applyData(d,c,dc);
+  } catch(e) {
+    console.error('fetchAllTables:', e);
+  } finally { fetchPending=false; }
+}
+
+async function boot() {
+  initMaps();
+  updateCumul();
+  grist.ready({ requiredAccess: 'full' });
+
+  // Charger la carte géographique
+  setLoading('Chargement de la carte…');
+  try {
+    geojsonCache=await loadGeoJSON();
+    renderMap(geojsonCache);
+  } catch(e) {
+    setLoading(`Erreur carte: ${e.message}`); return;
+  }
+  hideLoading();
+
+  // Données Grist
+  await fetchAllTables();
+
+  // Réagir aux changements Grist (toutes tables via onRecords)
+  grist.onRecords(async ()=>{ await fetchAllTables(); });
+  grist.onRecord(async ()=>{ await fetchAllTables(); });
+
+  setTimeout(()=>{
+    mainMap.invalidateSize();
+    for (const m of Object.values(mMaps)) m.invalidateSize();
+  },200);
+}
+
+function setLoading(msg) {
+  document.getElementById('loading').classList.remove('gone');
+  document.getElementById('loading-msg').textContent=msg;
+}
+function hideLoading() { document.getElementById('loading').classList.add('gone'); }
+
+// ── Resize ─────────────────────────────────────────────────
+new ResizeObserver(()=>{
+  if(mainMap) mainMap.invalidateSize();
+  for (const m of Object.values(mMaps)) m.invalidateSize();
+}).observe(document.getElementById('map-panel'));
+
+window.addEventListener('DOMContentLoaded', boot);
+</script>
 </body>
 </html>
