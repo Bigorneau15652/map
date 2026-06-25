@@ -73,11 +73,12 @@
 
     /* Catégories */
     #cl{display:flex;flex-direction:column;gap:5px;margin-bottom:6px}
-    .cr{display:flex;align-items:center;gap:6px;padding:5px 7px;border:1px solid #e0e0e0;border-radius:5px;background:#fafafa}
+    .cr{display:flex;align-items:center;gap:7px;padding:5px 8px;border:1px solid #e0e0e0;border-radius:5px;background:#fafafa;cursor:pointer}
     .cr.on{border-color:#4a90d9;background:#f0f6ff}
-    .cchk{width:14px;height:14px;accent-color:#1a3a5c;cursor:pointer;flex-shrink:0}
-    .cn{flex:1;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333}
-    .csw{width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,0.2);flex-shrink:0}
+    .cr:hover{background:#f0f0f0}
+    .cchk{width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:#1a3a5c}
+    .cn{flex:1;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333;font-weight:500}
+    .csw{width:16px;height:16px;border-radius:4px;border:1.5px solid rgba(0,0,0,0.25);flex-shrink:0}
     .nc{font-size:11px;color:#888;padding:4px 0}
     .cumr{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:#555}
     .cumv{width:20px;height:20px;border-radius:3px;border:1px solid #ccc;cursor:pointer;position:relative;overflow:hidden;flex-shrink:0}
@@ -85,7 +86,7 @@
 
     /* Depts */
     #ds{flex:1;overflow:hidden;display:flex;flex-direction:column}
-    #ds .sb{flex:1;overflow:hidden;display:flex;flex-direction:column}
+    #ds .sb:not(.closed){flex:1;overflow:hidden;display:flex;flex-direction:column}
     #dsearch{width:100%;font-size:12px;border:1px solid #ddd;border-radius:4px;padding:4px 8px;margin-bottom:5px;color:#222;background:#fff}
     #dsearch:focus{outline:none;border-color:#4a90d9}
     .fbs{display:flex;gap:3px;margin-bottom:6px}
@@ -329,7 +330,14 @@
 
 // ── Couleurs nommées ───────────────────────────────────────
 const NAMED={bleu:'#2980b9',rouge:'#e74c3c',vert:'#27ae60',jaune:'#f1c40f',orange:'#e67e22',violet:'#8e44ad',rose:'#e91e8c',marron:'#795548',gris:'#7f8c8d',noir:'#2c3e50',blanc:'#ecf0f1',cyan:'#00bcd4',turquoise:'#1abc9c',emeraude:'#2ecc71',brique:'#c0392b'};
-function col(raw){if(!raw)return null;const k=String(raw).trim().toLowerCase();return NAMED[k]||(/^#[0-9a-f]{3,8}$/i.test(raw)?raw:null)}
+// Aliases avec accents supprimés (Grist peut stocker "Orage" au lieu de "orange", etc.)
+const COL_ALIASES={orage:'orange',beige:'#f5e6c8',indigo:'violet',corail:'#ff6b6b',ocre:'#c8a44a',bordeaux:'#722f37',kaki:'#6b6b2c',saumon:'#ff8c69',lilas:'#c8a2c8',ecru:'#f0ead6'};
+function col(raw){
+  if(!raw)return null;
+  // Supprimer accents et mettre en minuscules
+  const k=String(raw).trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return NAMED[COL_ALIASES[k]||k]||NAMED[k]||(/^#[0-9a-f]{3,8}$/i.test(raw)?raw:null);
+}
 
 // ── Codes IDF et DOM-TOM ──────────────────────────────────
 const IDF_CODES=new Set(['75','77','78','91','92','93','94','95']);
@@ -585,13 +593,20 @@ function renderLegend(){
 function renderCats(){
   const el=document.getElementById('cl');
   document.getElementById('cbadge').textContent=APP.cats.length?`(${APP.cats.length})`:'';
-  if(!APP.cats.length){el.innerHTML='<div class="nc">Aucune catégorie. Ajoutez des lignes dans la table Catégories de Grist.</div>';return}
+  if(!APP.cats.length){el.innerHTML='<div class="nc">Aucune catégorie chargée depuis Grist.</div>';return}
   el.innerHTML='';
   for(const cat of APP.cats){
-    const co=col(cat.couleur)||NAMED.bleu;
+    const co=col(cat.couleur);
+    const coDisplay=co||'#bbb';
+    const coTitle=co?cat.couleur:`"${cat.couleur}" non reconnu — utilisez: rouge, bleu, vert, orange, violet, jaune, rose, marron, cyan, noir ou un code #HEX`;
     const row=document.createElement('div');
     row.className='cr'+(cat.active?' on':'');
-    row.innerHTML=`<input type="checkbox" class="cchk" ${cat.active?'checked':''} onchange="toggleCat(${cat._id},this.checked)"><span class="cn" title="${cat.nom}">${cat.nom}</span><div class="csw" style="background:${co}" title="${cat.couleur||''}"></div>`;
+    row.innerHTML=`
+      <input type="checkbox" class="cchk" ${cat.active?'checked':''} onchange="toggleCat(${cat._id},this.checked)">
+      <div class="csw" style="background:${coDisplay}" title="${coTitle}"></div>
+      <span class="cn" title="${cat.nom}">${cat.nom}</span>
+      ${!co?`<span style="font-size:9px;color:#e74c3c" title="${coTitle}">⚠️</span>`:''}
+    `;
     el.appendChild(row);
   }
 }
@@ -625,14 +640,20 @@ function renderDepts(){
 }
 
 // ── Interactions → Grist ──────────────────────────────────
+// Après chaque action Grist, on force un rechargement car onRecords
+// ne se déclenche que si le widget est lié à une table.
 async function toggleCat(catId,val){
-  try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.cats,catId,{active:val}]]);}
-  catch(e){console.warn('toggleCat:',e.message);}
+  try{
+    await grist.docApi.applyUserActions([['UpdateRecord',CFG.cats,catId,{active:val}]]);
+  }catch(e){console.warn('toggleCat:',e.message);}
+  await fetchAllTables();
 }
 async function toggleVis(code,val){
   const rowId=APP.deptRowId[code];if(!rowId)return;
-  try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.depts,rowId,{visible:val}]]);}
-  catch(e){console.warn('toggleVis:',e.message);}
+  try{
+    await grist.docApi.applyUserActions([['UpdateRecord',CFG.depts,rowId,{visible:val}]]);
+  }catch(e){console.warn('toggleVis:',e.message);}
+  await fetchAllTables();
 }
 async function toggleDeptCat(code,catId){
   const deptRowId=APP.deptRowId[code];if(!deptRowId)return;
@@ -645,6 +666,7 @@ async function toggleDeptCat(code,catId){
       await grist.docApi.applyUserActions([['AddRecord',CFG.dc,null,rec]]);
     }
   }catch(e){console.warn('toggleDeptCat:',e.message);}
+  await fetchAllTables();
 }
 
 // ── Mode ──────────────────────────────────────────────────
@@ -691,7 +713,8 @@ async function fetchAllTables(){
   if(cTable){
     const colNom=findCol(cTable,'nom','name','Nom','Name','label');
     const colCol=findCol(cTable,'couleur','color','Color','Couleur');
-    const colAct=findCol(cTable,'active','Active','selectionnee','visible');
+    // Grist strip accents: "Sélection"→"S_lection", "sélection"→"s_lection", etc.
+    const colAct=findCol(cTable,'active','Active','selectionnee','S_lection','s_lection','selection','Selection','selected','actif','Actif','visible','Visible','checked');
     const ids=cTable.id||[];
     for(let i=0;i<ids.length;i++){
       const rawAct=colAct?cTable[colAct][i]:false;
@@ -739,12 +762,14 @@ async function boot(){
 
   let optionsLoaded=false;
   grist.onOptions(async(opts)=>{
-    if(opts)loadConfig(opts);
-    if(!optionsLoaded){optionsLoaded=true;await fetchAllTables();}
-    else await fetchAllTables();
+    // Ne recharger la config que si on reçoit des données valides
+    // (évite d'écraser la config en cas de callback vide)
+    if(opts&&Object.keys(opts).length>0)loadConfig(opts);
+    optionsLoaded=true;
+    await fetchAllTables();
   });
-  // Fallback si pas d'options sauvegardées
-  setTimeout(async()=>{if(!optionsLoaded){optionsLoaded=true;await fetchAllTables();}},1500);
+  // Fallback si pas d'options sauvegardées (widget neuf sans config)
+  setTimeout(async()=>{if(!optionsLoaded){optionsLoaded=true;await fetchAllTables();}},2000);
 
   grist.onRecords(async()=>fetchAllTables());
   grist.onRecord(async()=>fetchAllTables());
