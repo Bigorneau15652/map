@@ -509,29 +509,41 @@ function renderDepts() {
 
 // ── Interactions → écriture Grist ─────────────────────────
 async function toggleCat(catId, val) {
+  if (!FOUND.cats) return;
   try {
-    await grist.docApi.applyUserActions([['UpdateRecord','Categories',catId,{active:val}]]);
+    await grist.docApi.applyUserActions([['UpdateRecord', FOUND.cats, catId, {active: val}]]);
   } catch(e) { console.warn('toggleCat:', e); }
 }
 
 async function toggleVis(code, val) {
+  if (!FOUND.depts) return;
   const rowId=APP.deptRowId[code]; if(!rowId) return;
   try {
-    await grist.docApi.applyUserActions([['UpdateRecord','Departements',rowId,{visible:val}]]);
+    await grist.docApi.applyUserActions([['UpdateRecord', FOUND.depts, rowId, {visible: val}]]);
   } catch(e) { console.warn('toggleVis:', e); }
 }
 
 async function toggleDeptCat(code, catId) {
+  if (!FOUND.dc) return;
   const deptRowId=APP.deptRowId[code]; if(!deptRowId) return;
-  // Chercher si la ligne existe déjà dans Dept_Categories
   const existing=Object.entries(APP.dcRows).find(([,v])=>v.dept_id===deptRowId&&v.cat_id===catId);
   try {
     if (existing) {
-      await grist.docApi.applyUserActions([['RemoveRecord','Dept_Categories',parseInt(existing[0])]]);
+      await grist.docApi.applyUserActions([['RemoveRecord', FOUND.dc, parseInt(existing[0])]]);
     } else {
-      await grist.docApi.applyUserActions([['AddRecord','Dept_Categories',null,{dept:deptRowId,categorie:catId}]]);
+      // Utilise les noms de colonnes réels détectés
+      const d = APP.depts[code];
+      const dcKey = Object.keys(APP.dcRows).length>0
+        ? (() => { const [,v]=Object.entries(APP.dcRows)[0]; return Object.keys(v); })()
+        : ['dept_id','cat_id'];
+      await grist.docApi.applyUserActions([['AddRecord', FOUND.dc, null, {dept: deptRowId, categorie: catId}]]);
     }
-  } catch(e) { console.warn('toggleDeptCat:', e); }
+  } catch(e) {
+    // 2e tentative avec noms alternatifs de colonnes
+    try {
+      await grist.docApi.applyUserActions([['AddRecord', FOUND.dc, null, {Departement: deptRowId, Categories: catId}]]);
+    } catch(e2) { console.warn('toggleDeptCat:', e2); }
+  }
 }
 
 // ── Mode ───────────────────────────────────────────────────
@@ -551,53 +563,98 @@ function toggle(h) {
   b.classList.toggle('closed'); a.textContent=b.classList.contains('closed')?'▸':'▾';
 }
 
+// ── Noms de tables réellement trouvés (pour écriture) ─────
+const FOUND = { depts: null, cats: null, dc: null };
+
+// ── Détection flexible : essaie plusieurs variantes de nom ─
+async function tryFetch(...names) {
+  for (const name of names) {
+    try {
+      const t = await grist.docApi.fetchTable(name);
+      if (t && t.id !== undefined) return { table: t, name };
+    } catch(_) {}
+  }
+  return { table: null, name: null };
+}
+
+// Trouve la première colonne existante parmi les candidats
+function findCol(t, ...candidates) {
+  for (const c of candidates) if (t[c] !== undefined) return c;
+  return null;
+}
+
 // ── Sync données Grist ─────────────────────────────────────
-function applyData(dTable, cTable, dcTable) {
-  // Departements
+function applyData(dRes, cRes, dcRes) {
+  const dTable=dRes?.table, cTable=cRes?.table, dcTable=dcRes?.table;
+  FOUND.depts = dRes?.name; FOUND.cats = cRes?.name; FOUND.dc = dcRes?.name;
+
+  // Departements — détection automatique des colonnes
   APP.depts={}; APP.deptRowId={};
   if (dTable) {
+    const colCode = findCol(dTable,'code_dept','code','Code','num_dep','numero');
+    const colNom  = findCol(dTable,'nom_dept','nom','name','Nom','Name','label');
+    const colVis  = findCol(dTable,'visible','Visible','actif','Actif','show');
+    const colVal  = findCol(dTable,'valeur','Valeur','value','Value');
     const ids=dTable.id||[], n=ids.length;
     for (let i=0;i<n;i++) {
-      const code=String(dTable.code_dept?.[i]||'').trim();
+      const code=colCode?String(dTable[colCode][i]||'').trim():'';
       if (!code) continue;
       APP.depts[code]={
         _id:ids[i], code,
-        nom: dTable.nom_dept?.[i]||code,
-        visible: dTable.visible?.[i]!==false,
-        valeur: dTable.valeur?.[i]??null,
+        nom: colNom?dTable[colNom][i]||code:code,
+        visible: colVis?dTable[colVis][i]!==false:true,
+        valeur: colVal?dTable[colVal][i]??null:null,
         catIds:[],
       };
       APP.deptRowId[code]=ids[i];
     }
   }
 
-  // Categories
+  // Categories — détection automatique des colonnes
   APP.cats=[];
   if (cTable) {
+    const colNom    = findCol(cTable,'nom','name','Name','Nom','label','categorie');
+    const colCouleur= findCol(cTable,'couleur','color','Color','Couleur','couleur_hex','hex');
+    const colActive = findCol(cTable,'active','Active','selectionnee','visible','Visible','on');
     const ids=cTable.id||[], n=ids.length;
     for (let i=0;i<n;i++) {
       APP.cats.push({
         _id:ids[i],
-        nom: cTable.nom?.[i]||`Cat ${ids[i]}`,
-        couleur: cTable.couleur?.[i]||'bleu',
-        active: cTable.active?.[i]===true,
+        nom:    colNom?cTable[colNom][i]||`Cat ${ids[i]}`:`Cat ${ids[i]}`,
+        couleur:colCouleur?cTable[colCouleur][i]||'bleu':'bleu',
+        active: colActive?cTable[colActive][i]===true:false,
       });
     }
   }
 
-  // Dept_Categories
+  // Dept_Categories — détection automatique des colonnes
   APP.dcRows={};
   if (dcTable) {
+    const colDept = findCol(dcTable,'dept','Dept','departement','Departement','d_partement','department');
+    const colCat  = findCol(dcTable,'categorie','Categorie','cat','Cat','Categories','categories','category');
+    const colVal  = findCol(dcTable,'valeur','Valeur','value','Value');
     const ids=dcTable.id||[], n=ids.length;
     for (let i=0;i<n;i++) {
-      const rowId=ids[i], deptId=dcTable.dept?.[i], catId=dcTable.categorie?.[i];
+      const rowId=ids[i];
+      const deptId=colDept?dcTable[colDept][i]:null;
+      const catId =colCat ?dcTable[colCat][i]:null;
       if (!deptId||!catId) continue;
       APP.dcRows[rowId]={dept_id:deptId, cat_id:catId};
-      // Lier au code dept
-      const codeEntry=Object.values(APP.depts).find(d=>d._id===deptId);
-      if (codeEntry && !codeEntry.catIds.includes(catId)) codeEntry.catIds.push(catId);
+      const entry=Object.values(APP.depts).find(d=>d._id===deptId);
+      if (entry && !entry.catIds.includes(catId)) entry.catIds.push(catId);
     }
   }
+
+  // Bannière d'aide
+  const missing=[];
+  if (!dTable) missing.push('<b>Departements</b> (ou Départements)');
+  if (!cTable) missing.push('<b>Categories</b> (ou Catégories)');
+  if (!dcTable) missing.push('<b>Dept_Categories</b> (ou Département catégories)');
+  const banner=document.getElementById('setup-banner');
+  if (missing.length) {
+    banner.innerHTML=`⚙️ Tables non trouvées : ${missing.join(', ')}. <a href="https://github.com/Bigorneau15652/map/blob/master/carte-france/grist-schema.md" target="_blank">Voir le guide</a>`;
+    banner.classList.add('show');
+  } else { banner.classList.remove('show'); }
 
   renderCats();
   renderDepts();
@@ -611,18 +668,14 @@ let fetchPending=false;
 async function fetchAllTables() {
   if (fetchPending) return; fetchPending=true;
   try {
-    const [d,c,dc]=await Promise.all([
-      grist.docApi.fetchTable('Departements').catch(()=>null),
-      grist.docApi.fetchTable('Categories').catch(()=>null),
-      grist.docApi.fetchTable('Dept_Categories').catch(()=>null),
+    const [dRes,cRes,dcRes]=await Promise.all([
+      tryFetch('Departements','departements','D_partements','d_partements','Depts','depts'),
+      tryFetch('Categories','categories','Cat_gories','cat_gories','Cats','cats'),
+      tryFetch('Dept_Categories','Departement_categories','departement_categories',
+               'DepartementCategories','Departements_categories','dept_categories',
+               'departement_cat_gories','DepartementCat_gories'),
     ]);
-    // Vérifier si les tables existent
-    const missingTables=[];
-    if (!d) missingTables.push('Departements');
-    if (!c) missingTables.push('Categories');
-    if (!dc) missingTables.push('Dept_Categories');
-    document.getElementById('setup-banner').classList.toggle('show', missingTables.length>0);
-    applyData(d,c,dc);
+    applyData(dRes, cRes, dcRes);
   } catch(e) {
     console.error('fetchAllTables:', e);
   } finally { fetchPending=false; }
