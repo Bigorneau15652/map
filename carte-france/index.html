@@ -13,7 +13,7 @@
     html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;overflow:hidden;color:#222}
     #app{display:flex;flex-direction:column;height:100vh}
 
-    /* ── Header ── */
+    /* Header */
     #hdr{background:#1a3a5c;color:#fff;padding:6px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
     #hdr h1{font-size:14px;font-weight:600;color:#fff}
     #hdr .sp{flex:1}
@@ -24,30 +24,29 @@
     #uc-wrap.show,#ch-wrap.show{display:flex}
     #uc-wrap input,#ch-wrap input[type=color]{width:24px;height:20px;border:none;border-radius:2px;cursor:pointer;padding:1px}
 
-    /* ── Layout ── */
+    /* Layout */
     #main{display:flex;flex:1;overflow:hidden}
 
-    /* ── Carte ── */
+    /* Carte */
     #mp{flex:1;position:relative;min-width:0}
     #map{position:absolute;inset:0;background:#dce8f5}
     .leaflet-container{background:#dce8f5!important}
 
-    /* Insets (DOM-TOM + IDF) */
+    /* DOM-TOM insets */
     #dtp{position:absolute;bottom:8px;right:8px;display:grid;grid-template-columns:1fr 1fr;gap:3px;z-index:1000;width:175px}
     .mw{position:relative}.mw.full{grid-column:1/-1}
     .mm{width:84px;height:68px;border:1.5px solid #999;border-radius:4px;background:#dce8f5;overflow:hidden}
-    .mw.full .mm{width:100%;height:78px}
-    #midf{height:90px!important}
-    .ml{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:9px;color:#333;background:rgba(255,255,255,0.6);pointer-events:none;z-index:10;padding:1px 0}
+    .mw.full .mm{width:100%;height:68px}
+    .ml{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:9px;color:#333;background:rgba(255,255,255,0.7);pointer-events:none;z-index:10;padding:1px 0}
 
     /* Légende */
-    #leg{position:absolute;top:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:6px;padding:7px 10px;font-size:11px;z-index:1000;min-width:120px;max-height:180px;overflow-y:auto;color:#333}
+    #leg{position:absolute;top:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:6px;padding:7px 10px;font-size:11px;z-index:1000;min-width:120px;max-height:200px;overflow-y:auto;color:#333}
     #leg h4{font-size:11px;margin-bottom:4px;font-weight:600;color:#333}
     .lr{display:flex;align-items:center;gap:5px;margin-bottom:3px;color:#333}
     .ld{width:12px;height:12px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,0.15)}
 
     /* Tooltip */
-    #tip{position:absolute;bottom:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:5px;padding:4px 8px;font-size:11px;z-index:1000;pointer-events:none;display:none;color:#222}
+    #tip{position:absolute;bottom:8px;left:8px;background:rgba(255,255,255,0.95);border:1px solid #ccc;border-radius:5px;padding:4px 8px;font-size:11px;z-index:1000;pointer-events:none;display:none;color:#222}
     #tip.show{display:block}
 
     /* Loading */
@@ -56,7 +55,7 @@
     .spin{width:28px;height:28px;border:3px solid #ddd;border-top-color:#1a3a5c;border-radius:50%;animation:sp 0.8s linear infinite}
     @keyframes sp{to{transform:rotate(360deg)}}
 
-    /* ── Panneau droit ── */
+    /* Panneau droit */
     #side{width:310px;background:#fff;border-left:1px solid #dde;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;color:#222}
 
     /* Config banner */
@@ -64,7 +63,7 @@
     #cfg-banner.show{display:block}
     #cfg-banner:hover{background:#ffe0b2}
 
-    /* Section */
+    /* Sections */
     .sec{border-bottom:1px solid #eee;flex-shrink:0}
     .sh{display:flex;align-items:center;padding:7px 11px;background:#f7f8fa;font-size:12px;font-weight:600;color:#444;cursor:pointer;user-select:none}
     .sh .arr{margin-left:auto;font-size:10px}
@@ -73,37 +72,62 @@
 
     /* Catégories */
     #cl{display:flex;flex-direction:column;gap:5px;margin-bottom:6px}
-    .cr{display:flex;align-items:center;gap:7px;padding:5px 8px;border:1px solid #e0e0e0;border-radius:5px;background:#fafafa;cursor:pointer}
+    .cr{display:flex;align-items:center;gap:7px;padding:5px 8px;border:1px solid #e0e0e0;border-radius:5px;background:#fafafa}
     .cr.on{border-color:#4a90d9;background:#f0f6ff}
-    .cr:hover{background:#f0f0f0}
     .cchk{width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:#1a3a5c}
+    .csw{width:18px;height:18px;border-radius:4px;border:1.5px solid rgba(0,0,0,0.2);flex-shrink:0;cursor:pointer}
     .cn{flex:1;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333;font-weight:500}
-    .csw{width:16px;height:16px;border-radius:4px;border:1.5px solid rgba(0,0,0,0.25);flex-shrink:0}
+    .cedit{font-size:11px;background:none;border:none;cursor:pointer;color:#888;padding:1px 3px;border-radius:3px;flex-shrink:0}
+    .cedit:hover{background:#eee;color:#333}
+    /* Inline edit catégorie */
+    .cat-edit-row{display:flex;flex-direction:column;gap:5px;padding:6px 8px;border:1px solid #4a90d9;border-radius:5px;background:#f0f6ff;margin-bottom:2px}
+    .cat-edit-row input[type=text]{font-size:12px;border:1px solid #ccc;border-radius:3px;padding:4px 7px;width:100%;color:#222}
+    .cat-edit-row .col-row{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+    .col-chip{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;flex-shrink:0;transition:transform .1s}
+    .col-chip:hover{transform:scale(1.15)}
+    .col-chip.sel{border-color:#333;transform:scale(1.15)}
+    .col-hex{font-size:10px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;width:72px;color:#222;font-family:monospace}
+    .cat-edit-btns{display:flex;gap:5px;justify-content:flex-end}
+    .btn-sm{font-size:11px;padding:3px 10px;border-radius:3px;cursor:pointer;border:1px solid #ccc;background:#fff;color:#333}
+    .btn-sm.ok{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
+
     .nc{font-size:11px;color:#888;padding:4px 0}
     .cumr{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:#555}
     .cumv{width:20px;height:20px;border-radius:3px;border:1px solid #ccc;cursor:pointer;position:relative;overflow:hidden;flex-shrink:0}
     .cumv input{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer}
+
+    /* Ajouter catégorie */
+    #add-cat-row{display:flex;gap:5px;margin-top:6px}
+    #add-cat-row input{flex:1;font-size:11px;border:1px solid #ddd;border-radius:3px;padding:3px 6px;color:#222}
+    #add-cat-row button{font-size:11px;padding:3px 8px;background:#1a3a5c;color:#fff;border:none;border-radius:3px;cursor:pointer}
 
     /* Depts */
     #ds{flex:1;overflow:hidden;display:flex;flex-direction:column}
     #ds .sb:not(.closed){flex:1;overflow:hidden;display:flex;flex-direction:column}
     #dsearch{width:100%;font-size:12px;border:1px solid #ddd;border-radius:4px;padding:4px 8px;margin-bottom:5px;color:#222;background:#fff}
     #dsearch:focus{outline:none;border-color:#4a90d9}
-    .fbs{display:flex;gap:3px;margin-bottom:6px}
+    /* Region filter */
+    #reg-filter{width:100%;font-size:11px;border:1px solid #ddd;border-radius:4px;padding:3px 6px;margin-bottom:5px;color:#222;background:#fff}
+    /* Filter tabs */
+    .fbs{display:flex;gap:3px;margin-bottom:4px;flex-wrap:wrap}
     .fb{font-size:10px;padding:3px 6px;border:1px solid #ddd;border-radius:3px;background:#fff;cursor:pointer;color:#444}
     .fb.on{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
+    /* Bulk actions */
+    .bulk-btns{display:flex;gap:3px;margin-bottom:5px}
+    .bbtn{font-size:10px;padding:2px 8px;border:1px solid #ddd;border-radius:3px;background:#f9f9f9;cursor:pointer;color:#444;flex:1;text-align:center}
+    .bbtn:hover{background:#eee}
     #dw{flex:1;overflow-y:auto}
     .dr{display:flex;align-items:center;gap:5px;padding:3px 2px;border-radius:3px;font-size:11px;color:#222}
     .dr:hover{background:#f0f0f0}
-    .dr.gray{opacity:.45}
-    .dvis{width:12px;height:12px;cursor:pointer;flex-shrink:0}
+    .dr.gray{opacity:.4}
+    .dvis{width:13px;height:13px;cursor:pointer;flex-shrink:0}
     .dc{font-size:10px;color:#777;width:26px;flex-shrink:0;text-align:right}
     .dn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#222}
     .dcs{display:flex;gap:3px;flex-shrink:0}
-    .cdot{width:13px;height:13px;border-radius:3px;cursor:pointer;border:1.5px solid rgba(0,0,0,0.2);flex-shrink:0;transition:transform .1s}
-    .cdot:hover{transform:scale(1.35)}
+    .cdot{width:14px;height:14px;border-radius:3px;cursor:pointer;border:1.5px solid rgba(0,0,0,0.2);flex-shrink:0;transition:transform .1s}
+    .cdot:hover{transform:scale(1.3)}
 
-    /* ── Modal générique ── */
+    /* Modal */
     .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:5000;display:flex;align-items:center;justify-content:center}
     .modal-bg.gone{display:none}
     .modal{background:#fff;border-radius:8px;width:min(520px,94vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.25);color:#222}
@@ -112,8 +136,6 @@
     .mhd button{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1}
     .mbody{flex:1;overflow-y:auto;padding:16px}
     .mft{padding:10px 16px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end;background:#fff}
-
-    /* Config modal */
     .cfg-group{margin-bottom:14px}
     .cfg-group label{display:block;font-size:12px;font-weight:600;color:#333;margin-bottom:4px}
     .cfg-group small{display:block;font-size:10px;color:#777;margin-bottom:4px}
@@ -127,7 +149,7 @@
     #cfg-msg.ok{background:#e8f5e9;color:#1b5e20;display:block}
     #cfg-msg.err{background:#fce4ec;color:#880e4f;display:block}
 
-    /* Guide modal */
+    /* Guide */
     .guide-section{margin-bottom:14px}
     .guide-section h3{font-size:12px;font-weight:700;color:#1a3a5c;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e0e0e0}
     .guide-section p,.guide-section li{font-size:11px;color:#333;line-height:1.5;margin-bottom:3px}
@@ -143,11 +165,9 @@
 </head>
 <body>
 <div id="app">
-
-  <!-- Header -->
   <div id="hdr">
     <h1>🗺 Carte de France</h1>
-    <div id="mode-btns" style="display:flex;gap:4px">
+    <div style="display:flex;gap:4px">
       <button class="hbtn on" onclick="setMode('categorie',this)">Catégorie</button>
       <button class="hbtn" onclick="setMode('unique',this)">Unique</button>
       <button class="hbtn" onclick="setMode('choropleth',this)">Choroplèthe</button>
@@ -155,17 +175,14 @@
     <div id="uc-wrap">Couleur: <input type="color" id="uc" value="#e74c3c" oninput="APP.uniqueColor=this.value;refresh()"></div>
     <div id="ch-wrap">Bas:<input type="color" id="cl2" value="#ffffb2" oninput="APP.choroLow=this.value;refresh()"> Haut:<input type="color" id="ch2" value="#d7191c" oninput="APP.choroHigh=this.value;refresh()"></div>
     <span class="sp"></span>
-    <button class="hbtn icon" onclick="showGuide()" title="Guide d'utilisation">❓</button>
-    <button class="hbtn icon" onclick="showConfig()" title="Configuration des tables Grist">⚙️</button>
+    <button class="hbtn icon" onclick="showGuide()" title="Guide">❓</button>
+    <button class="hbtn icon" onclick="showConfig()" title="Configuration tables Grist">⚙️</button>
   </div>
 
   <div id="main">
-    <!-- Carte -->
     <div id="mp">
       <div id="map"></div>
-      <!-- Insets : IDF + DOM-TOM -->
       <div id="dtp">
-        <div class="mw full"><div class="mm" id="midf"></div><span class="ml">Île-de-France</span></div>
         <div class="mw"><div class="mm" id="m971"></div><span class="ml">Guadeloupe</span></div>
         <div class="mw"><div class="mm" id="m972"></div><span class="ml">Martinique</span></div>
         <div class="mw"><div class="mm" id="m973"></div><span class="ml">Guyane</span></div>
@@ -177,10 +194,9 @@
       <div id="ldg"><div class="spin"></div><span id="ldg-msg">Chargement…</span></div>
     </div>
 
-    <!-- Panneau droit -->
     <div id="side">
       <div id="cfg-banner" onclick="showConfig()">
-        ⚠️ <span id="cfg-banner-msg">Tables Grist non configurées.</span> Cliquez ici → ⚙️
+        ⚠️ <span id="cfg-banner-msg">Tables non configurées.</span> Cliquez → ⚙️
       </div>
 
       <!-- Catégories -->
@@ -188,6 +204,10 @@
         <div class="sh" onclick="tog(this)">🏷 Catégories <span id="cbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span><span class="arr">▾</span></div>
         <div class="sb">
           <div id="cl"><div class="nc">Configurez les tables Grist via ⚙️</div></div>
+          <div id="add-cat-row">
+            <input type="text" id="new-cat-name" placeholder="Nouvelle catégorie…" onkeydown="if(event.key==='Enter')addCat()">
+            <button onclick="addCat()" title="Ajouter une catégorie">+ Ajouter</button>
+          </div>
           <div class="cumr">
             <div class="cumv" id="cumsw" title="Couleur cumul"><input type="color" id="cumc" value="#f39c12" oninput="APP.cumulColor=this.value;cumsw.style.background=this.value;refresh()"></div>
             <span>Couleur si plusieurs catégories actives sur un même département</span>
@@ -200,11 +220,20 @@
         <div class="sh" onclick="tog(this)">📍 Départements <span id="dbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span><span class="arr">▾</span></div>
         <div class="sb">
           <input type="text" id="dsearch" placeholder="Rechercher (nom ou code)…" oninput="renderDepts()">
+          <select id="reg-filter" onchange="renderDepts()">
+            <option value="">— Toutes les régions —</option>
+          </select>
           <div class="fbs">
             <button class="fb on" onclick="setF('all',this)">Tous</button>
             <button class="fb" onclick="setF('sel',this)">Sélectionnés</button>
             <button class="fb" onclick="setF('vis',this)">Visibles</button>
             <button class="fb" onclick="setF('hid',this)">Grisés</button>
+          </div>
+          <div class="bulk-btns">
+            <button class="bbtn" onclick="bulkDeptCat(true)" title="Ajouter tous les depts filtrés aux catégories actives">✓ Tout sélect.</button>
+            <button class="bbtn" onclick="bulkDeptCat(false)" title="Retirer tous les depts filtrés des catégories actives">☐ Tout désélect.</button>
+            <button class="bbtn" onclick="bulkVis(true)" title="Rendre tous visibles">👁 Tout visible</button>
+            <button class="bbtn" onclick="bulkVis(false)" title="Griser tous">◐ Tout griser</button>
           </div>
           <div id="dw"></div>
         </div>
@@ -213,39 +242,37 @@
   </div>
 </div>
 
-<!-- ── Modal Configuration ── -->
+<!-- Modal Configuration -->
 <div class="modal-bg gone" id="cfg-modal">
   <div class="modal">
     <div class="mhd"><h2>⚙️ Configuration – Tables Grist</h2><button onclick="closeModal('cfg-modal')">✕</button></div>
     <div class="mbody">
       <div id="cfg-loading" style="text-align:center;padding:20px;color:#666;font-size:12px">
-        <div class="spin" style="margin:0 auto 10px"></div>Chargement de la liste des tables…
+        <div class="spin" style="margin:0 auto 10px"></div>Chargement des tables…
       </div>
       <div id="cfg-form" style="display:none">
         <div class="cfg-group">
           <label>Table des Départements</label>
-          <small>Contient les 101 départements (code, nom, visible)</small>
-          <select id="cfg-depts" onchange="onCfgTableChange('dc')"></select>
+          <small>Colonnes : code_dept, nom_dept, visible (et optionnel : code_region, nom_region)</small>
+          <select id="cfg-depts"></select>
         </div>
         <div class="cfg-group">
           <label>Table des Catégories</label>
-          <small>Contient les catégories de coloration (nom, couleur, active)</small>
-          <select id="cfg-cats" onchange="onCfgTableChange('dc')"></select>
+          <small>Colonnes : nom, couleur, active (ou selection)</small>
+          <select id="cfg-cats"></select>
         </div>
         <div class="cfg-group">
           <label>Table des Affiliations (liaison dept ↔ catégorie)</label>
           <small>Laisser vide : le widget la remplit automatiquement</small>
-          <select id="cfg-dc" onchange="onCfgTableChange('dc')"></select>
+          <select id="cfg-dc" onchange="onCfgTableChange()"></select>
         </div>
         <div id="cfg-cols" style="display:none">
           <div class="cfg-group">
             <label>Colonne "département" dans Affiliations</label>
-            <small>Référence vers la table Départements</small>
             <select id="cfg-col-dept"></select>
           </div>
           <div class="cfg-group">
             <label>Colonne "catégorie" dans Affiliations</label>
-            <small>Référence vers la table Catégories</small>
             <select id="cfg-col-cat"></select>
           </div>
         </div>
@@ -259,116 +286,89 @@
   </div>
 </div>
 
-<!-- ── Modal Guide ── -->
+<!-- Modal Guide -->
 <div class="modal-bg gone" id="guide-modal">
   <div class="modal" style="width:min(460px,94vw)">
     <div class="mhd"><h2>❓ Guide – Carte de France Grist</h2><button onclick="closeModal('guide-modal')">✕</button></div>
     <div class="mbody" style="padding:12px">
-
       <div class="guide-section">
         <h3>📋 3 tables à créer dans Grist</h3>
         <table>
           <tr><th>Table</th><th>Colonnes clés</th></tr>
-          <tr><td><code>Departements</code></td><td><code>code_dept</code>, <code>nom_dept</code>, <code>visible</code> (Bascule)</td></tr>
+          <tr><td><code>Departements</code></td><td><code>code_dept</code>, <code>nom_dept</code>, <code>visible</code> (Bascule), <code>nom_region</code></td></tr>
           <tr><td><code>Categories</code></td><td><code>nom</code>, <code>couleur</code>, <code>active</code> (Bascule)</td></tr>
           <tr><td><code>Departement_categories</code></td><td><code>dept</code> (Réf→Depts), <code>categorie</code> (Réf→Cats)</td></tr>
         </table>
-        <p style="margin-top:5px">Importer les 101 départements depuis :<br><code>https://bigorneau15652.github.io/map/carte-france/departements.csv</code></p>
+        <p style="margin-top:5px">CSV des 101 départements :<br><code>https://bigorneau15652.github.io/map/carte-france/departements.csv</code></p>
       </div>
-
       <div class="guide-section">
         <h3>🔌 Ajouter le widget</h3>
         <ul>
-          <li><b>Ajouter un widget → Widget personnalisé</b></li>
-          <li>URL : <code>https://bigorneau15652.github.io/map/carte-france/</code></li>
+          <li><b>Widget personnalisé</b> → URL : <code>https://bigorneau15652.github.io/map/carte-france/</code></li>
           <li>Accès : <b>Accès complet au document</b> (obligatoire)</li>
         </ul>
       </div>
-
       <div class="guide-section">
-        <h3>⚙️ Configurer les tables</h3>
-        <p>Cliquez <b>⚙️</b> en haut à droite → des menus déroulants listent automatiquement vos tables → sélectionnez → <b>Enregistrer</b>.</p>
+        <h3>🎨 Couleurs (colonne <code>couleur</code>)</h3>
+        <p><span style="color:#e74c3c">● rouge</span> <span style="color:#2980b9">● bleu</span> <span style="color:#27ae60">● vert</span> <span style="color:#e67e22">● orange</span> <span style="color:#8e44ad">● violet</span> <span style="color:#f1c40f">● jaune</span> <span style="color:#e91e8c">● rose</span> <span style="color:#795548">● marron</span> <span style="color:#00bcd4">● cyan</span> <span style="color:#2c3e50">● noir</span><br>— ou HEX : <code>#3498db</code></p>
       </div>
-
-      <div class="guide-section">
-        <h3>🎨 Couleurs disponibles (colonne <code>couleur</code>)</h3>
-        <p>
-          <span style="color:#e74c3c">● rouge</span> &nbsp;
-          <span style="color:#2980b9">● bleu</span> &nbsp;
-          <span style="color:#27ae60">● vert</span> &nbsp;
-          <span style="color:#e67e22">● orange</span> &nbsp;
-          <span style="color:#8e44ad">● violet</span><br>
-          <span style="color:#f1c40f">● jaune</span> &nbsp;
-          <span style="color:#e91e8c">● rose</span> &nbsp;
-          <span style="color:#795548">● marron</span> &nbsp;
-          <span style="color:#00bcd4">● cyan</span> &nbsp;
-          <span style="color:#2c3e50">● noir</span>
-          &nbsp;— ou HEX : <code>#3498db</code>
-        </p>
-      </div>
-
       <div class="guide-section">
         <h3>🖱️ Utilisation</h3>
         <ul>
-          <li>Cochez <code>active</code> dans Grist sur une catégorie → la carte se colore</li>
-          <li>Cliquez la <b>pastille colorée</b> d'un département → l'ajoute/retire de la catégorie</li>
-          <li>Décochez la case ☑ à gauche → le département devient grisé sur la carte</li>
-          <li>Plusieurs catégories sur un même dept → <b>couleur cumul</b> (sélecteur orange)</li>
-          <li>Les insets <b>Île-de-France</b> et <b>DOM-TOM</b> sont cliquables</li>
+          <li>Cochez ✓ une catégorie → active sur la carte. Cliquez ✏️ pour éditer son nom/couleur</li>
+          <li>Cliquez la <b>pastille colorée</b> d'un département → ajoute/retire de la catégorie</li>
+          <li>Décochez ☑ à gauche → le département devient grisé sur la carte</li>
+          <li>Filtrez par région → sélectionnez tout en un clic</li>
         </ul>
       </div>
-
     </div>
-    <div class="mft">
-      <button class="btn-primary" onclick="closeModal('guide-modal')">Fermer</button>
-    </div>
+    <div class="mft"><button class="btn-primary" onclick="closeModal('guide-modal')">Fermer</button></div>
   </div>
 </div>
 
 <script>
 'use strict';
 
-// ── Couleurs nommées ───────────────────────────────────────
+// ── Couleurs ──────────────────────────────────────────────
 const NAMED={bleu:'#2980b9',rouge:'#e74c3c',vert:'#27ae60',jaune:'#f1c40f',orange:'#e67e22',violet:'#8e44ad',rose:'#e91e8c',marron:'#795548',gris:'#7f8c8d',noir:'#2c3e50',blanc:'#ecf0f1',cyan:'#00bcd4',turquoise:'#1abc9c',emeraude:'#2ecc71',brique:'#c0392b'};
-// Aliases avec accents supprimés (Grist peut stocker "Orage" au lieu de "orange", etc.)
-const COL_ALIASES={orage:'orange',beige:'#f5e6c8',indigo:'violet',corail:'#ff6b6b',ocre:'#c8a44a',bordeaux:'#722f37',kaki:'#6b6b2c',saumon:'#ff8c69',lilas:'#c8a2c8',ecru:'#f0ead6'};
+const COL_ALIASES={orage:'orange',indigo:'violet',corail:'rouge',ocre:'orange',bordeaux:'brique',saumon:'rose',lilas:'violet',ecru:'blanc',kaki:'marron',sable:'jaune',azur:'cyan',carmin:'rouge',incarnat:'rose',ecarlate:'rouge',grenat:'brique'};
+const NAMED_COLORS=Object.entries(NAMED).map(([k,v])=>({k,v}));
+
 function col(raw){
   if(!raw)return null;
-  // Supprimer accents et mettre en minuscules
   const k=String(raw).trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-  return NAMED[COL_ALIASES[k]||k]||NAMED[k]||(/^#[0-9a-f]{3,8}$/i.test(raw)?raw:null);
+  return NAMED[COL_ALIASES[k]||k]||(/^#[0-9a-f]{3,8}$/i.test(raw)?raw:null);
 }
 
-// ── Codes IDF et DOM-TOM ──────────────────────────────────
-const IDF_CODES=new Set(['75','77','78','91','92','93','94','95']);
-const DT={'971':{el:'m971',c:[16.25,-61.55],z:9},'972':{el:'m972',c:[14.65,-61.00],z:10},'973':{el:'m973',c:[3.9,-53.0],z:7},'974':{el:'m974',c:[-21.1,55.55],z:10},'976':{el:'m976',c:[-12.83,45.15],z:11}};
+// ── DOM-TOM ───────────────────────────────────────────────
+const DT={'971':{el:'m971'},'972':{el:'m972'},'973':{el:'m973'},'974':{el:'m974'},'976':{el:'m976'}};
+const DT_URLS={
+  '971':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/971-guadeloupe/departement-version-simplifiee.geojson',
+  '972':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/972-martinique/departement-version-simplifiee.geojson',
+  '973':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/973-guyane/departement-version-simplifiee.geojson',
+  '974':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/974-la-reunion/departement-version-simplifiee.geojson',
+  '976':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/976-mayotte/departement-version-simplifiee.geojson'
+};
 
 // ── Config ────────────────────────────────────────────────
 let CFG={depts:'Departements',cats:'Categories',dc:'Departement_categories',colDept:'dept',colCat:'categorie'};
 function loadConfig(opts){
-  if(opts?.tableDepts) CFG.depts=opts.tableDepts;
-  if(opts?.tableCats)  CFG.cats=opts.tableCats;
-  if(opts?.tableDc)    CFG.dc=opts.tableDc;
-  if(opts?.colDept)    CFG.colDept=opts.colDept;
-  if(opts?.colCat)     CFG.colCat=opts.colCat;
+  if(opts?.tableDepts)CFG.depts=opts.tableDepts;
+  if(opts?.tableCats) CFG.cats=opts.tableCats;
+  if(opts?.tableDc)   CFG.dc=opts.tableDc;
+  if(opts?.colDept)   CFG.colDept=opts.colDept;
+  if(opts?.colCat)    CFG.colCat=opts.colCat;
 }
 
-// ── Config modal avec menus déroulants ────────────────────
-let ALL_TABLES=[];
-let TABLE_COLS={};
-
+// ── Config modal ──────────────────────────────────────────
+let ALL_TABLES=[], TABLE_COLS={};
 function makeOpts(sel,list,current){
   sel.innerHTML='<option value="">— choisir —</option>';
-  for(const{id,label}of list){
-    const o=document.createElement('option');
-    o.value=id;o.textContent=label;
-    if(id===current)o.selected=true;
-    sel.appendChild(o);
-  }
+  for(const{id,label}of list){const o=document.createElement('option');o.value=id;o.textContent=label;if(id===current)o.selected=true;sel.appendChild(o);}
 }
 async function loadTableCols(tableId){
   if(!tableId||TABLE_COLS[tableId])return;
-  try{const t=await grist.docApi.fetchTable(tableId);TABLE_COLS[tableId]=Object.keys(t).filter(k=>k!=='id'&&!k.startsWith('manualSort'));}
+  try{const t=await grist.docApi.fetchTable(tableId);TABLE_COLS[tableId]=Object.keys(t).filter(k=>k!=='id'&&k!=='manualSort');}
   catch(_){TABLE_COLS[tableId]=[];}
 }
 async function onCfgTableChange(){
@@ -379,110 +379,92 @@ async function onCfgTableChange(){
     makeOpts(document.getElementById('cfg-col-dept'),cols,CFG.colDept);
     makeOpts(document.getElementById('cfg-col-cat'),cols,CFG.colCat);
     document.getElementById('cfg-cols').style.display='block';
-  }else{
-    document.getElementById('cfg-cols').style.display='none';
-  }
+  }else document.getElementById('cfg-cols').style.display='none';
 }
-
 async function showConfig(){
   document.getElementById('cfg-modal').classList.remove('gone');
   document.getElementById('cfg-loading').style.display='block';
   document.getElementById('cfg-form').style.display='none';
-  document.getElementById('cfg-cols').style.display='none';
   const msg=document.getElementById('cfg-msg');msg.className='';msg.style.display='none';
-
   try{
     const meta=await grist.docApi.fetchTable('_grist_Tables');
-    const ids=meta.tableId||[];
-    ALL_TABLES=ids.filter(id=>!String(id).startsWith('_')).map(id=>({id:String(id),label:String(id)}));
-
+    ALL_TABLES=(meta.tableId||[]).filter(id=>!String(id).startsWith('_')).map(id=>({id:String(id),label:String(id)}));
     if(!ALL_TABLES.length)throw new Error('Aucune table trouvée');
-
     makeOpts(document.getElementById('cfg-depts'),ALL_TABLES,CFG.depts);
     makeOpts(document.getElementById('cfg-cats'),ALL_TABLES,CFG.cats);
     makeOpts(document.getElementById('cfg-dc'),ALL_TABLES,CFG.dc);
-
-    if(CFG.dc){
-      await loadTableCols(CFG.dc);
-      const cols=(TABLE_COLS[CFG.dc]||[]).map(c=>({id:c,label:c}));
-      makeOpts(document.getElementById('cfg-col-dept'),cols,CFG.colDept);
-      makeOpts(document.getElementById('cfg-col-cat'),cols,CFG.colCat);
-      document.getElementById('cfg-cols').style.display='block';
-    }
-
+    if(CFG.dc){await loadTableCols(CFG.dc);const cols=(TABLE_COLS[CFG.dc]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-dept'),cols,CFG.colDept);makeOpts(document.getElementById('cfg-col-cat'),cols,CFG.colCat);document.getElementById('cfg-cols').style.display='block';}
     document.getElementById('cfg-loading').style.display='none';
     document.getElementById('cfg-form').style.display='block';
   }catch(e){
     document.getElementById('cfg-loading').style.display='none';
-    msg.className='err';msg.style.display='block';
-    msg.innerHTML='❌ Impossible de lire les tables Grist : <b>'+e.message+'</b><br>👉 Dans les paramètres du widget (⋮), vérifiez que l\'accès est <b>"Accès complet au document"</b>.';
+    const msg=document.getElementById('cfg-msg');msg.className='err';msg.style.display='block';
+    msg.innerHTML='❌ Impossible de lire les tables : <b>'+e.message+'</b><br>👉 Paramètres du widget → <b>Accès complet au document</b>';
   }
 }
-
 async function saveConfig(){
-  const c={
-    depts:document.getElementById('cfg-depts').value,
-    cats:document.getElementById('cfg-cats').value,
-    dc:document.getElementById('cfg-dc').value,
-    colDept:document.getElementById('cfg-col-dept').value||CFG.colDept,
-    colCat:document.getElementById('cfg-col-cat').value||CFG.colCat,
-  };
+  const c={depts:document.getElementById('cfg-depts').value,cats:document.getElementById('cfg-cats').value,dc:document.getElementById('cfg-dc').value,colDept:document.getElementById('cfg-col-dept').value||CFG.colDept,colCat:document.getElementById('cfg-col-cat').value||CFG.colCat};
   const msg=document.getElementById('cfg-msg');
-  if(!c.depts||!c.cats){
-    msg.className='err';msg.style.display='block';msg.textContent='⚠️ Sélectionnez au minimum les tables Départements et Catégories.';return;
-  }
+  if(!c.depts||!c.cats){msg.className='err';msg.style.display='block';msg.textContent='⚠️ Sélectionnez au minimum les tables Départements et Catégories.';return;}
   Object.assign(CFG,c);
-  try{
-    await grist.setOptions({tableDepts:CFG.depts,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat});
-    msg.className='ok';msg.style.display='block';msg.textContent='✅ Configuration sauvegardée !';
-    setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},700);
-  }catch(e){
-    msg.className='err';msg.style.display='block';msg.textContent='❌ Erreur sauvegarde : '+e.message;
-  }
+  try{await grist.setOptions({tableDepts:CFG.depts,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat});msg.className='ok';msg.style.display='block';msg.textContent='✅ Configuration sauvegardée !';setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},700);}
+  catch(e){msg.className='err';msg.style.display='block';msg.textContent='❌ Erreur : '+e.message;}
 }
-
 function showGuide(){document.getElementById('guide-modal').classList.remove('gone');}
 function closeModal(id){document.getElementById(id).classList.add('gone');}
 
 // ── État ──────────────────────────────────────────────────
 const APP={mode:'categorie',uniqueColor:'#e74c3c',cumulColor:'#f39c12',choroLow:'#ffffb2',choroHigh:'#d7191c',cats:[],depts:{},dcRows:{},deptRowId:{}};
 let deptFilter='all';
+let editingCatId=null; // catégorie en cours d'édition
 
 // ── Maps ──────────────────────────────────────────────────
-let mainMap,geoLayer,idfMap,idfLayer;
+let mainMap,geoLayer;
 const mMaps={},mLayers={};
 const MAP_OPT={zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false,attributionControl:false};
 
 function initMaps(){
   mainMap=L.map('map',{zoomControl:true,attributionControl:false}).setView([46.5,2.5],6);
-  idfMap=L.map('midf',MAP_OPT).setView([48.72,2.45],9);
-  for(const[c,cfg]of Object.entries(DT))
-    mMaps[c]=L.map(cfg.el,MAP_OPT).setView(cfg.c,cfg.z);
+  for(const[code,cfg]of Object.entries(DT))
+    mMaps[code]=L.map(cfg.el,MAP_OPT);
 }
 
 // ── GeoJSON ───────────────────────────────────────────────
-async function fetchJson(url){const r=await fetch(url);if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}
+async function fetchJson(url){const r=await fetch(url);if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json();}
+
 async function loadGeoJSON(){
-  const GOV='https://geo.api.gouv.fr/departements?fields=nom,code&format=geojson&geometry=contour';
-  const METRO='https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements-version-simplifiee.geojson';
-  const DT_URLS={
-    '971':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/971-guadeloupe/departement-version-simplifiee.geojson',
-    '972':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/972-martinique/departement-version-simplifiee.geojson',
-    '973':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/973-guyane/departement-version-simplifiee.geojson',
-    '974':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/974-la-reunion/departement-version-simplifiee.geojson',
-    '976':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/976-mayotte/departement-version-simplifiee.geojson'
-  };
-  try{const g=await fetchJson(GOV);if(g?.features?.length>50)return g}catch(_){}
-  const metro=await fetchJson(METRO);
-  const features=[...(metro.features||[])];
+  // 1. Charger métropole
+  let metroFeats=[];
+  try{
+    const g=await fetchJson('https://geo.api.gouv.fr/departements?fields=nom,code&format=geojson&geometry=contour');
+    if(g?.features?.length>90)metroFeats=g.features;
+  }catch(_){}
+  if(metroFeats.length<90){
+    try{const g=await fetchJson('https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements-version-simplifiee.geojson');metroFeats=g.features||[];}catch(_){}
+  }
+
+  // Séparer DOM-TOM de la métropole si inclus dans le GOV API
+  const dtSet=new Set(Object.keys(DT));
+  const pureMet=metroFeats.filter(f=>!dtSet.has(String(f.properties?.code||'')));
+  const domtomMap={};
+  for(const f of metroFeats){const c=String(f.properties?.code||'');if(dtSet.has(c))domtomMap[c]=f;}
+
+  // 2. Toujours charger DOM-TOM individuellement (plus fiable)
   for(const[code,url]of Object.entries(DT_URLS)){
     try{
       const dt=await fetchJson(url);
-      const ff=dt.features||(dt.type==='Feature'?[dt]:[]);
-      for(const f of ff){if(!f.properties)f.properties={};if(!f.properties.code)f.properties.code=code;features.push(f)}
+      const ff=dt.type==='FeatureCollection'?dt.features:(dt.type==='Feature'?[dt]:[]);
+      if(ff.length>0){
+        const f=ff[0];
+        if(!f.properties)f.properties={};
+        f.properties.code=code;
+        f.properties.nom=APP.depts[code]?.nom||code;
+        domtomMap[code]=f;
+      }
     }catch(_){}
   }
-  return{type:'FeatureCollection',features};
+
+  return{type:'FeatureCollection',features:[...pureMet,...Object.values(domtomMap)]};
 }
 
 // ── Style ─────────────────────────────────────────────────
@@ -507,33 +489,27 @@ function getStyle(f){
   const code=String(f.properties?.code||'');
   const d=APP.depts[code];
   const vis=d?d.visible:true;
-  // Département grisé : couleur grise claire, contour fin, transparence forte
-  if(!vis){
-    return{color:'#aaa',weight:0.5,fillColor:'#cccccc',fillOpacity:0.55,opacity:0.6};
-  }
+  if(!vis)return{color:'#aaa',weight:0.5,fillColor:'#cccccc',fillOpacity:0.6,opacity:0.6};
   const c=deptColor(code);
-  return{color:'#555',weight:0.7,fillColor:c||'#c8d6e5',fillOpacity:c?0.8:0.3,opacity:1};
+  return{color:'#555',weight:0.7,fillColor:c||'#c8d6e5',fillOpacity:c?0.82:0.3,opacity:1};
 }
 
-function makeOnEach(forMainMap){
+function makeOnEach(){
   return function(feat,layer){
     const code=String(feat.properties?.code||''),nom=feat.properties?.nom||APP.depts[code]?.nom||code;
     layer.bindTooltip(`<b>${nom}</b> (${code})`,{sticky:true,opacity:0.9});
     layer.on({
       mouseover(e){
         e.target.setStyle({weight:2,color:'#111'});e.target.bringToFront();
-        if(forMainMap){
-          const d=APP.depts[code];const cats=d?APP.cats.filter(c=>d.catIds.includes(c._id)&&c.active).map(c=>c.nom).join(', '):'';
-          const tip=document.getElementById('tip');
-          tip.innerHTML=`<b>${nom}</b> (${code})`+(cats?`<br><span style="font-size:10px;color:#666">${cats}</span>`:'');
-          tip.classList.add('show');
-        }
+        const d=APP.depts[code];const cats=d?APP.cats.filter(c=>d.catIds.includes(c._id)&&c.active).map(c=>c.nom).join(', '):'';
+        const tip=document.getElementById('tip');
+        tip.innerHTML=`<b>${nom}</b> (${code})`+(cats?`<br><span style="font-size:10px;color:#666">${cats}</span>`:'');
+        tip.classList.add('show');
       },
       mouseout(e){
-        if(geoLayer)geoLayer.resetStyle(e.target);
-        if(idfLayer)idfLayer.resetStyle(e.target);
-        for(const ml of Object.values(mLayers))try{ml.resetStyle(e.target)}catch(_){}
-        if(forMainMap)document.getElementById('tip').classList.remove('show');
+        try{if(geoLayer)geoLayer.resetStyle(e.target);}catch(_){}
+        for(const ml of Object.values(mLayers))try{ml.resetStyle(e.target);}catch(_){}
+        document.getElementById('tip').classList.remove('show');
       },
       click(){mainMap.fitBounds(layer.getBounds(),{padding:[30,30]});}
     });
@@ -542,38 +518,29 @@ function makeOnEach(forMainMap){
 
 function renderMap(geojson){
   if(geoLayer){mainMap.removeLayer(geoLayer);geoLayer=null;}
-  if(idfLayer){idfMap.removeLayer(idfLayer);idfLayer=null;}
   for(const c of Object.keys(DT)){if(mLayers[c]){mMaps[c].removeLayer(mLayers[c]);delete mLayers[c];}}
 
-  const dtCodes=new Set(Object.keys(DT));
-  const feats=(geojson?.features||[]);
-
-  const metroFeats=feats.filter(f=>!dtCodes.has(String(f.properties?.code||'')));
+  const dtSet=new Set(Object.keys(DT));
+  const feats=geojson?.features||[];
+  const metroFeats=feats.filter(f=>!dtSet.has(String(f.properties?.code||'')));
   const dtF={};
-  const idfFeats=[];
-  for(const f of feats){
-    const c=String(f.properties?.code||'');
-    if(dtCodes.has(c))dtF[c]=f;
-    if(IDF_CODES.has(c))idfFeats.push(f);
-  }
+  for(const f of feats){const c=String(f.properties?.code||'');if(dtSet.has(c))dtF[c]=f;}
 
-  // Carte principale (métro complet)
-  geoLayer=L.geoJSON({type:'FeatureCollection',features:metroFeats},{style:f=>getStyle(f),onEachFeature:makeOnEach(true)}).addTo(mainMap);
+  geoLayer=L.geoJSON({type:'FeatureCollection',features:metroFeats},{style:f=>getStyle(f),onEachFeature:makeOnEach()}).addTo(mainMap);
 
-  // Inset IDF
-  idfLayer=L.geoJSON({type:'FeatureCollection',features:idfFeats},{style:f=>getStyle(f),onEachFeature:makeOnEach(false)}).addTo(idfMap);
-
-  // Insets DOM-TOM
   for(const[code,feat]of Object.entries(dtF)){
     if(!mMaps[code])continue;
-    mLayers[code]=L.geoJSON({type:'FeatureCollection',features:[feat]},{style:f=>getStyle(f),onEachFeature:makeOnEach(false)}).addTo(mMaps[code]);
+    const layer=L.geoJSON({type:'FeatureCollection',features:[feat]},{style:f=>getStyle(f),onEachFeature:makeOnEach()}).addTo(mMaps[code]);
+    mLayers[code]=layer;
+    // Auto-zoom sur le département
+    try{mMaps[code].fitBounds(layer.getBounds(),{padding:[4,4]});}catch(_){}
+    mMaps[code].invalidateSize();
   }
   renderLegend();
 }
 
 function refresh(){
   if(geoLayer)geoLayer.eachLayer(l=>l.setStyle(getStyle(l.feature)));
-  if(idfLayer)idfLayer.eachLayer(l=>l.setStyle(getStyle(l.feature)));
   for(const layer of Object.values(mLayers))layer.eachLayer(l=>l.setStyle(getStyle(l.feature)));
   renderLegend();
 }
@@ -581,48 +548,126 @@ function refresh(){
 // ── Légende ───────────────────────────────────────────────
 function renderLegend(){
   const el=document.getElementById('li');el.innerHTML='';
-  if(APP.mode==='unique'){el.innerHTML=`<div class="lr"><div class="ld" style="background:${APP.uniqueColor}"></div>Tous visibles</div>`;return}
-  if(APP.mode==='choropleth'){el.innerHTML=`<div style="height:10px;width:110px;border-radius:3px;background:linear-gradient(to right,${APP.choroLow},${APP.choroHigh});margin-bottom:3px"></div><div style="display:flex;justify-content:space-between;font-size:9px;color:#888"><span>min</span><span>max</span></div>`;return}
+  if(APP.mode==='unique'){el.innerHTML=`<div class="lr"><div class="ld" style="background:${APP.uniqueColor}"></div>Tous visibles</div>`;return;}
+  if(APP.mode==='choropleth'){el.innerHTML=`<div style="height:10px;width:110px;border-radius:3px;background:linear-gradient(to right,${APP.choroLow},${APP.choroHigh});margin-bottom:3px"></div><div style="display:flex;justify-content:space-between;font-size:9px;color:#888"><span>min</span><span>max</span></div>`;return;}
   const active=APP.cats.filter(c=>c.active);
-  if(!active.length){el.innerHTML='<span style="color:#aaa;font-size:10px">Aucune catégorie active</span>';return}
-  for(const c of active){const co=col(c.couleur)||NAMED.bleu;el.innerHTML+=`<div class="lr"><div class="ld" style="background:${co}"></div>${c.nom}</div>`}
+  if(!active.length){el.innerHTML='<span style="color:#aaa;font-size:10px">Aucune catégorie active</span>';return;}
+  for(const c of active){const co=col(c.couleur)||NAMED.bleu;el.innerHTML+=`<div class="lr"><div class="ld" style="background:${co}"></div>${c.nom}</div>`;}
   if(active.length>1)el.innerHTML+=`<div class="lr"><div class="ld" style="background:${APP.cumulColor};border-style:dashed"></div><i>Cumul</i></div>`;
 }
 
-// ── Panneau catégories ────────────────────────────────────
+// ── Catégories : rendu + édition ──────────────────────────
+function colorChips(selectedHex){
+  return NAMED_COLORS.map(({k,v})=>`<div class="col-chip${selectedHex===v?' sel':''}" style="background:${v}" title="${k}" onclick="pickColor('${v}','${k}')"></div>`).join('');
+}
+function pickColor(hex,name){
+  document.querySelectorAll('.col-chip').forEach(c=>c.classList.toggle('sel',c.style.background===hex||c.style.backgroundColor===hex));
+  const hx=document.getElementById('edit-hex');if(hx){hx.value=hex;}
+}
+
 function renderCats(){
   const el=document.getElementById('cl');
   document.getElementById('cbadge').textContent=APP.cats.length?`(${APP.cats.length})`:'';
-  if(!APP.cats.length){el.innerHTML='<div class="nc">Aucune catégorie chargée depuis Grist.</div>';return}
+  if(!APP.cats.length){el.innerHTML='<div class="nc">Aucune catégorie dans Grist.</div>';return;}
   el.innerHTML='';
   for(const cat of APP.cats){
     const co=col(cat.couleur);
-    const coDisplay=co||'#bbb';
-    const coTitle=co?cat.couleur:`"${cat.couleur}" non reconnu — utilisez: rouge, bleu, vert, orange, violet, jaune, rose, marron, cyan, noir ou un code #HEX`;
-    const row=document.createElement('div');
-    row.className='cr'+(cat.active?' on':'');
-    row.innerHTML=`
-      <input type="checkbox" class="cchk" ${cat.active?'checked':''} onchange="toggleCat(${cat._id},this.checked)">
-      <div class="csw" style="background:${coDisplay}" title="${coTitle}"></div>
-      <span class="cn" title="${cat.nom}">${cat.nom}</span>
-      ${!co?`<span style="font-size:9px;color:#e74c3c" title="${coTitle}">⚠️</span>`:''}
-    `;
-    el.appendChild(row);
+    const coD=co||'#bbb';
+    if(editingCatId===cat._id){
+      // Mode édition inline
+      const div=document.createElement('div');
+      div.className='cat-edit-row';
+      div.innerHTML=`
+        <input type="text" id="edit-cat-name" value="${cat.nom.replace(/"/g,'&quot;')}" placeholder="Nom de la catégorie">
+        <div class="col-row">${colorChips(co||'')}</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:#666">
+          HEX : <input type="text" class="col-hex" id="edit-hex" value="${co||cat.couleur||''}" placeholder="#3498db" oninput="document.querySelectorAll('.col-chip').forEach(c=>c.classList.remove('sel'))">
+        </div>
+        <div class="cat-edit-btns">
+          <button class="btn-sm" onclick="cancelEdit()">Annuler</button>
+          <button class="btn-sm ok" onclick="saveCatEdit(${cat._id})">✓ Enregistrer</button>
+        </div>`;
+      el.appendChild(div);
+    }else{
+      const row=document.createElement('div');
+      row.className='cr'+(cat.active?' on':'');
+      row.innerHTML=`
+        <input type="checkbox" class="cchk" ${cat.active?'checked':''} onchange="toggleCat(${cat._id},this.checked)">
+        <div class="csw" style="background:${coD}" title="${cat.couleur||''}${!co?' (couleur non reconnue)':''}"></div>
+        <span class="cn" title="${cat.nom}">${cat.nom}</span>
+        ${!co?`<span style="font-size:9px;color:#e74c3c" title="Couleur non reconnue: ${cat.couleur}. Cliquez ✏️ pour corriger.">⚠️</span>`:''}
+        <button class="cedit" onclick="startEditCat(${cat._id})" title="Éditer nom/couleur">✏️</button>`;
+      el.appendChild(row);
+    }
   }
 }
 
+function startEditCat(catId){editingCatId=catId;renderCats();}
+function cancelEdit(){editingCatId=null;renderCats();}
+
+async function saveCatEdit(catId){
+  const name=document.getElementById('edit-cat-name').value.trim();
+  const hexInput=document.getElementById('edit-hex').value.trim();
+  // Chercher si une chip est sélectionnée
+  const selChip=document.querySelector('.col-chip.sel');
+  const chosenHex=selChip?selChip.style.backgroundColor:(hexInput||null);
+  // Convertir rgb(...) → hex si nécessaire
+  function rgbToHex(rgb){const m=rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);if(!m)return rgb;return'#'+[m[1],m[2],m[3]].map(x=>parseInt(x).toString(16).padStart(2,'0')).join('');}
+  const finalColor=chosenHex?(chosenHex.startsWith('rgb')?rgbToHex(chosenHex):chosenHex):null;
+  // Chercher le nom de la couleur correspondant au hex
+  const colName=Object.entries(NAMED).find(([,v])=>v===finalColor)?.[0]||finalColor||'';
+  if(!name){alert('Le nom ne peut pas être vide.');return;}
+  const updates={};
+  if(name)updates.nom=name;
+  if(colName)updates.couleur=colName;
+  try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.cats,catId,updates]]);}
+  catch(e){console.warn('saveCatEdit:',e.message);}
+  editingCatId=null;
+  await fetchAllTables();
+}
+
+async function addCat(){
+  const name=document.getElementById('new-cat-name').value.trim();
+  if(!name)return;
+  try{await grist.docApi.applyUserActions([['AddRecord',CFG.cats,null,{nom:name,couleur:'bleu',active:false}]]);}
+  catch(e){console.warn('addCat:',e.message);}
+  document.getElementById('new-cat-name').value='';
+  await fetchAllTables();
+}
+
+// ── Régions ───────────────────────────────────────────────
+function buildRegionFilter(){
+  const regions=new Map();
+  for(const d of Object.values(APP.depts)){
+    if(d.nom_region&&!regions.has(d.nom_region))regions.set(d.nom_region,d.code_region||'');
+  }
+  const sel=document.getElementById('reg-filter');
+  const current=sel.value;
+  sel.innerHTML='<option value="">— Toutes les régions —</option>';
+  [...regions.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([nom])=>{
+    const o=document.createElement('option');o.value=nom;o.textContent=nom;if(nom===current)o.selected=true;sel.appendChild(o);
+  });
+}
+
 // ── Liste départements ────────────────────────────────────
-function sk(c){if(c==='2A')return 20.1;if(c==='2B')return 20.2;const n=parseInt(c,10);return isNaN(n)?999:n}
+function sk(c){if(c==='2A')return 20.1;if(c==='2B')return 20.2;const n=parseInt(c,10);return isNaN(n)?999:n;}
 function setF(f,btn){deptFilter=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderDepts();}
 
-function renderDepts(){
-  const wrap=document.getElementById('dw');
+function getFilteredList(){
   const search=document.getElementById('dsearch').value.toLowerCase();
+  const region=document.getElementById('reg-filter').value;
   let list=Object.values(APP.depts).sort((a,b)=>sk(a.code)-sk(b.code));
   if(search)list=list.filter(d=>d.nom.toLowerCase().includes(search)||d.code.toLowerCase().includes(search));
+  if(region)list=list.filter(d=>d.nom_region===region);
   if(deptFilter==='sel')list=list.filter(d=>d.catIds.length>0);
   if(deptFilter==='vis')list=list.filter(d=>d.visible);
   if(deptFilter==='hid')list=list.filter(d=>!d.visible);
+  return list;
+}
+
+function renderDepts(){
+  const wrap=document.getElementById('dw');
+  const list=getFilteredList();
   document.getElementById('dbadge').textContent=`(${list.length}/${Object.keys(APP.depts).length})`;
   const activeCats=APP.cats.filter(c=>c.active);
   wrap.innerHTML='';
@@ -639,37 +684,59 @@ function renderDepts(){
   }
 }
 
-// ── Interactions → Grist ──────────────────────────────────
-// Après chaque action Grist, on force un rechargement car onRecords
-// ne se déclenche que si le widget est lié à une table.
-async function toggleCat(catId,val){
+// ── Actions groupées ──────────────────────────────────────
+async function bulkDeptCat(add){
+  const activeCats=APP.cats.filter(c=>c.active);
+  if(!activeCats.length){alert('Cochez d\'abord au moins une catégorie.');return;}
+  const list=getFilteredList();
+  const actions=[];
+  for(const d of list){
+    for(const cat of activeCats){
+      const exists=Object.entries(APP.dcRows).find(([,v])=>v.dept_id===d._id&&v.cat_id===cat._id);
+      if(add&&!exists){const rec={};rec[CFG.colDept]=d._id;rec[CFG.colCat]=cat._id;actions.push(['AddRecord',CFG.dc,null,rec]);}
+      if(!add&&exists)actions.push(['RemoveRecord',CFG.dc,parseInt(exists[0])]);
+    }
+  }
+  if(!actions.length)return;
   try{
-    await grist.docApi.applyUserActions([['UpdateRecord',CFG.cats,catId,{active:val}]]);
-  }catch(e){console.warn('toggleCat:',e.message);}
+    // Envoyer par lots de 50
+    for(let i=0;i<actions.length;i+=50)await grist.docApi.applyUserActions(actions.slice(i,i+50));
+  }catch(e){console.warn('bulkDeptCat:',e.message);}
+  await fetchAllTables();
+}
+
+async function bulkVis(val){
+  const list=getFilteredList();
+  const actions=list.map(d=>['UpdateRecord',CFG.depts,d._id,{visible:val}]);
+  if(!actions.length)return;
+  try{for(let i=0;i<actions.length;i+=50)await grist.docApi.applyUserActions(actions.slice(i,i+50));}
+  catch(e){console.warn('bulkVis:',e.message);}
+  await fetchAllTables();
+}
+
+// ── Interactions → Grist ──────────────────────────────────
+async function toggleCat(catId,val){
+  try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.cats,catId,{active:val}]]);}
+  catch(e){console.warn('toggleCat:',e.message);}
   await fetchAllTables();
 }
 async function toggleVis(code,val){
   const rowId=APP.deptRowId[code];if(!rowId)return;
-  try{
-    await grist.docApi.applyUserActions([['UpdateRecord',CFG.depts,rowId,{visible:val}]]);
-  }catch(e){console.warn('toggleVis:',e.message);}
+  try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.depts,rowId,{visible:val}]]);}
+  catch(e){console.warn('toggleVis:',e.message);}
   await fetchAllTables();
 }
 async function toggleDeptCat(code,catId){
   const deptRowId=APP.deptRowId[code];if(!deptRowId)return;
   const existing=Object.entries(APP.dcRows).find(([,v])=>v.dept_id===deptRowId&&v.cat_id===catId);
   try{
-    if(existing){
-      await grist.docApi.applyUserActions([['RemoveRecord',CFG.dc,parseInt(existing[0])]]);
-    }else{
-      const rec={};rec[CFG.colDept]=deptRowId;rec[CFG.colCat]=catId;
-      await grist.docApi.applyUserActions([['AddRecord',CFG.dc,null,rec]]);
-    }
+    if(existing){await grist.docApi.applyUserActions([['RemoveRecord',CFG.dc,parseInt(existing[0])]]);}
+    else{const rec={};rec[CFG.colDept]=deptRowId;rec[CFG.colCat]=catId;await grist.docApi.applyUserActions([['AddRecord',CFG.dc,null,rec]]);}
   }catch(e){console.warn('toggleDeptCat:',e.message);}
   await fetchAllTables();
 }
 
-// ── Mode ──────────────────────────────────────────────────
+// ── Mode / UI ─────────────────────────────────────────────
 function setMode(m,btn){
   APP.mode=m;
   document.querySelectorAll('.hbtn[onclick^="setMode"]').forEach(b=>b.classList.remove('on'));
@@ -690,31 +757,30 @@ async function fetchAllTables(){
   try{cTable=await grist.docApi.fetchTable(CFG.cats);}catch(_){}
   try{if(CFG.dc)dcTable=await grist.docApi.fetchTable(CFG.dc);}catch(_){}
 
-  // Departements
+  // Départements
   APP.depts={};APP.deptRowId={};
   if(dTable){
     const colCode=findCol(dTable,'code_dept','code','Code','num_dep');
     const colNom=findCol(dTable,'nom_dept','nom','name','Nom','Name');
     const colVis=findCol(dTable,'visible','Visible','actif');
     const colVal=findCol(dTable,'valeur','Valeur','value','Value');
+    const colReg=findCol(dTable,'nom_region','region','Region','nom_reg','r_gion');
+    const colRegCode=findCol(dTable,'code_region','code_reg');
     const ids=dTable.id||[];
     for(let i=0;i<ids.length;i++){
       const code=colCode?String(dTable[colCode][i]||'').trim():'';if(!code)continue;
       const rawVis=colVis?dTable[colVis][i]:true;
-      // Grist renvoie true/false ou 1/0 pour les bascules
-      const visible=(rawVis===true||rawVis===1);
-      APP.depts[code]={_id:ids[i],code,nom:colNom?String(dTable[colNom][i]||code):code,visible,valeur:colVal?dTable[colVal][i]??null:null,catIds:[]};
+      APP.depts[code]={_id:ids[i],code,nom:colNom?String(dTable[colNom][i]||code):code,visible:(rawVis===true||rawVis===1),valeur:colVal?dTable[colVal][i]??null:null,catIds:[],nom_region:colReg?String(dTable[colReg][i]||''):'',code_region:colRegCode?String(dTable[colRegCode][i]||''):''};
       APP.deptRowId[code]=ids[i];
     }
   }else missing.push(`Départements (${CFG.depts})`);
 
-  // Categories
+  // Catégories
   APP.cats=[];
   if(cTable){
     const colNom=findCol(cTable,'nom','name','Nom','Name','label');
     const colCol=findCol(cTable,'couleur','color','Color','Couleur');
-    // Grist strip accents: "Sélection"→"S_lection", "sélection"→"s_lection", etc.
-    const colAct=findCol(cTable,'active','Active','selectionnee','S_lection','s_lection','selection','Selection','selected','actif','Actif','visible','Visible','checked');
+    const colAct=findCol(cTable,'active','Active','selectionnee','S_lection','s_lection','selection','Selection','selected','actif','Actif','visible','Visible');
     const ids=cTable.id||[];
     for(let i=0;i<ids.length;i++){
       const rawAct=colAct?cTable[colAct][i]:false;
@@ -722,7 +788,7 @@ async function fetchAllTables(){
     }
   }else missing.push(`Catégories (${CFG.cats})`);
 
-  // Dept_Categories
+  // Affiliations
   APP.dcRows={};
   if(dcTable){
     const colD=findCol(dcTable,CFG.colDept,'dept','Dept','departement','Departement');
@@ -742,7 +808,10 @@ async function fetchAllTables(){
   if(missing.length){document.getElementById('cfg-banner-msg').textContent='Tables non trouvées : '+missing.join(', ');banner.classList.add('show');}
   else banner.classList.remove('show');
 
-  renderCats();renderDepts();refresh();
+  buildRegionFilter();
+  renderCats();
+  renderDepts();
+  refresh();
 }
 
 // ── Boot ──────────────────────────────────────────────────
@@ -750,43 +819,30 @@ async function boot(){
   initMaps();
   document.getElementById('cumsw').style.background=APP.cumulColor;
 
-  // Carte GeoJSON
   document.getElementById('ldg').classList.remove('gone');
   document.getElementById('ldg-msg').textContent='Chargement de la carte…';
-  try{const geo=await loadGeoJSON();renderMap(geo);}
+  let geo;
+  try{geo=await loadGeoJSON();renderMap(geo);}
   catch(e){document.getElementById('ldg-msg').textContent='Erreur carte: '+e.message;}
   document.getElementById('ldg').classList.add('gone');
 
-  // Grist
   grist.ready({requiredAccess:'full'});
 
   let optionsLoaded=false;
   grist.onOptions(async(opts)=>{
-    // Ne recharger la config que si on reçoit des données valides
-    // (évite d'écraser la config en cas de callback vide)
     if(opts&&Object.keys(opts).length>0)loadConfig(opts);
     optionsLoaded=true;
     await fetchAllTables();
   });
-  // Fallback si pas d'options sauvegardées (widget neuf sans config)
   setTimeout(async()=>{if(!optionsLoaded){optionsLoaded=true;await fetchAllTables();}},2000);
 
   grist.onRecords(async()=>fetchAllTables());
   grist.onRecord(async()=>fetchAllTables());
 
-  setTimeout(()=>{
-    mainMap.invalidateSize();
-    idfMap.invalidateSize();
-    for(const m of Object.values(mMaps))m.invalidateSize();
-  },300);
+  setTimeout(()=>{mainMap.invalidateSize();for(const m of Object.values(mMaps))m.invalidateSize();},400);
 }
 
-new ResizeObserver(()=>{
-  if(mainMap)mainMap.invalidateSize();
-  if(idfMap)idfMap.invalidateSize();
-  for(const m of Object.values(mMaps))m.invalidateSize();
-}).observe(document.getElementById('mp'));
-
+new ResizeObserver(()=>{if(mainMap)mainMap.invalidateSize();for(const m of Object.values(mMaps))m.invalidateSize();}).observe(document.getElementById('mp'));
 window.addEventListener('DOMContentLoaded',boot);
 </script>
 </body>
