@@ -81,7 +81,7 @@
     .cedit:hover{background:#eee;color:#333}
     /* Inline edit catégorie */
     .cat-edit-row{display:flex;flex-direction:column;gap:5px;padding:6px 8px;border:1px solid #4a90d9;border-radius:5px;background:#f0f6ff;margin-bottom:2px}
-    .cat-edit-row input[type=text]{font-size:12px;border:1px solid #ccc;border-radius:3px;padding:4px 7px;width:100%;color:#222}
+    .cat-edit-row input[type=text]{font-size:12px;border:1px solid #ccc;border-radius:3px;padding:4px 7px;width:100%;color:#222;background:#fff}
     .cat-edit-row .col-row{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
     .col-chip{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;flex-shrink:0;transition:transform .1s}
     .col-chip:hover{transform:scale(1.15)}
@@ -209,8 +209,10 @@
             <button onclick="addCat()" title="Ajouter une catégorie">+ Ajouter</button>
           </div>
           <div class="cumr">
-            <div class="cumv" id="cumsw" title="Couleur cumul"><input type="color" id="cumc" value="#f39c12" oninput="APP.cumulColor=this.value;cumsw.style.background=this.value;refresh()"></div>
-            <span>Couleur si plusieurs catégories actives sur un même département</span>
+            <input type="checkbox" id="cumchk" checked style="cursor:pointer;accent-color:#1a3a5c" onchange="APP.useCumul=this.checked;document.getElementById('cumsw').style.opacity=this.checked?'1':'0.3';refresh()">
+            <label for="cumchk" style="cursor:pointer">Cumul :</label>
+            <div class="cumv" id="cumsw" title="Couleur si plusieurs catégories sur un même département"><input type="color" id="cumc" value="#f39c12" oninput="APP.cumulColor=this.value;cumsw.style.background=this.value;refresh()"></div>
+            <span style="color:#777;font-size:10px">couleur si dept dans plusieurs catégories</span>
           </div>
         </div>
       </div>
@@ -407,7 +409,7 @@ function showGuide(){document.getElementById('guide-modal').classList.remove('go
 function closeModal(id){document.getElementById(id).classList.add('gone');}
 
 // ── État ──────────────────────────────────────────────────
-const APP={mode:'categorie',uniqueColor:'#e74c3c',cumulColor:'#f39c12',choroLow:'#ffffb2',choroHigh:'#d7191c',cats:[],depts:{},dcRows:{},deptRowId:{}};
+const APP={mode:'categorie',uniqueColor:'#e74c3c',cumulColor:'#f39c12',useCumul:true,choroLow:'#ffffb2',choroHigh:'#d7191c',cats:[],depts:{},dcRows:{},deptRowId:{}};
 let deptFilter='all';
 let editingCatId=null; // catégorie en cours d'édition
 
@@ -467,6 +469,7 @@ function deptColor(code){
   const matched=active.filter(c=>d.catIds.includes(c._id));
   if(!matched.length)return null;
   if(matched.length===1)return col(matched[0].couleur)||NAMED.bleu;
+  if(!APP.useCumul)return col(matched[0].couleur)||NAMED.bleu;
   return APP.cumulColor;
 }
 
@@ -538,7 +541,7 @@ function renderLegend(){
   const active=APP.cats.filter(c=>c.active);
   if(!active.length){el.innerHTML='<span style="color:#aaa;font-size:10px">Aucune catégorie active</span>';return;}
   for(const c of active){const co=col(c.couleur)||NAMED.bleu;el.innerHTML+=`<div class="lr"><div class="ld" style="background:${co}"></div>${c.nom}</div>`;}
-  if(active.length>1)el.innerHTML+=`<div class="lr"><div class="ld" style="background:${APP.cumulColor};border-style:dashed"></div><i>Cumul</i></div>`;
+  if(active.length>1&&APP.useCumul)el.innerHTML+=`<div class="lr"><div class="ld" style="background:${APP.cumulColor};border-style:dashed"></div><i>Cumul</i></div>`;
 }
 
 // ── Catégories : rendu + édition ──────────────────────────
