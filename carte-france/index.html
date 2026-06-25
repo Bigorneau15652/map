@@ -9,246 +9,339 @@
   <script src="https://cdn.jsdelivr.net/npm/chroma-js@2.4.2/chroma.min.js"></script>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; overflow: hidden; }
-
-    #app { display: flex; flex-direction: column; height: 100vh; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;overflow:hidden}
+    #app{display:flex;flex-direction:column;height:100vh}
 
     /* ── Header ── */
-    #header {
-      background: #1a3a5c; color: #fff;
-      padding: 7px 14px; display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    #hdr{
+      background:#1a3a5c;color:#fff;
+      padding:6px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap
     }
-    #header h1 { font-size: 14px; font-weight: 600; }
-    #header .spacer { flex: 1; }
-    #mode-btns { display: flex; gap: 4px; }
-    .mode-btn {
-      font-size: 11px; padding: 3px 8px;
-      border: 1px solid rgba(255,255,255,0.4); border-radius: 3px;
-      background: transparent; color: #fff; cursor: pointer;
+    #hdr h1{font-size:14px;font-weight:600}
+    #hdr .sp{flex:1}
+    .hbtn{
+      font-size:11px;padding:3px 8px;
+      border:1px solid rgba(255,255,255,0.35);border-radius:3px;
+      background:transparent;color:#fff;cursor:pointer;white-space:nowrap
     }
-    .mode-btn.active { background: rgba(255,255,255,0.25); border-color: #fff; }
-    #unique-color-wrap, #choro-wrap {
-      display: none; align-items: center; gap: 5px; font-size: 11px; color: #ccc;
-    }
-    #unique-color-wrap.show, #choro-wrap.show { display: flex; }
-    #unique-color-wrap input, #choro-wrap input[type="color"] {
-      width: 26px; height: 22px; border: none; border-radius: 3px; cursor: pointer; padding: 1px;
-    }
+    .hbtn.on{background:rgba(255,255,255,0.22);border-color:#fff}
+    .hbtn.icon{font-size:14px;padding:2px 6px}
+    #uc-wrap,#ch-wrap{display:none;align-items:center;gap:4px;font-size:11px;color:#cce}
+    #uc-wrap.show,#ch-wrap.show{display:flex}
+    #uc-wrap input,#ch-wrap input[type=color]{width:24px;height:20px;border:none;border-radius:2px;cursor:pointer;padding:1px}
 
-    /* ── Main ── */
-    #main { display: flex; flex: 1; overflow: hidden; }
+    /* ── Layout ── */
+    #main{display:flex;flex:1;overflow:hidden}
 
     /* ── Carte ── */
-    #map-panel { flex: 1; position: relative; min-width: 0; }
-    #map-main { position: absolute; inset: 0; background: #dce8f5; }
-    .leaflet-container { background: #dce8f5 !important; }
+    #mp{flex:1;position:relative;min-width:0}
+    #map{position:absolute;inset:0;background:#dce8f5}
+    .leaflet-container{background:#dce8f5!important}
 
     /* DOM-TOM */
-    #domtom-panel {
-      position: absolute; bottom: 10px; right: 10px;
-      display: grid; grid-template-columns: 1fr 1fr; gap: 4px; z-index: 1000;
-    }
-    .mm-wrap { position: relative; }
-    .mm-wrap.full { grid-column: 1 / -1; }
-    .mini-map {
-      width: 86px; height: 72px;
-      border: 1.5px solid #999; border-radius: 4px; background: #dce8f5; overflow: hidden;
-    }
-    .mm-wrap.full .mini-map { width: 100%; }
-    .mm-label {
-      position: absolute; bottom: 2px; left: 0; right: 0;
-      text-align: center; font-size: 9px; color: #333; pointer-events: none; z-index: 10;
-    }
+    #dtp{position:absolute;bottom:8px;right:8px;display:grid;grid-template-columns:1fr 1fr;gap:3px;z-index:1000}
+    .mw{position:relative}.mw.full{grid-column:1/-1}
+    .mm{width:84px;height:70px;border:1.5px solid #999;border-radius:4px;background:#dce8f5;overflow:hidden}
+    .mw.full .mm{width:100%}
+    .ml{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:9px;color:#333;pointer-events:none;z-index:10}
 
     /* Légende */
-    #legend {
-      position: absolute; top: 8px; left: 8px;
-      background: rgba(255,255,255,0.93); border: 1px solid #ccc;
-      border-radius: 6px; padding: 7px 10px;
-      font-size: 11px; z-index: 1000; min-width: 130px; max-height: 180px; overflow-y: auto;
-    }
-    #legend h4 { font-size: 11px; color: #333; margin-bottom: 4px; font-weight: 600; }
-    .leg-row { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
-    .leg-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.15); }
+    #leg{position:absolute;top:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:6px;padding:7px 10px;font-size:11px;z-index:1000;min-width:120px;max-height:180px;overflow-y:auto}
+    #leg h4{font-size:11px;margin-bottom:4px;font-weight:600;color:#333}
+    .lr{display:flex;align-items:center;gap:5px;margin-bottom:3px}
+    .ld{width:12px;height:12px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,0.15)}
 
     /* Tooltip */
-    #tip {
-      position: absolute; bottom: 8px; left: 8px;
-      background: rgba(255,255,255,0.93); border: 1px solid #ccc;
-      border-radius: 5px; padding: 4px 8px; font-size: 11px; z-index: 1000;
-      pointer-events: none; display: none;
-    }
-    #tip.show { display: block; }
-
-    /* ── Panneau droit ── */
-    #side {
-      width: 320px; background: #fff; border-left: 1px solid #dde;
-      display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
-    }
-
-    /* Setup banner */
-    #setup-banner {
-      background: #fff8e1; border-bottom: 1px solid #ffe082;
-      padding: 8px 12px; font-size: 11px; color: #5d4037; display: none;
-    }
-    #setup-banner.show { display: block; }
-    #setup-banner a { color: #1565c0; }
-
-    /* Section */
-    .sec { border-bottom: 1px solid #eee; flex-shrink: 0; }
-    .sec-head {
-      display: flex; align-items: center; padding: 7px 11px;
-      background: #f7f8fa; font-size: 12px; font-weight: 600; color: #444;
-      cursor: pointer; user-select: none;
-    }
-    .sec-head .arr { margin-left: auto; font-size: 10px; }
-    .sec-body { padding: 8px 11px; }
-    .sec-body.closed { display: none; }
-
-    /* Catégories */
-    #cat-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 6px; }
-    .cat-row {
-      display: flex; align-items: center; gap: 6px;
-      padding: 5px 7px; border: 1px solid #e0e0e0; border-radius: 5px; background: #fafafa;
-    }
-    .cat-row.on { border-color: #4a90d9; background: #f0f6ff; }
-    .cat-chk { width: 14px; height: 14px; accent-color: #1a3a5c; cursor: pointer; flex-shrink: 0; }
-    .cat-name { flex: 1; font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; }
-    .cat-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.2); flex-shrink: 0; }
-    .no-cats { font-size: 11px; color: #aaa; padding: 4px 0; }
-
-    /* Cumul */
-    .cumul-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; color: #666; }
-    .cumul-swatch { width: 20px; height: 20px; border-radius: 3px; border: 1px solid #ccc; cursor: pointer; position: relative; overflow: hidden; flex-shrink: 0; }
-    .cumul-swatch input { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
-
-    /* Dept section */
-    #dept-sec { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-    #dept-sec .sec-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-    #dept-search {
-      width: 100%; font-size: 12px; border: 1px solid #ddd; border-radius: 4px;
-      padding: 4px 8px; margin-bottom: 5px;
-    }
-    #dept-search:focus { outline: none; border-color: #4a90d9; }
-    .filter-btns { display: flex; gap: 3px; margin-bottom: 6px; }
-    .fb {
-      font-size: 10px; padding: 3px 6px;
-      border: 1px solid #ddd; border-radius: 3px; background: #fff; cursor: pointer;
-    }
-    .fb.on { background: #1a3a5c; color: #fff; border-color: #1a3a5c; }
-    #dept-wrap { flex: 1; overflow-y: auto; }
-
-    .dept-row {
-      display: flex; align-items: center; gap: 5px;
-      padding: 3px 2px; border-radius: 3px; font-size: 11px;
-    }
-    .dept-row:hover { background: #f5f5f5; }
-    .dept-row.grayed { opacity: 0.4; }
-    .dept-vis { width: 12px; height: 12px; accent-color: #666; cursor: pointer; flex-shrink: 0; }
-    .dept-code { font-size: 10px; color: #888; width: 26px; flex-shrink: 0; text-align: right; }
-    .dept-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .dept-cats { display: flex; gap: 3px; flex-shrink: 0; }
-    .cat-dot {
-      width: 11px; height: 11px; border-radius: 2px; cursor: pointer;
-      border: 1px solid rgba(0,0,0,0.15); flex-shrink: 0; transition: transform 0.1s;
-    }
-    .cat-dot:hover { transform: scale(1.3); }
+    #tip{position:absolute;bottom:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:5px;padding:4px 8px;font-size:11px;z-index:1000;pointer-events:none;display:none}
+    #tip.show{display:block}
 
     /* Loading */
-    #loading {
-      position: absolute; inset: 0; background: rgba(255,255,255,0.9);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 2000; flex-direction: column; gap: 10px; font-size: 13px; color: #555;
-    }
-    #loading.gone { display: none; }
-    .spin {
-      width: 30px; height: 30px; border: 3px solid #ddd;
-      border-top-color: #1a3a5c; border-radius: 50%;
-      animation: sp 0.8s linear infinite;
-    }
-    @keyframes sp { to { transform: rotate(360deg); } }
+    #ldg{position:absolute;inset:0;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;z-index:2000;flex-direction:column;gap:10px;font-size:13px;color:#555}
+    #ldg.gone{display:none}
+    .spin{width:28px;height:28px;border:3px solid #ddd;border-top-color:#1a3a5c;border-radius:50%;animation:sp 0.8s linear infinite}
+    @keyframes sp{to{transform:rotate(360deg)}}
 
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+    /* ── Panneau droit ── */
+    #side{width:310px;background:#fff;border-left:1px solid #dde;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+
+    /* Config banner */
+    #cfg-banner{background:#fff3e0;border-bottom:1px solid #ffcc80;padding:7px 11px;font-size:11px;color:#5d4037;display:none;cursor:pointer}
+    #cfg-banner.show{display:block}
+    #cfg-banner:hover{background:#ffe0b2}
+
+    /* Section */
+    .sec{border-bottom:1px solid #eee;flex-shrink:0}
+    .sh{display:flex;align-items:center;padding:7px 11px;background:#f7f8fa;font-size:12px;font-weight:600;color:#444;cursor:pointer;user-select:none}
+    .sh .arr{margin-left:auto;font-size:10px}
+    .sb{padding:8px 11px}
+    .sb.closed{display:none}
+
+    /* Catégories */
+    #cl{display:flex;flex-direction:column;gap:5px;margin-bottom:6px}
+    .cr{display:flex;align-items:center;gap:6px;padding:5px 7px;border:1px solid #e0e0e0;border-radius:5px;background:#fafafa}
+    .cr.on{border-color:#4a90d9;background:#f0f6ff}
+    .cchk{width:14px;height:14px;accent-color:#1a3a5c;cursor:pointer;flex-shrink:0}
+    .cn{flex:1;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333}
+    .csw{width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,0.2);flex-shrink:0}
+    .nc{font-size:11px;color:#aaa;padding:4px 0}
+    .cumr{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:#666}
+    .cumv{width:20px;height:20px;border-radius:3px;border:1px solid #ccc;cursor:pointer;position:relative;overflow:hidden;flex-shrink:0}
+    .cumv input{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer}
+
+    /* Depts */
+    #ds{flex:1;overflow:hidden;display:flex;flex-direction:column}
+    #ds .sb{flex:1;overflow:hidden;display:flex;flex-direction:column}
+    #dsearch{width:100%;font-size:12px;border:1px solid #ddd;border-radius:4px;padding:4px 8px;margin-bottom:5px}
+    #dsearch:focus{outline:none;border-color:#4a90d9}
+    .fbs{display:flex;gap:3px;margin-bottom:6px}
+    .fb{font-size:10px;padding:3px 6px;border:1px solid #ddd;border-radius:3px;background:#fff;cursor:pointer}
+    .fb.on{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
+    #dw{flex:1;overflow-y:auto}
+    .dr{display:flex;align-items:center;gap:5px;padding:3px 2px;border-radius:3px;font-size:11px}
+    .dr:hover{background:#f5f5f5}
+    .dr.gray{opacity:.38}
+    .dvis{width:12px;height:12px;accent-color:#666;cursor:pointer;flex-shrink:0}
+    .dc{font-size:10px;color:#888;width:26px;flex-shrink:0;text-align:right}
+    .dn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .dcs{display:flex;gap:3px;flex-shrink:0}
+    .cdot{width:11px;height:11px;border-radius:2px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);flex-shrink:0;transition:transform .1s}
+    .cdot:hover{transform:scale(1.3)}
+
+    /* ── Modal générique ── */
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:5000;display:flex;align-items:center;justify-content:center}
+    .modal-bg.gone{display:none}
+    .modal{background:#fff;border-radius:8px;width:min(520px,94vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.25)}
+    .mhd{background:#1a3a5c;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+    .mhd h2{font-size:14px}
+    .mhd button{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1}
+    .mbody{flex:1;overflow-y:auto;padding:16px}
+    .mft{padding:10px 16px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end}
+
+    /* Config modal */
+    .cfg-group{margin-bottom:14px}
+    .cfg-group label{display:block;font-size:12px;font-weight:600;color:#333;margin-bottom:4px}
+    .cfg-group small{display:block;font-size:10px;color:#888;margin-bottom:4px}
+    .cfg-group input{width:100%;font-size:12px;border:1px solid #ccc;border-radius:4px;padding:5px 8px}
+    .cfg-group input:focus{outline:none;border-color:#4a90d9}
+    .cfg-note{background:#e3f2fd;border-radius:5px;padding:8px 10px;font-size:11px;color:#0d47a1;margin-bottom:14px}
+    .btn-primary{font-size:12px;padding:6px 16px;background:#1a3a5c;color:#fff;border:none;border-radius:4px;cursor:pointer}
+    .btn-primary:hover{background:#254d80}
+    .btn-secondary{font-size:12px;padding:6px 14px;background:#fff;color:#333;border:1px solid #ccc;border-radius:4px;cursor:pointer}
+    .btn-secondary:hover{background:#f5f5f5}
+
+    /* Guide modal */
+    .guide-section{margin-bottom:18px}
+    .guide-section h3{font-size:13px;font-weight:700;color:#1a3a5c;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e0e0e0}
+    .guide-section p,.guide-section li{font-size:12px;color:#333;line-height:1.6;margin-bottom:4px}
+    .guide-section ul{padding-left:16px}
+    .guide-section table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+    .guide-section th{background:#1a3a5c;color:#fff;padding:5px 8px;text-align:left}
+    .guide-section td{padding:4px 8px;border-bottom:1px solid #eee}
+    .guide-section tr:hover td{background:#f5f5f5}
+    code{background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:11px;font-family:monospace}
+    .tag{display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600}
+    .tag.r{background:#fde;color:#c00}
+    .tag.g{background:#dfd;color:#060}
+    .tag.b{background:#ddf;color:#004}
+
+    ::-webkit-scrollbar{width:5px}
+    ::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
   </style>
 </head>
 <body>
 <div id="app">
+
   <!-- Header -->
-  <div id="header">
+  <div id="hdr">
     <h1>🗺 Carte de France</h1>
-    <span class="spacer"></span>
-    <div id="mode-btns">
-      <button class="mode-btn active" onclick="setMode('categorie',this)">Catégorie</button>
-      <button class="mode-btn" onclick="setMode('unique',this)">Unique</button>
-      <button class="mode-btn" onclick="setMode('choropleth',this)">Choroplèthe</button>
+    <div id="mode-btns" style="display:flex;gap:4px">
+      <button class="hbtn on" onclick="setMode('categorie',this)">Catégorie</button>
+      <button class="hbtn" onclick="setMode('unique',this)">Unique</button>
+      <button class="hbtn" onclick="setMode('choropleth',this)">Choroplèthe</button>
     </div>
-    <div id="unique-color-wrap">
-      Couleur : <input type="color" id="uc" value="#e74c3c" oninput="APP.uniqueColor=this.value;refresh()">
-    </div>
-    <div id="choro-wrap">
-      Bas: <input type="color" id="cl" value="#ffffb2" oninput="APP.choroLow=this.value;refresh()">
-      Haut: <input type="color" id="ch" value="#d7191c" oninput="APP.choroHigh=this.value;refresh()">
-    </div>
+    <div id="uc-wrap">Couleur: <input type="color" id="uc" value="#e74c3c" oninput="APP.uniqueColor=this.value;refresh()"></div>
+    <div id="ch-wrap">Bas:<input type="color" id="cl2" value="#ffffb2" oninput="APP.choroLow=this.value;refresh()"> Haut:<input type="color" id="ch2" value="#d7191c" oninput="APP.choroHigh=this.value;refresh()"></div>
+    <span class="sp"></span>
+    <button class="hbtn icon" onclick="showGuide()" title="Guide d'utilisation">❓</button>
+    <button class="hbtn icon" onclick="showConfig()" title="Configuration des tables Grist">⚙️</button>
   </div>
 
   <div id="main">
     <!-- Carte -->
-    <div id="map-panel">
-      <div id="map-main"></div>
-      <div id="domtom-panel">
-        <div class="mm-wrap"><div class="mini-map" id="m971"></div><span class="mm-label">Guadeloupe</span></div>
-        <div class="mm-wrap"><div class="mini-map" id="m972"></div><span class="mm-label">Martinique</span></div>
-        <div class="mm-wrap"><div class="mini-map" id="m973"></div><span class="mm-label">Guyane</span></div>
-        <div class="mm-wrap"><div class="mini-map" id="m974"></div><span class="mm-label">Réunion</span></div>
-        <div class="mm-wrap full"><div class="mini-map" id="m976" style="width:100%"></div><span class="mm-label">Mayotte</span></div>
+    <div id="mp">
+      <div id="map"></div>
+      <div id="dtp">
+        <div class="mw"><div class="mm" id="m971"></div><span class="ml">Guadeloupe</span></div>
+        <div class="mw"><div class="mm" id="m972"></div><span class="ml">Martinique</span></div>
+        <div class="mw"><div class="mm" id="m973"></div><span class="ml">Guyane</span></div>
+        <div class="mw"><div class="mm" id="m974"></div><span class="ml">Réunion</span></div>
+        <div class="mw full"><div class="mm" id="m976" style="width:100%"></div><span class="ml">Mayotte</span></div>
       </div>
-      <div id="legend"><h4>Légende</h4><div id="leg-items"></div></div>
+      <div id="leg"><h4>Légende</h4><div id="li"></div></div>
       <div id="tip"></div>
-      <div id="loading"><div class="spin"></div><span id="loading-msg">Chargement…</span></div>
+      <div id="ldg"><div class="spin"></div><span id="ldg-msg">Chargement…</span></div>
     </div>
 
     <!-- Panneau droit -->
     <div id="side">
-      <div id="setup-banner">
-        ⚙️ Tables introuvables. <a href="#" onclick="showSetup()">Voir le guide de configuration</a>
+      <div id="cfg-banner" onclick="showConfig()">
+        ⚠️ <span id="cfg-banner-msg">Tables Grist non trouvées.</span> Cliquez ici pour configurer les noms de tables. →
       </div>
 
       <!-- Catégories -->
       <div class="sec">
-        <div class="sec-head" onclick="toggle(this)">
-          🏷 Catégories <span id="cat-badge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span>
-          <span class="arr">▾</span>
-        </div>
-        <div class="sec-body" id="cat-body">
-          <div id="cat-list"><div class="no-cats">Aucune catégorie dans Grist.<br>Ajoutez des lignes dans la table <b>Categories</b>.</div></div>
-          <div class="cumul-row">
-            <div class="cumul-swatch" id="cumul-sw" title="Couleur cumul">
-              <input type="color" id="cumul-c" value="#f39c12" oninput="APP.cumulColor=this.value;updateCumul();refresh()">
-            </div>
-            <span>Couleur quand plusieurs catégories actives</span>
+        <div class="sh" onclick="tog(this)">🏷 Catégories <span id="cbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span><span class="arr">▾</span></div>
+        <div class="sb">
+          <div id="cl"><div class="nc">Aucune catégorie. Ajoutez des lignes dans la table <b>Catégories</b> de Grist.</div></div>
+          <div class="cumr">
+            <div class="cumv" id="cumsw" title="Couleur cumul"><input type="color" id="cumc" value="#f39c12" oninput="APP.cumulColor=this.value;cumsw.style.background=this.value;refresh()"></div>
+            <span>Couleur quand plusieurs catégories actives sur un même département</span>
           </div>
         </div>
       </div>
 
       <!-- Départements -->
-      <div class="sec" id="dept-sec">
-        <div class="sec-head" onclick="toggle(this)">
-          📍 Départements <span id="dept-badge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span>
-          <span class="arr">▾</span>
-        </div>
-        <div class="sec-body">
-          <input type="text" id="dept-search" placeholder="Rechercher (nom ou code)…" oninput="renderDepts()">
-          <div class="filter-btns">
+      <div class="sec" id="ds">
+        <div class="sh" onclick="tog(this)">📍 Départements <span id="dbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span><span class="arr">▾</span></div>
+        <div class="sb">
+          <input type="text" id="dsearch" placeholder="Rechercher (nom ou code)…" oninput="renderDepts()">
+          <div class="fbs">
             <button class="fb on" onclick="setF('all',this)">Tous</button>
             <button class="fb" onclick="setF('sel',this)">Sélectionnés</button>
             <button class="fb" onclick="setF('vis',this)">Visibles</button>
             <button class="fb" onclick="setF('hid',this)">Grisés</button>
           </div>
-          <div id="dept-wrap"></div>
+          <div id="dw"></div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Configuration ── -->
+<div class="modal-bg gone" id="cfg-modal">
+  <div class="modal">
+    <div class="mhd"><h2>⚙️ Configuration – Noms des tables Grist</h2><button onclick="closeModal('cfg-modal')">✕</button></div>
+    <div class="mbody">
+      <div class="cfg-note">
+        💡 Pour trouver le nom exact d'une table dans Grist : faites un clic droit sur la table dans le menu gauche → <b>"Renommer"</b> pour voir son nom interne, ou ouvrez <b>Vue du code</b> (menu Outils) et notez l'identifiant Python (ex: <code>Departements</code>).
+      </div>
+      <div class="cfg-group">
+        <label>Table des Départements</label>
+        <small>Contient les 101 départements avec code, nom, visible</small>
+        <input id="cfg-depts" placeholder="ex: Departements" value="">
+      </div>
+      <div class="cfg-group">
+        <label>Table des Catégories</label>
+        <small>Contient nom, couleur, active</small>
+        <input id="cfg-cats" placeholder="ex: Categories" value="">
+      </div>
+      <div class="cfg-group">
+        <label>Table des Affiliations (Dept_Categories)</label>
+        <small>Table de liaison entre départements et catégories</small>
+        <input id="cfg-dc" placeholder="ex: Departement_categories" value="">
+      </div>
+      <div class="cfg-group">
+        <label>Colonne "département" dans la table Affiliations</label>
+        <small>Nom de la colonne Référence vers Départements</small>
+        <input id="cfg-col-dept" placeholder="ex: dept" value="">
+      </div>
+      <div class="cfg-group">
+        <label>Colonne "catégorie" dans la table Affiliations</label>
+        <small>Nom de la colonne Référence vers Catégories</small>
+        <input id="cfg-col-cat" placeholder="ex: categorie" value="">
+      </div>
+    </div>
+    <div class="mft">
+      <button class="btn-secondary" onclick="closeModal('cfg-modal')">Annuler</button>
+      <button class="btn-primary" onclick="saveConfig()">💾 Enregistrer et recharger</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Guide ── -->
+<div class="modal-bg gone" id="guide-modal">
+  <div class="modal">
+    <div class="mhd"><h2>❓ Guide d'utilisation – Carte de France Grist</h2><button onclick="closeModal('guide-modal')">✕</button></div>
+    <div class="mbody">
+
+      <div class="guide-section">
+        <h3>1. Tables à créer dans Grist</h3>
+        <p>Ce widget utilise <b>3 tables</b> dans votre document Grist :</p>
+        <table>
+          <tr><th>Table</th><th>Rôle</th></tr>
+          <tr><td><code>Departements</code></td><td>Les 101 départements (importer le CSV fourni)</td></tr>
+          <tr><td><code>Categories</code></td><td>Vos thèmes de coloration (ex: Zone montagne)</td></tr>
+          <tr><td><code>Departement_categories</code></td><td>Les liens dept ↔ catégorie (géré par le widget)</td></tr>
+        </table>
+      </div>
+
+      <div class="guide-section">
+        <h3>2. Colonnes requises</h3>
+        <p><b>Table Departements</b> — importer depuis :<br>
+        <code>https://bigorneau15652.github.io/map/carte-france/departements.csv</code></p>
+        <ul>
+          <li><code>code_dept</code> — code INSEE (01, 75, 971…)</li>
+          <li><code>nom_dept</code> — nom du département</li>
+          <li><code>visible</code> — <span class="tag b">Bascule</span> — si décoché, le département est grisé sur la carte</li>
+        </ul>
+        <p style="margin-top:8px"><b>Table Categories</b></p>
+        <ul>
+          <li><code>nom</code> — ex: Zone montagne</li>
+          <li><code>couleur</code> — nom FR (<code>rouge</code>, <code>bleu</code>…) ou HEX (<code>#e74c3c</code>)</li>
+          <li><code>active</code> — <span class="tag b">Bascule</span> — si coché, la catégorie est visible sur la carte</li>
+        </ul>
+        <p style="margin-top:8px"><b>Table Departement_categories</b> — laisser vide, le widget la remplit</p>
+        <ul>
+          <li><code>dept</code> — <span class="tag r">Référence</span> → Departements</li>
+          <li><code>categorie</code> — <span class="tag r">Référence</span> → Categories</li>
+          <li><code>valeur</code> — Numérique (optionnel, pour mode Choroplèthe)</li>
+        </ul>
+      </div>
+
+      <div class="guide-section">
+        <h3>3. Ajouter le widget dans Grist</h3>
+        <ul>
+          <li>Dans une page Grist : <b>Ajouter un widget → Widget personnalisé</b></li>
+          <li>URL : <code>https://bigorneau15652.github.io/map/carte-france/</code></li>
+          <li>Niveau d'accès : <b>Accès complet au document</b></li>
+          <li>Pas besoin de lier à une table spécifique</li>
+        </ul>
+      </div>
+
+      <div class="guide-section">
+        <h3>4. Configurer les noms de tables (⚙️)</h3>
+        <p>Si vos tables s'appellent différemment, cliquez <b>⚙️</b> en haut à droite du widget et entrez les noms exacts.</p>
+        <p>Pour trouver le nom interne d'une table Grist : <b>Outils → Vue du code</b> et repérez l'identifiant Python.</p>
+      </div>
+
+      <div class="guide-section">
+        <h3>5. Couleurs disponibles</h3>
+        <table>
+          <tr><th>Nom à saisir</th><th>Couleur</th><th>Nom à saisir</th><th>Couleur</th></tr>
+          <tr><td><code>rouge</code></td><td style="color:#e74c3c">●</td><td><code>bleu</code></td><td style="color:#2980b9">●</td></tr>
+          <tr><td><code>vert</code></td><td style="color:#27ae60">●</td><td><code>orange</code></td><td style="color:#e67e22">●</td></tr>
+          <tr><td><code>violet</code></td><td style="color:#8e44ad">●</td><td><code>jaune</code></td><td style="color:#f1c40f">●</td></tr>
+          <tr><td><code>rose</code></td><td style="color:#e91e8c">●</td><td><code>marron</code></td><td style="color:#795548">●</td></tr>
+          <tr><td><code>cyan</code></td><td style="color:#00bcd4">●</td><td><code>noir</code></td><td style="color:#2c3e50">●</td></tr>
+        </table>
+        <p style="margin-top:6px">Ou entrez directement un code HEX : <code>#3498db</code></p>
+      </div>
+
+      <div class="guide-section">
+        <h3>6. Workflow d'utilisation</h3>
+        <ul>
+          <li>Cochez <code>active</code> sur une catégorie → ses départements s'illuminent</li>
+          <li>Dans le widget, cliquez la <b>pastille colorée</b> d'un département pour l'ajouter/retirer de la catégorie</li>
+          <li>Décochez la case à gauche d'un département → il devient grisé sur la carte</li>
+          <li>Un département dans plusieurs catégories actives prend la <b>couleur cumul</b> (réglable via le sélecteur orange)</li>
+        </ul>
+      </div>
+
+    </div>
+    <div class="mft">
+      <button class="btn-primary" onclick="closeModal('guide-modal')">Fermer</button>
     </div>
   </div>
 </div>
@@ -257,471 +350,299 @@
 'use strict';
 
 // ── Couleurs nommées ───────────────────────────────────────
-const NAMED = {
-  bleu:'#2980b9',rouge:'#e74c3c',vert:'#27ae60',jaune:'#f1c40f',
-  orange:'#e67e22',violet:'#8e44ad',rose:'#e91e8c',marron:'#795548',
-  gris:'#7f8c8d',noir:'#2c3e50',blanc:'#ecf0f1',cyan:'#00bcd4',
-  turquoise:'#1abc9c',emeraude:'#2ecc71',brique:'#c0392b',indigo:'#3498db',
-};
-function color(raw) {
-  if (!raw) return null;
-  const k = String(raw).trim().toLowerCase();
-  return NAMED[k] || (/^#[0-9a-f]{3,8}$/i.test(raw) ? raw : null);
-}
+const NAMED={bleu:'#2980b9',rouge:'#e74c3c',vert:'#27ae60',jaune:'#f1c40f',orange:'#e67e22',violet:'#8e44ad',rose:'#e91e8c',marron:'#795548',gris:'#7f8c8d',noir:'#2c3e50',blanc:'#ecf0f1',cyan:'#00bcd4',turquoise:'#1abc9c',emeraude:'#2ecc71',brique:'#c0392b'};
+function col(raw){if(!raw)return null;const k=String(raw).trim().toLowerCase();return NAMED[k]||(/^#[0-9a-f]{3,8}$/i.test(raw)?raw:null)}
 
 // ── DOM-TOM ────────────────────────────────────────────────
-const DT = {
-  '971':{el:'m971',center:[16.25,-61.55],zoom:9},
-  '972':{el:'m972',center:[14.65,-61.00],zoom:10},
-  '973':{el:'m973',center:[3.9,-53.0],zoom:7},
-  '974':{el:'m974',center:[-21.1,55.55],zoom:10},
-  '976':{el:'m976',center:[-12.83,45.15],zoom:11},
+const DT={'971':{el:'m971',c:[16.25,-61.55],z:9},'972':{el:'m972',c:[14.65,-61.00],z:10},'973':{el:'m973',c:[3.9,-53.0],z:7},'974':{el:'m974',c:[-21.1,55.55],z:10},'976':{el:'m976',c:[-12.83,45.15],z:11}};
+
+// ── Config (noms de tables/colonnes) ──────────────────────
+let CFG={
+  depts:'Departements', cats:'Categories', dc:'Departement_categories',
+  colDept:'dept', colCat:'categorie'
 };
+
+function loadConfig(opts){
+  if(opts?.tableDepts) CFG.depts=opts.tableDepts;
+  if(opts?.tableCats)  CFG.cats=opts.tableCats;
+  if(opts?.tableDc)    CFG.dc=opts.tableDc;
+  if(opts?.colDept)    CFG.colDept=opts.colDept;
+  if(opts?.colCat)     CFG.colCat=opts.colCat;
+}
+
+function showConfig(){
+  document.getElementById('cfg-depts').value=CFG.depts;
+  document.getElementById('cfg-cats').value=CFG.cats;
+  document.getElementById('cfg-dc').value=CFG.dc;
+  document.getElementById('cfg-col-dept').value=CFG.colDept;
+  document.getElementById('cfg-col-cat').value=CFG.colCat;
+  document.getElementById('cfg-modal').classList.remove('gone');
+}
+
+async function saveConfig(){
+  CFG.depts = document.getElementById('cfg-depts').value.trim()||CFG.depts;
+  CFG.cats  = document.getElementById('cfg-cats').value.trim()||CFG.cats;
+  CFG.dc    = document.getElementById('cfg-dc').value.trim()||CFG.dc;
+  CFG.colDept = document.getElementById('cfg-col-dept').value.trim()||CFG.colDept;
+  CFG.colCat  = document.getElementById('cfg-col-cat').value.trim()||CFG.colCat;
+  closeModal('cfg-modal');
+  try { await grist.setOptions({tableDepts:CFG.depts,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat}); } catch(_){}
+  await fetchAllTables();
+}
+
+function showGuide(){ document.getElementById('guide-modal').classList.remove('gone'); }
+function closeModal(id){ document.getElementById(id).classList.add('gone'); }
 
 // ── État ───────────────────────────────────────────────────
-const APP = {
-  mode: 'categorie',
-  uniqueColor: '#e74c3c',
-  cumulColor: '#f39c12',
-  choroLow: '#ffffb2',
-  choroHigh: '#d7191c',
-  deptFilter: 'all',
-  // données Grist
-  cats: [],        // [{_id, nom, couleur, active}]
-  depts: {},       // {code → {_id, code, nom, visible, valeur, catIds:[]}}
-  dcRows: {},      // {_id → {dept_id, cat_id}} – lignes Dept_Categories
-  // rowId lookup
-  deptRowId: {},   // {code → rowId dans table Departements}
-};
+const APP={mode:'categorie',uniqueColor:'#e74c3c',cumulColor:'#f39c12',choroLow:'#ffffb2',choroHigh:'#d7191c',cats:[],depts:{},dcRows:{},deptRowId:{}};
+let deptFilter='all';
 
 // ── Maps ───────────────────────────────────────────────────
-let mainMap, geoLayer;
-const mMaps = {}, mLayers = {};
+let mainMap,geoLayer;
+const mMaps={},mLayers={};
 
-function initMaps() {
-  mainMap = L.map('map-main',{zoomControl:true,attributionControl:false})
-    .setView([46.5,2.5],6);
-  for (const [c,cfg] of Object.entries(DT)) {
-    mMaps[c] = L.map(cfg.el,{
-      zoomControl:false,dragging:false,scrollWheelZoom:false,
-      doubleClickZoom:false,touchZoom:false,attributionControl:false,
-    }).setView(cfg.center,cfg.zoom);
-  }
+function initMaps(){
+  mainMap=L.map('map',{zoomControl:true,attributionControl:false}).setView([46.5,2.5],6);
+  for(const[c,cfg]of Object.entries(DT))
+    mMaps[c]=L.map(cfg.el,{zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false,attributionControl:false}).setView(cfg.c,cfg.z);
 }
 
-// ── GeoJSON (multi-sources robuste) ───────────────────────
-async function fetchJson(url) {
-  const r = await fetch(url); if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json();
-}
-async function loadGeoJSON() {
-  const GOV = 'https://geo.api.gouv.fr/departements?fields=nom,code&format=geojson&geometry=contour';
-  const METRO = 'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements-version-simplifiee.geojson';
-  const DT_URLS = {
-    '971':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/971-guadeloupe/departement-version-simplifiee.geojson',
-    '972':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/972-martinique/departement-version-simplifiee.geojson',
-    '973':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/973-guyane/departement-version-simplifiee.geojson',
-    '974':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/974-la-reunion/departement-version-simplifiee.geojson',
-    '976':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/976-mayotte/departement-version-simplifiee.geojson',
-  };
-  try {
-    const g = await fetchJson(GOV);
-    if (g && Array.isArray(g.features) && g.features.length > 50) return g;
-  } catch(_) {}
-  // fallback
-  const metro = await fetchJson(METRO);
-  const features = [...(metro.features||[])];
-  for (const [code,url] of Object.entries(DT_URLS)) {
-    try {
-      const dt = await fetchJson(url);
-      const ff = dt.features || (dt.type==='Feature'?[dt]:[]);
-      for (const f of ff) {
-        if (!f.properties) f.properties={};
-        if (!f.properties.code) f.properties.code = code;
-        if (!f.properties.nom)  f.properties.nom = APP.depts[code]?.nom || code;
-        features.push(f);
-      }
-    } catch(_) {}
+// ── GeoJSON ────────────────────────────────────────────────
+async function fetchJson(url){const r=await fetch(url);if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}
+async function loadGeoJSON(){
+  const GOV='https://geo.api.gouv.fr/departements?fields=nom,code&format=geojson&geometry=contour';
+  const METRO='https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements-version-simplifiee.geojson';
+  const DT_URLS={'971':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/971-guadeloupe/departement-version-simplifiee.geojson','972':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/972-martinique/departement-version-simplifiee.geojson','973':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/973-guyane/departement-version-simplifiee.geojson','974':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/974-la-reunion/departement-version-simplifiee.geojson','976':'https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/976-mayotte/departement-version-simplifiee.geojson'};
+  try{const g=await fetchJson(GOV);if(g?.features?.length>50)return g}catch(_){}
+  const metro=await fetchJson(METRO);
+  const features=[...(metro.features||[])];
+  for(const[code,url]of Object.entries(DT_URLS)){
+    try{const dt=await fetchJson(url);const ff=dt.features||(dt.type==='Feature'?[dt]:[]);for(const f of ff){if(!f.properties)f.properties={};if(!f.properties.code)f.properties.code=code;if(!f.properties.nom)f.properties.nom=APP.depts[code]?.nom||code;features.push(f)}}catch(_){}
   }
-  return {type:'FeatureCollection',features};
+  return{type:'FeatureCollection',features};
 }
 
 // ── Style ──────────────────────────────────────────────────
-function deptColor(code) {
-  const d = APP.depts[code]; if(!d) return null;
-  if (APP.mode === 'unique') return d.visible ? APP.uniqueColor : null;
-  if (APP.mode === 'choropleth') {
-    const vals = Object.values(APP.depts).map(x=>x.valeur).filter(v=>typeof v==='number'&&!isNaN(v));
-    if (!vals.length) return null;
-    const mn=Math.min(...vals), mx=Math.max(...vals);
-    if (mn===mx) return APP.choroHigh;
+function deptColor(code){
+  const d=APP.depts[code];if(!d)return null;
+  if(APP.mode==='unique')return d.visible?APP.uniqueColor:null;
+  if(APP.mode==='choropleth'){
+    const vals=Object.values(APP.depts).map(x=>x.valeur).filter(v=>typeof v==='number'&&!isNaN(v));
+    if(!vals.length)return null;
+    const mn=Math.min(...vals),mx=Math.max(...vals);
+    if(mn===mx)return APP.choroHigh;
     return chroma.scale([APP.choroLow,APP.choroHigh]).mode('lab')((d.valeur-mn)/(mx-mn)).hex();
   }
-  const active = APP.cats.filter(c=>c.active);
-  const matched = active.filter(c=>d.catIds.includes(c._id));
-  if (!matched.length) return null;
-  if (matched.length===1) return color(matched[0].couleur) || NAMED.bleu;
+  const active=APP.cats.filter(c=>c.active);
+  const matched=active.filter(c=>d.catIds.includes(c._id));
+  if(!matched.length)return null;
+  if(matched.length===1)return col(matched[0].couleur)||NAMED.bleu;
   return APP.cumulColor;
 }
-
-function getStyle(f) {
-  const code = String(f.properties?.code||'');
-  const d = APP.depts[code];
-  const vis = d?d.visible:true;
-  const c = deptColor(code);
-  return {
-    color:'#555',weight:0.7,
-    fillColor: c||'#c8d6e5',
-    fillOpacity: c?(vis?0.78:0.3):(vis?0.28:0.1),
-    opacity:1,
-  };
+function getStyle(f){
+  const code=String(f.properties?.code||'');const d=APP.depts[code];const vis=d?d.visible:true;const c=deptColor(code);
+  return{color:'#555',weight:0.7,fillColor:c||'#c8d6e5',fillOpacity:c?(vis?0.78:0.3):(vis?0.28:0.1),opacity:1};
 }
 
-function renderMap(geojson) {
-  if (geoLayer){mainMap.removeLayer(geoLayer);geoLayer=null;}
-  for (const c of Object.keys(DT)) {if(mLayers[c]){mMaps[c].removeLayer(mLayers[c]);delete mLayers[c];}}
-
-  const dtCodes = Object.keys(DT);
-  const feats = (geojson?.features||[]);
-  const metro = {type:'FeatureCollection',features:feats.filter(f=>!dtCodes.includes(String(f.properties?.code||'')))};
-  const dtF = {};
-  for (const f of feats) {const c=String(f.properties?.code||''); if(dtCodes.includes(c)) dtF[c]=f;}
-
-  function onEach(feat,layer) {
-    const code=String(feat.properties?.code||''), nom=feat.properties?.nom||code;
+function renderMap(geojson){
+  if(geoLayer){mainMap.removeLayer(geoLayer);geoLayer=null}
+  for(const c of Object.keys(DT)){if(mLayers[c]){mMaps[c].removeLayer(mLayers[c]);delete mLayers[c]}}
+  const dtCodes=Object.keys(DT);
+  const feats=(geojson?.features||[]);
+  const metro={type:'FeatureCollection',features:feats.filter(f=>!dtCodes.includes(String(f.properties?.code||'')))};
+  const dtF={};for(const f of feats){const c=String(f.properties?.code||'');if(dtCodes.includes(c))dtF[c]=f}
+  function onEach(feat,layer){
+    const code=String(feat.properties?.code||''),nom=feat.properties?.nom||code;
     layer.on({
-      mouseover(e){
-        e.target.setStyle({weight:2,color:'#111'}); e.target.bringToFront();
-        const d=APP.depts[code];
-        const cats=d?APP.cats.filter(c=>d.catIds.includes(c._id)&&c.active).map(c=>c.nom).join(', '):'';
-        const tip=document.getElementById('tip');
-        tip.innerHTML=`<b>${nom}</b> (${code})`+(cats?`<br><span style="font-size:10px;color:#666">${cats}</span>`:'');
-        tip.classList.add('show');
-      },
-      mouseout(e){if(geoLayer)geoLayer.resetStyle(e.target);document.getElementById('tip').classList.remove('show');},
-      click(){mainMap.fitBounds(layer.getBounds(),{padding:[30,30]});},
+      mouseover(e){e.target.setStyle({weight:2,color:'#111'});e.target.bringToFront();
+        const d=APP.depts[code];const cats=d?APP.cats.filter(c=>d.catIds.includes(c._id)&&c.active).map(c=>c.nom).join(', '):'';
+        const tip=document.getElementById('tip');tip.innerHTML=`<b>${nom}</b> (${code})`+(cats?`<br><span style="font-size:10px;color:#666">${cats}</span>`:'');tip.classList.add('show')},
+      mouseout(e){if(geoLayer)geoLayer.resetStyle(e.target);document.getElementById('tip').classList.remove('show')},
+      click(){mainMap.fitBounds(layer.getBounds(),{padding:[30,30]})},
     });
     layer.bindTooltip(`<b>${nom}</b> (${code})`,{sticky:true,opacity:0.85});
   }
-
-  geoLayer = L.geoJSON(metro,{style:f=>getStyle(f),onEachFeature:onEach}).addTo(mainMap);
-  for (const [code,feat] of Object.entries(dtF)) {
-    if(!mMaps[code]) continue;
-    const layer=L.geoJSON({type:'FeatureCollection',features:[feat]},{
-      style:f=>getStyle(f),
-      onEachFeature:(_,l)=>l.bindTooltip(feat.properties?.nom||code,{sticky:true}),
-    }).addTo(mMaps[code]);
-    mLayers[code]=layer;
-  }
+  geoLayer=L.geoJSON(metro,{style:f=>getStyle(f),onEachFeature:onEach}).addTo(mainMap);
+  for(const[code,feat]of Object.entries(dtF)){if(!mMaps[code])continue;const layer=L.geoJSON({type:'FeatureCollection',features:[feat]},{style:f=>getStyle(f),onEachFeature:(_,l)=>l.bindTooltip(feat.properties?.nom||code,{sticky:true})}).addTo(mMaps[code]);mLayers[code]=layer}
   renderLegend();
 }
 
-function refresh() {
-  if(!geoLayer) return;
+function refresh(){
+  if(!geoLayer)return;
   geoLayer.eachLayer(l=>l.setStyle(getStyle(l.feature)));
-  for (const layer of Object.values(mLayers)) layer.eachLayer(l=>l.setStyle(getStyle(l.feature)));
+  for(const layer of Object.values(mLayers))layer.eachLayer(l=>l.setStyle(getStyle(l.feature)));
   renderLegend();
 }
 
 // ── Légende ────────────────────────────────────────────────
-function renderLegend() {
-  const el=document.getElementById('leg-items'); el.innerHTML='';
-  if (APP.mode==='unique') {
-    el.innerHTML=`<div class="leg-row"><div class="leg-dot" style="background:${APP.uniqueColor}"></div>Tous visibles</div>`; return;
-  }
-  if (APP.mode==='choropleth') {
-    el.innerHTML=`<div style="height:10px;width:110px;border-radius:3px;background:linear-gradient(to right,${APP.choroLow},${APP.choroHigh});margin-bottom:3px"></div><div style="display:flex;justify-content:space-between;font-size:9px;color:#888"><span>min</span><span>max</span></div>`; return;
-  }
+function renderLegend(){
+  const el=document.getElementById('li');el.innerHTML='';
+  if(APP.mode==='unique'){el.innerHTML=`<div class="lr"><div class="ld" style="background:${APP.uniqueColor}"></div>Tous visibles</div>`;return}
+  if(APP.mode==='choropleth'){el.innerHTML=`<div style="height:10px;width:110px;border-radius:3px;background:linear-gradient(to right,${APP.choroLow},${APP.choroHigh});margin-bottom:3px"></div><div style="display:flex;justify-content:space-between;font-size:9px;color:#888"><span>min</span><span>max</span></div>`;return}
   const active=APP.cats.filter(c=>c.active);
-  if (!active.length){el.innerHTML='<span style="color:#aaa;font-size:10px">Aucune catégorie active</span>';return;}
-  for (const c of active) {
-    const col=color(c.couleur)||NAMED.bleu;
-    el.innerHTML+=`<div class="leg-row"><div class="leg-dot" style="background:${col}"></div>${c.nom}</div>`;
-  }
-  if (active.length>1) el.innerHTML+=`<div class="leg-row"><div class="leg-dot" style="background:${APP.cumulColor};border-style:dashed"></div><i>Cumul</i></div>`;
+  if(!active.length){el.innerHTML='<span style="color:#aaa;font-size:10px">Aucune catégorie active</span>';return}
+  for(const c of active){const co=col(c.couleur)||NAMED.bleu;el.innerHTML+=`<div class="lr"><div class="ld" style="background:${co}"></div>${c.nom}</div>`}
+  if(active.length>1)el.innerHTML+=`<div class="lr"><div class="ld" style="background:${APP.cumulColor};border-style:dashed"></div><i>Cumul</i></div>`;
 }
 
-// ── Rendu panneau catégories ───────────────────────────────
-function renderCats() {
-  const el=document.getElementById('cat-list');
-  document.getElementById('cat-badge').textContent=APP.cats.length?`(${APP.cats.length})`:'';
-  if (!APP.cats.length) {
-    el.innerHTML='<div class="no-cats">Ajoutez des lignes dans la table <b>Categories</b> de Grist.</div>'; return;
-  }
+// ── Panneau catégories ─────────────────────────────────────
+function renderCats(){
+  const el=document.getElementById('cl');
+  document.getElementById('cbadge').textContent=APP.cats.length?`(${APP.cats.length})`:'';
+  if(!APP.cats.length){el.innerHTML='<div class="nc">Aucune catégorie. Ajoutez des lignes dans la table <b>Catégories</b> de Grist.</div>';return}
   el.innerHTML='';
-  for (const cat of APP.cats) {
-    const col=color(cat.couleur)||NAMED.bleu;
+  for(const cat of APP.cats){
+    const co=col(cat.couleur)||NAMED.bleu;
     const row=document.createElement('div');
-    row.className='cat-row'+(cat.active?' on':'');
-    row.innerHTML=`
-      <input type="checkbox" class="cat-chk" ${cat.active?'checked':''} onchange="toggleCat(${cat._id},this.checked)">
-      <span class="cat-name" title="${cat.nom}">${cat.nom}</span>
-      <div class="cat-swatch" style="background:${col}" title="${cat.couleur||''}"></div>
-    `;
+    row.className='cr'+(cat.active?' on':'');
+    row.innerHTML=`<input type="checkbox" class="cchk" ${cat.active?'checked':''} onchange="toggleCat(${cat._id},this.checked)"><span class="cn" title="${cat.nom}">${cat.nom}</span><div class="csw" style="background:${co}" title="${cat.couleur||''}"></div>`;
     el.appendChild(row);
   }
 }
 
-// ── Rendu liste départements ───────────────────────────────
-let deptFilter='all';
-function setF(f,btn) {
-  deptFilter=f;
-  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on'); renderDepts();
-}
+// ── Liste départements ─────────────────────────────────────
+function sk(c){if(c==='2A')return 20.1;if(c==='2B')return 20.2;return parseInt(c,10)||999}
+function setF(f,btn){deptFilter=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderDepts()}
 
-function deptSortKey(c){
-  if(c==='2A') return 20.1; if(c==='2B') return 20.2; return parseInt(c,10)||999;
-}
-
-function renderDepts() {
-  const wrap=document.getElementById('dept-wrap');
-  const search=document.getElementById('dept-search').value.toLowerCase();
-  let list=Object.values(APP.depts).sort((a,b)=>deptSortKey(a.code)-deptSortKey(b.code));
-  if (search) list=list.filter(d=>d.nom.toLowerCase().includes(search)||d.code.toLowerCase().includes(search));
-  if (deptFilter==='sel') list=list.filter(d=>d.catIds.length>0);
-  if (deptFilter==='vis') list=list.filter(d=>d.visible);
-  if (deptFilter==='hid') list=list.filter(d=>!d.visible);
-  document.getElementById('dept-badge').textContent=`(${list.length}/${Object.keys(APP.depts).length})`;
-
+function renderDepts(){
+  const wrap=document.getElementById('dw');
+  const search=document.getElementById('dsearch').value.toLowerCase();
+  let list=Object.values(APP.depts).sort((a,b)=>sk(a.code)-sk(b.code));
+  if(search)list=list.filter(d=>d.nom.toLowerCase().includes(search)||d.code.toLowerCase().includes(search));
+  if(deptFilter==='sel')list=list.filter(d=>d.catIds.length>0);
+  if(deptFilter==='vis')list=list.filter(d=>d.visible);
+  if(deptFilter==='hid')list=list.filter(d=>!d.visible);
+  document.getElementById('dbadge').textContent=`(${list.length}/${Object.keys(APP.depts).length})`;
   const activeCats=APP.cats.filter(c=>c.active);
   wrap.innerHTML='';
-  for (const d of list) {
+  for(const d of list){
     const row=document.createElement('div');
-    row.className='dept-row'+(d.visible?'':' grayed');
-
-    const dots=activeCats.map(cat=>{
-      const on=d.catIds.includes(cat._id);
-      const col=color(cat.couleur)||NAMED.bleu;
-      return `<div class="cat-dot" title="${cat.nom}" style="background:${on?col:'#eee'};border-color:${on?col:'#ccc'}"
-        onclick="toggleDeptCat('${d.code}',${cat._id})"></div>`;
-    }).join('');
-
-    row.innerHTML=`
-      <input type="checkbox" class="dept-vis" ${d.visible?'checked':''} title="Visible / grisé"
-        onchange="toggleVis('${d.code}',this.checked)">
-      <span class="dept-code">${d.code}</span>
-      <span class="dept-name">${d.nom}</span>
-      <div class="dept-cats">${dots||'<span style="font-size:10px;color:#ccc">—</span>'}</div>
-    `;
+    row.className='dr'+(d.visible?'':' gray');
+    const dots=activeCats.map(cat=>{const on=d.catIds.includes(cat._id);const co=col(cat.couleur)||NAMED.bleu;return`<div class="cdot" title="${cat.nom}" style="background:${on?co:'#eee'};border-color:${on?co:'#ccc'}" onclick="toggleDeptCat('${d.code}',${cat._id})"></div>`}).join('');
+    row.innerHTML=`<input type="checkbox" class="dvis" ${d.visible?'checked':''} title="Visible/grisé" onchange="toggleVis('${d.code}',this.checked)"><span class="dc">${d.code}</span><span class="dn">${d.nom}</span><div class="dcs">${dots||'<span style="font-size:10px;color:#ccc">—</span>'}</div>`;
     wrap.appendChild(row);
   }
 }
 
-// ── Interactions → écriture Grist ─────────────────────────
-async function toggleCat(catId, val) {
-  if (!FOUND.cats) return;
-  try {
-    await grist.docApi.applyUserActions([['UpdateRecord', FOUND.cats, catId, {active: val}]]);
-  } catch(e) { console.warn('toggleCat:', e); }
+// ── Interactions → Grist ───────────────────────────────────
+async function toggleCat(catId,val){
+  try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.cats,catId,{active:val}]])}catch(e){console.warn('toggleCat:',CFG.cats,e.message)}
 }
-
-async function toggleVis(code, val) {
-  if (!FOUND.depts) return;
-  const rowId=APP.deptRowId[code]; if(!rowId) return;
-  try {
-    await grist.docApi.applyUserActions([['UpdateRecord', FOUND.depts, rowId, {visible: val}]]);
-  } catch(e) { console.warn('toggleVis:', e); }
+async function toggleVis(code,val){
+  const rowId=APP.deptRowId[code];if(!rowId)return;
+  try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.depts,rowId,{visible:val}]])}catch(e){console.warn('toggleVis:',CFG.depts,e.message)}
 }
-
-async function toggleDeptCat(code, catId) {
-  if (!FOUND.dc) return;
-  const deptRowId=APP.deptRowId[code]; if(!deptRowId) return;
+async function toggleDeptCat(code,catId){
+  const deptRowId=APP.deptRowId[code];if(!deptRowId)return;
   const existing=Object.entries(APP.dcRows).find(([,v])=>v.dept_id===deptRowId&&v.cat_id===catId);
-  try {
-    if (existing) {
-      await grist.docApi.applyUserActions([['RemoveRecord', FOUND.dc, parseInt(existing[0])]]);
-    } else {
-      // Utilise les noms de colonnes réels détectés
-      const d = APP.depts[code];
-      const dcKey = Object.keys(APP.dcRows).length>0
-        ? (() => { const [,v]=Object.entries(APP.dcRows)[0]; return Object.keys(v); })()
-        : ['dept_id','cat_id'];
-      await grist.docApi.applyUserActions([['AddRecord', FOUND.dc, null, {dept: deptRowId, categorie: catId}]]);
+  try{
+    if(existing){await grist.docApi.applyUserActions([['RemoveRecord',CFG.dc,parseInt(existing[0])]])}
+    else{
+      const rec={};rec[CFG.colDept]=deptRowId;rec[CFG.colCat]=catId;
+      await grist.docApi.applyUserActions([['AddRecord',CFG.dc,null,rec]]);
     }
-  } catch(e) {
-    // 2e tentative avec noms alternatifs de colonnes
-    try {
-      await grist.docApi.applyUserActions([['AddRecord', FOUND.dc, null, {Departement: deptRowId, Categories: catId}]]);
-    } catch(e2) { console.warn('toggleDeptCat:', e2); }
-  }
+  }catch(e){console.warn('toggleDeptCat:',CFG.dc,e.message)}
 }
 
 // ── Mode ───────────────────────────────────────────────────
-function setMode(m, btn) {
-  APP.mode=m;
-  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('unique-color-wrap').classList.toggle('show',m==='unique');
-  document.getElementById('choro-wrap').classList.toggle('show',m==='choropleth');
-  renderDepts(); refresh();
+function setMode(m,btn){
+  APP.mode=m;document.querySelectorAll('.hbtn[onclick^="setMode"]').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  document.getElementById('uc-wrap').classList.toggle('show',m==='unique');
+  document.getElementById('ch-wrap').classList.toggle('show',m==='choropleth');
+  renderDepts();refresh();
 }
+function tog(h){const b=h.nextElementSibling,a=h.querySelector('.arr');b.classList.toggle('closed');a.textContent=b.classList.contains('closed')?'▸':'▾'}
 
-function updateCumul() { document.getElementById('cumul-sw').style.background=APP.cumulColor; }
+// ── Fetch tables Grist ─────────────────────────────────────
+function findCol(t,...cs){for(const c of cs)if(t[c]!==undefined)return c;return null}
 
-function toggle(h) {
-  const b=h.nextElementSibling, a=h.querySelector('.arr');
-  b.classList.toggle('closed'); a.textContent=b.classList.contains('closed')?'▸':'▾';
-}
+async function fetchAllTables(){
+  let missing=[];
+  let dTable=null,cTable=null,dcTable=null;
+  try{dTable=await grist.docApi.fetchTable(CFG.depts)}catch(_){}
+  try{cTable=await grist.docApi.fetchTable(CFG.cats)}catch(_){}
+  try{dcTable=await grist.docApi.fetchTable(CFG.dc)}catch(_){}
 
-// ── Noms de tables réellement trouvés (pour écriture) ─────
-const FOUND = { depts: null, cats: null, dc: null };
-
-// ── Détection flexible : essaie plusieurs variantes de nom ─
-async function tryFetch(...names) {
-  for (const name of names) {
-    try {
-      const t = await grist.docApi.fetchTable(name);
-      if (t && t.id !== undefined) return { table: t, name };
-    } catch(_) {}
-  }
-  return { table: null, name: null };
-}
-
-// Trouve la première colonne existante parmi les candidats
-function findCol(t, ...candidates) {
-  for (const c of candidates) if (t[c] !== undefined) return c;
-  return null;
-}
-
-// ── Sync données Grist ─────────────────────────────────────
-function applyData(dRes, cRes, dcRes) {
-  const dTable=dRes?.table, cTable=cRes?.table, dcTable=dcRes?.table;
-  FOUND.depts = dRes?.name; FOUND.cats = cRes?.name; FOUND.dc = dcRes?.name;
-
-  // Departements — détection automatique des colonnes
-  APP.depts={}; APP.deptRowId={};
-  if (dTable) {
-    const colCode = findCol(dTable,'code_dept','code','Code','num_dep','numero');
-    const colNom  = findCol(dTable,'nom_dept','nom','name','Nom','Name','label');
-    const colVis  = findCol(dTable,'visible','Visible','actif','Actif','show');
-    const colVal  = findCol(dTable,'valeur','Valeur','value','Value');
-    const ids=dTable.id||[], n=ids.length;
-    for (let i=0;i<n;i++) {
-      const code=colCode?String(dTable[colCode][i]||'').trim():'';
-      if (!code) continue;
-      APP.depts[code]={
-        _id:ids[i], code,
-        nom: colNom?dTable[colNom][i]||code:code,
-        visible: colVis?dTable[colVis][i]!==false:true,
-        valeur: colVal?dTable[colVal][i]??null:null,
-        catIds:[],
-      };
+  // Departements
+  APP.depts={};APP.deptRowId={};
+  if(dTable){
+    const colCode=findCol(dTable,'code_dept','code','Code','num_dep');
+    const colNom=findCol(dTable,'nom_dept','nom','name','Nom','Name');
+    const colVis=findCol(dTable,'visible','Visible','actif');
+    const colVal=findCol(dTable,'valeur','Valeur','value','Value');
+    const ids=dTable.id||[],n=ids.length;
+    for(let i=0;i<n;i++){
+      const code=colCode?String(dTable[colCode][i]||'').trim():'';if(!code)continue;
+      APP.depts[code]={_id:ids[i],code,nom:colNom?dTable[colNom][i]||code:code,visible:colVis?dTable[colVis][i]!==false:true,valeur:colVal?dTable[colVal][i]??null:null,catIds:[]};
       APP.deptRowId[code]=ids[i];
     }
-  }
+  }else missing.push(`Départements (<code>${CFG.depts}</code>)`);
 
-  // Categories — détection automatique des colonnes
+  // Categories
   APP.cats=[];
-  if (cTable) {
-    const colNom    = findCol(cTable,'nom','name','Name','Nom','label','categorie');
-    const colCouleur= findCol(cTable,'couleur','color','Color','Couleur','couleur_hex','hex');
-    const colActive = findCol(cTable,'active','Active','selectionnee','visible','Visible','on');
-    const ids=cTable.id||[], n=ids.length;
-    for (let i=0;i<n;i++) {
-      APP.cats.push({
-        _id:ids[i],
-        nom:    colNom?cTable[colNom][i]||`Cat ${ids[i]}`:`Cat ${ids[i]}`,
-        couleur:colCouleur?cTable[colCouleur][i]||'bleu':'bleu',
-        active: colActive?cTable[colActive][i]===true:false,
-      });
-    }
-  }
+  if(cTable){
+    const colNom=findCol(cTable,'nom','name','Nom','Name','label');
+    const colCol=findCol(cTable,'couleur','color','Color','Couleur');
+    const colAct=findCol(cTable,'active','Active','selectionnee','visible');
+    const ids=cTable.id||[],n=ids.length;
+    for(let i=0;i<n;i++) APP.cats.push({_id:ids[i],nom:colNom?cTable[colNom][i]||`Cat ${ids[i]}`:`Cat ${ids[i]}`,couleur:colCol?cTable[colCol][i]||'bleu':'bleu',active:colAct?cTable[colAct][i]===true:false});
+  }else missing.push(`Catégories (<code>${CFG.cats}</code>)`);
 
-  // Dept_Categories — détection automatique des colonnes
+  // Dept_Categories
   APP.dcRows={};
-  if (dcTable) {
-    const colDept = findCol(dcTable,'dept','Dept','departement','Departement','d_partement','department');
-    const colCat  = findCol(dcTable,'categorie','Categorie','cat','Cat','Categories','categories','category');
-    const colVal  = findCol(dcTable,'valeur','Valeur','value','Value');
-    const ids=dcTable.id||[], n=ids.length;
-    for (let i=0;i<n;i++) {
-      const rowId=ids[i];
-      const deptId=colDept?dcTable[colDept][i]:null;
-      const catId =colCat ?dcTable[colCat][i]:null;
-      if (!deptId||!catId) continue;
-      APP.dcRows[rowId]={dept_id:deptId, cat_id:catId};
+  if(dcTable){
+    const colD=findCol(dcTable,CFG.colDept,'dept','Dept','departement','Departement');
+    const colC=findCol(dcTable,CFG.colCat,'categorie','Categorie','cat','Categories');
+    const ids=dcTable.id||[],n=ids.length;
+    for(let i=0;i<n;i++){
+      const rowId=ids[i],deptId=colD?dcTable[colD][i]:null,catId=colC?dcTable[colC][i]:null;
+      if(!deptId||!catId)continue;
+      APP.dcRows[rowId]={dept_id:deptId,cat_id:catId};
       const entry=Object.values(APP.depts).find(d=>d._id===deptId);
-      if (entry && !entry.catIds.includes(catId)) entry.catIds.push(catId);
+      if(entry&&!entry.catIds.includes(catId))entry.catIds.push(catId);
     }
-  }
+  }else missing.push(`Affiliations (<code>${CFG.dc}</code>)`);
 
-  // Bannière d'aide
-  const missing=[];
-  if (!dTable) missing.push('<b>Departements</b> (ou Départements)');
-  if (!cTable) missing.push('<b>Categories</b> (ou Catégories)');
-  if (!dcTable) missing.push('<b>Dept_Categories</b> (ou Département catégories)');
-  const banner=document.getElementById('setup-banner');
-  if (missing.length) {
-    banner.innerHTML=`⚙️ Tables non trouvées : ${missing.join(', ')}. <a href="https://github.com/Bigorneau15652/map/blob/master/carte-france/grist-schema.md" target="_blank">Voir le guide</a>`;
-    banner.classList.add('show');
-  } else { banner.classList.remove('show'); }
+  // Bannière
+  const banner=document.getElementById('cfg-banner');
+  if(missing.length){document.getElementById('cfg-banner-msg').innerHTML=`Tables non trouvées : ${missing.join(', ')}`;banner.classList.add('show')}
+  else banner.classList.remove('show');
 
-  renderCats();
-  renderDepts();
-  refresh();
+  renderCats();renderDepts();refresh();
 }
 
-// ── Init Grist ─────────────────────────────────────────────
-let geojsonCache=null;
-let fetchPending=false;
-
-async function fetchAllTables() {
-  if (fetchPending) return; fetchPending=true;
-  try {
-    const [dRes,cRes,dcRes]=await Promise.all([
-      tryFetch('Departements','departements','D_partements','d_partements','Depts','depts'),
-      tryFetch('Categories','categories','Cat_gories','cat_gories','Cats','cats'),
-      tryFetch('Dept_Categories','Departement_categories','departement_categories',
-               'DepartementCategories','Departements_categories','dept_categories',
-               'departement_cat_gories','DepartementCat_gories'),
-    ]);
-    applyData(dRes, cRes, dcRes);
-  } catch(e) {
-    console.error('fetchAllTables:', e);
-  } finally { fetchPending=false; }
-}
-
-async function boot() {
+// ── Boot ───────────────────────────────────────────────────
+async function boot(){
   initMaps();
-  updateCumul();
-  grist.ready({ requiredAccess: 'full' });
+  document.getElementById('cumsw').style.background=APP.cumulColor;
 
-  // Charger la carte géographique
-  setLoading('Chargement de la carte…');
-  try {
-    geojsonCache=await loadGeoJSON();
-    renderMap(geojsonCache);
-  } catch(e) {
-    setLoading(`Erreur carte: ${e.message}`); return;
+  grist.ready({requiredAccess:'full'});
+
+  // Charger config sauvegardée
+  try{const opts=await grist.getOptions();if(opts)loadConfig(opts)}catch(_){}
+
+  // Carte GeoJSON
+  document.getElementById('ldg').classList.remove('gone');
+  document.getElementById('ldg-msg').textContent='Chargement de la carte…';
+  try{
+    const geo=await loadGeoJSON();
+    renderMap(geo);
+  }catch(e){
+    document.getElementById('ldg-msg').textContent=`Erreur carte: ${e.message}`;return;
   }
-  hideLoading();
+  document.getElementById('ldg').classList.add('gone');
 
   // Données Grist
   await fetchAllTables();
 
-  // Réagir aux changements Grist (toutes tables via onRecords)
-  grist.onRecords(async ()=>{ await fetchAllTables(); });
-  grist.onRecord(async ()=>{ await fetchAllTables(); });
+  grist.onRecords(async()=>{await fetchAllTables()});
+  grist.onRecord(async()=>{await fetchAllTables()});
 
-  setTimeout(()=>{
-    mainMap.invalidateSize();
-    for (const m of Object.values(mMaps)) m.invalidateSize();
-  },200);
+  setTimeout(()=>{mainMap.invalidateSize();for(const m of Object.values(mMaps))m.invalidateSize()},200);
 }
 
-function setLoading(msg) {
-  document.getElementById('loading').classList.remove('gone');
-  document.getElementById('loading-msg').textContent=msg;
-}
-function hideLoading() { document.getElementById('loading').classList.add('gone'); }
-
-// ── Resize ─────────────────────────────────────────────────
-new ResizeObserver(()=>{
-  if(mainMap) mainMap.invalidateSize();
-  for (const m of Object.values(mMaps)) m.invalidateSize();
-}).observe(document.getElementById('map-panel'));
-
-window.addEventListener('DOMContentLoaded', boot);
+new ResizeObserver(()=>{if(mainMap)mainMap.invalidateSize();for(const m of Object.values(mMaps))m.invalidateSize()}).observe(document.getElementById('mp'));
+window.addEventListener('DOMContentLoaded',boot);
 </script>
 </body>
 </html>
