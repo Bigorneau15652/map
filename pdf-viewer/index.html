@@ -168,13 +168,22 @@ function isSameOrigin(url) {
   try { return new URL(url).origin === location.origin; } catch { return false; }
 }
 
+let viewerWin = null;
+
 function openPopup(url) {
   const w = screen.width  > 1400 ? 1200 : screen.width  - 100;
   const h = screen.height > 900  ? 860  : screen.height - 100;
   const l = Math.max(0, (screen.width  - w) / 2);
   const t = Math.max(0, (screen.height - h) / 2);
-  const win = window.open(url, WIN_NAME, `width=${w},height=${h},left=${l},top=${t},resizable=yes`);
-  if (win) win.focus();
+  if (viewerWin && !viewerWin.closed) {
+    try { viewerWin.location.href = url; } catch(e) {
+      viewerWin = window.open(url, WIN_NAME, `width=${w},height=${h},left=${l},top=${t},resizable=yes`);
+    }
+    viewerWin.focus();
+  } else {
+    viewerWin = window.open(url, WIN_NAME, `width=${w},height=${h},left=${l},top=${t},resizable=yes`);
+    if (viewerWin) viewerWin.focus();
+  }
 }
 
 // ── Affichage des états ───────────────────────────────────────────────────────
@@ -218,6 +227,10 @@ function showBlocked(url) {
   const name = decodeURIComponent(url.split('/').pop().split('?')[0]) || url;
   document.getElementById('blockedname').textContent = name;
   openbtn.onclick = () => openPopup(url);
+  // Si la fenêtre popup est déjà ouverte, on met à jour directement
+  if (viewerWin && !viewerWin.closed) {
+    try { viewerWin.location.href = url; viewerWin.focus(); } catch(e) {}
+  }
 }
 
 // ── Boutons popup ─────────────────────────────────────────────────────────────
