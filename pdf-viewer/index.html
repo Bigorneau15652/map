@@ -249,13 +249,6 @@ setTimeout(() => {
   }
 }, 4000);
 
-// Convertit github.com/USER/REPO/blob/(master|main)/PATH → USER.github.io/REPO/PATH
-function normalizeUrl(url) {
-  const m = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(master|main)\/(.+)$/);
-  if (m) return `https://${m[1]}.github.io/${m[2]}/${m[4]}`;
-  return url;
-}
-
 function processRow(row) {
   if (!st.col || !row) { showEmpty('Configurez via ··· → Paramètres'); return; }
   const v = row[st.col];
@@ -267,7 +260,7 @@ function processRow(row) {
     if (!ids.length) { showEmpty('Aucune pièce jointe'); return; }
     url = location.origin + '/api/attachments/' + ids[0] + '/download';
   } else {
-    url = normalizeUrl(String(v).trim());
+    url = String(v).trim();
   }
 
   st.url = url;
