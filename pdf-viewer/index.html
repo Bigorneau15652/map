@@ -236,6 +236,13 @@ setTimeout(() => {
   }
 }, 4000);
 
+// Convertit github.com/.../blob/... → raw.githubusercontent.com/...
+function normalizeUrl(url) {
+  const m = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/);
+  if (m) return `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}`;
+  return url;
+}
+
 function processRow(row) {
   if (!st.col || !row) { showEmpty('Configurez via ··· → Paramètres'); return; }
   const v = row[st.col];
@@ -247,7 +254,7 @@ function processRow(row) {
     if (!ids.length) { showEmpty('Aucune pièce jointe'); return; }
     url = location.origin + '/api/attachments/' + ids[0] + '/download';
   } else {
-    url = String(v).trim();
+    url = normalizeUrl(String(v).trim());
   }
 
   st.url = url;
