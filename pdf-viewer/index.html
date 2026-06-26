@@ -23,10 +23,8 @@
     #blocked {
       display: none; flex-direction: column;
       align-items: center; justify-content: center;
-      height: 100%; gap: 14px; padding: 24px; text-align: center;
+      height: 100%; gap: 12px; padding: 24px; text-align: center;
     }
-    #blocked p { font-size: 13px; color: #555; line-height: 1.6; max-width: 320px; }
-    #blocked strong { color: #333; }
     #openbtn {
       display: inline-flex; align-items: center; gap: 8px;
       background: #2980b9; color: #fff; border: none; border-radius: 7px;
@@ -99,13 +97,9 @@
   <span id="emptymsg">Sélectionnez une ligne dans le tableau</span>
 </div>
 
-<!-- État bloqué (X-Frame-Options) -->
+<!-- État bloqué (X-Frame-Options) : bouton proéminent -->
 <div id="blocked">
-  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#e67e22" stroke-width="1.8">
-    <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
-  </svg>
-  <p><strong>Ce PDF ne peut pas être affiché ici.</strong><br>
-  Le serveur interdit l'intégration dans un cadre<br>(header X-Frame-Options).</p>
+  <p id="blockedname" style="font-size:12px;color:#666;margin-bottom:4px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
   <button id="openbtn">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
       <path d="M15 3h6v6M9 21H3v-6M21 3l-9 9M3 21l9-9"/>
@@ -217,9 +211,12 @@ function showPDF(url) {
 }
 
 function showBlocked(url) {
-  frame.classList.remove('visible');
+  frame.src = ''; frame.classList.remove('visible');
   popbtn.classList.remove('visible');
+  empty.style.display = 'none';
   blocked.style.display = 'flex';
+  const name = decodeURIComponent(url.split('/').pop().split('?')[0]) || url;
+  document.getElementById('blockedname').textContent = name;
   openbtn.onclick = () => openPopup(url);
 }
 
@@ -230,6 +227,14 @@ popbtn.addEventListener('click', () => { if (st.url) openPopup(st.url); });
 grist.ready({ requiredAccess: 'read table', onEditOptions: openModal });
 
 let lastRow = null;
+let recordReceived = false;
+
+// Si onRecord ne se déclenche pas en 4s → le widget n'est pas lié à une table
+setTimeout(() => {
+  if (!recordReceived) {
+    showEmpty('⚠ Liez ce widget à votre table : panneau droite → Données → sélectionnez votre table');
+  }
+}, 4000);
 
 function processRow(row) {
   if (!st.col || !row) { showEmpty('Configurez via ··· → Paramètres'); return; }
@@ -269,6 +274,7 @@ grist.onRecords(rows => {
 
 grist.onRecord(row => {
   lastRow = row;
+  recordReceived = true;
   processRow(row);
 });
 
