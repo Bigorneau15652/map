@@ -249,10 +249,10 @@ setTimeout(() => {
   }
 }, 4000);
 
-// Convertit github.com/.../blob/... → raw.githubusercontent.com/...
+// Convertit github.com/USER/REPO/blob/(master|main)/PATH → USER.github.io/REPO/PATH
 function normalizeUrl(url) {
-  const m = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/);
-  if (m) return `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}`;
+  const m = url.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(master|main)\/(.+)$/);
+  if (m) return `https://${m[1]}.github.io/${m[2]}/${m[4]}`;
   return url;
 }
 
