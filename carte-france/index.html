@@ -495,8 +495,7 @@ function makeOnEach(){
         tip.classList.add('show');
       },
       mouseout(e){
-        try{if(geoLayer)geoLayer.resetStyle(e.target);}catch(_){}
-        for(const ml of Object.values(mLayers))try{ml.resetStyle(e.target);}catch(_){}
+        e.target.setStyle(getStyle(feat));
         document.getElementById('tip').classList.remove('show');
       },
       click(){mainMap.fitBounds(layer.getBounds(),{padding:[30,30]});}
