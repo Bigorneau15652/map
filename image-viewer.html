@@ -8,7 +8,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       font-family: sans-serif;
       background: #1a1a1a;
@@ -19,7 +18,7 @@
       flex-direction: column;
     }
 
-    /* ── Zone principale ── */
+    /* ── Visionneuse principale ── */
     #viewer {
       flex: 1;
       position: relative;
@@ -30,458 +29,270 @@
       cursor: zoom-in;
       background: #1a1a1a;
     }
-
     #main-img {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      display: none;
-      user-select: none;
+      max-width: 100%; max-height: 100%;
+      object-fit: contain; display: none; user-select: none;
     }
     #main-canvas {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      display: none;
-      box-shadow: 0 2px 20px rgba(0,0,0,0.5);
+      max-width: 100%; max-height: 100%;
+      object-fit: contain; display: none;
+      box-shadow: 0 2px 20px rgba(0,0,0,.5);
     }
 
-    /* ── Flèches navigation fichiers ── */
+    /* ── Flèches navigation ── */
     .arrow {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(0,0,0,0.5);
-      border: none;
-      color: #fff;
-      font-size: 1.8rem;
-      width: 44px;
-      height: 64px;
-      cursor: pointer;
-      border-radius: 4px;
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: opacity 0.2s;
+      position: absolute; top: 50%; transform: translateY(-50%);
+      background: rgba(0,0,0,.5); border: none; color: #fff;
+      font-size: 1.8rem; width: 44px; height: 64px;
+      cursor: pointer; border-radius: 4px; z-index: 10;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .2s;
     }
     #viewer:hover .arrow { opacity: 1; }
-    .arrow:hover { background: rgba(0,0,0,0.8); }
-    #prev { left: 8px; }
-    #next { right: 8px; }
+    .arrow:hover { background: rgba(0,0,0,.85); }
+    #prev { left: 8px; } #next { right: 8px; }
     .arrow.hidden { display: none; }
 
-    /* ── Contrôles pages PDF ── */
+    /* ── Contrôles PDF widget ── */
     #pdf-controls {
-      display: none;
-      position: absolute;
-      bottom: 36px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.7);
-      border-radius: 20px;
-      padding: 4px 12px;
-      gap: 10px;
-      align-items: center;
-      font-size: 0.82rem;
-      white-space: nowrap;
-      z-index: 20;
-      opacity: 0;
-      transition: opacity 0.2s;
+      display: none; position: absolute; bottom: 36px;
+      left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,.7); border-radius: 20px;
+      padding: 4px 12px; gap: 10px; align-items: center;
+      font-size: .82rem; white-space: nowrap; z-index: 20;
+      opacity: 0; transition: opacity .2s;
     }
     #viewer:hover #pdf-controls { opacity: 1; }
     #pdf-controls.visible { display: flex; }
-    #pdf-controls button {
-      background: none; border: none; color: #fff;
-      cursor: pointer; font-size: 1rem; padding: 0 4px; line-height: 1;
-    }
-    #pdf-controls button:disabled { opacity: 0.3; cursor: default; }
+    #pdf-controls button { background: none; border: none; color: #fff; cursor: pointer; font-size: 1rem; padding: 0 4px; }
+    #pdf-controls button:disabled { opacity: .3; cursor: default; }
 
     /* ── Compteur ── */
     #counter {
-      position: absolute;
-      bottom: 8px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.55);
-      padding: 3px 10px;
-      border-radius: 12px;
-      font-size: 0.8rem;
-      pointer-events: none;
-      white-space: nowrap;
-      opacity: 0;
-      transition: opacity 0.2s;
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,.55); padding: 3px 10px; border-radius: 12px;
+      font-size: .8rem; pointer-events: none; white-space: nowrap;
+      opacity: 0; transition: opacity .2s;
     }
     #viewer:hover #counter { opacity: 1; }
 
-    /* ── Hint "clic pour agrandir" ── */
+    /* ── Hint zoom ── */
     #zoom-hint {
-      position: absolute;
-      top: 8px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.55);
-      padding: 3px 10px;
-      border-radius: 10px;
-      font-size: 0.72rem;
-      color: #ccc;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.2s;
-      white-space: nowrap;
+      position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,.5); padding: 3px 10px; border-radius: 10px;
+      font-size: .72rem; color: #ccc; pointer-events: none;
+      opacity: 0; transition: opacity .2s; white-space: nowrap;
     }
     #viewer:hover #zoom-hint { opacity: 1; }
 
     /* ── Badge type ── */
     #type-badge {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      background: rgba(0,0,0,0.55);
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 0.72rem;
-      opacity: 0;
-      transition: opacity 0.2s;
-      pointer-events: none;
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,.55); padding: 2px 8px; border-radius: 10px;
+      font-size: .72rem; opacity: 0; transition: opacity .2s; pointer-events: none;
     }
     #viewer:hover #type-badge { opacity: 1; }
 
     /* ── Dots ── */
     #dots {
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-      padding: 6px 0;
-      background: #111;
-      min-height: 22px;
+      display: flex; justify-content: center; gap: 6px;
+      padding: 6px 0; background: #111; min-height: 22px;
     }
-    .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #555;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; cursor: pointer; transition: background .2s; }
     .dot.active { background: #fff; }
     .dot.pdf { border: 1.5px solid #e74c3c; }
     .dot.pdf.active { background: #e74c3c; }
 
-    /* ── État vide ── */
+    /* ── Vide / config ── */
     #empty {
-      display: none;
-      position: absolute;
-      inset: 0;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      color: #666;
-      font-size: 0.95rem;
-      text-align: center;
-      padding: 20px;
+      display: none; position: absolute; inset: 0;
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; color: #666; font-size: .95rem; text-align: center; padding: 20px;
     }
-    #empty svg { opacity: 0.3; }
-
-    /* ── Config ── */
+    #empty svg { opacity: .3; }
     #config-msg {
-      display: none;
-      position: absolute;
-      inset: 0;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 14px;
-      color: #aaa;
-      font-size: 0.9rem;
-      text-align: center;
-      padding: 24px;
+      display: none; position: absolute; inset: 0;
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; color: #aaa; font-size: .9rem; text-align: center; padding: 24px;
     }
     #config-msg.visible { display: flex; }
     #config-msg h3 { color: #fff; font-size: 1rem; margin-bottom: 4px; }
-    #config-msg code { background: #333; padding: 2px 6px; border-radius: 4px; font-size: 0.82rem; }
+    #config-msg code { background: #333; padding: 2px 6px; border-radius: 4px; font-size: .82rem; }
 
     /* ── Spinner ── */
     .spinner {
-      position: absolute;
-      width: 36px; height: 36px;
-      border: 3px solid #333;
-      border-top-color: #888;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      display: none;
-      z-index: 5;
+      position: absolute; width: 36px; height: 36px;
+      border: 3px solid #333; border-top-color: #888;
+      border-radius: 50%; animation: spin .8s linear infinite;
+      display: none; z-index: 5;
     }
     .loading .spinner { display: block; }
-    .loading #main-img,
-    .loading #main-canvas { opacity: 0.12; }
+    .loading #main-img, .loading #main-canvas { opacity: .12; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ════════════════════════════════════════════════════
-       ── PLEIN ÉCRAN (Fullscreen API) ──
-       Ce div prend tout l'écran quand requestFullscreen() est appelé.
-       Il sort complètement de l'iframe Grist.
+       ── FENÊTRE FLOTTANTE DRAGGABLE ──
+       position:fixed = relatif à l'iframe (pas au browser)
+       On la rend grande et déplaçable
        ════════════════════════════════════════════════════ */
-    #fs-container {
+    #float-win {
       display: none;
-      width: 100%;
-      height: 100%;
-      background: #000;
-      align-items: center;
-      justify-content: center;
+      position: fixed;
+      /* Centré par défaut, grande taille */
+      top: 4vh; left: 4vw;
+      width: 92vw; height: 92vh;
+      background: #0d0d0d;
+      border: 1px solid #333;
+      border-radius: 10px;
+      box-shadow: 0 20px 80px rgba(0,0,0,.9);
+      z-index: 5000;
       flex-direction: column;
-      position: relative;
+      overflow: hidden;
+      /* Transition d'ouverture */
+      opacity: 0;
+      transform: scale(.95);
+      transition: opacity .18s ease, transform .18s ease;
     }
-    /* Quand le navigateur passe en fullscreen, ce div remplit tout l'écran */
-    #fs-container:fullscreen,
-    #fs-container:-webkit-full-screen,
-    #fs-container:-moz-full-screen,
-    #fs-container:-ms-fullscreen {
+    #float-win.open {
       display: flex;
-      background: #000;
-      width: 100vw;
-      height: 100vh;
+      opacity: 1;
+      transform: scale(1);
     }
 
-    #fs-img {
-      max-width: 95vw;
-      max-height: 88vh;
-      object-fit: contain;
-      display: none;
-    }
-    #fs-canvas {
-      max-width: 95vw;
-      max-height: 88vh;
-      display: none;
-      background: #fff;
-    }
-
-    /* Contrôles en fullscreen */
-    #fs-bar {
-      position: absolute;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
+    /* Barre de titre draggable */
+    #float-titlebar {
       display: flex;
       align-items: center;
-      gap: 16px;
-      background: rgba(255,255,255,0.12);
-      border-radius: 30px;
-      padding: 8px 20px;
-      font-size: 0.9rem;
+      justify-content: space-between;
+      padding: 0 14px;
+      height: 42px;
+      background: #1a1a1a;
+      border-bottom: 1px solid #2a2a2a;
+      cursor: grab;
+      user-select: none;
+      flex-shrink: 0;
     }
-    #fs-bar button {
-      background: none;
-      border: none;
-      color: #fff;
-      font-size: 1.5rem;
-      cursor: pointer;
-      padding: 0 4px;
-      opacity: 0.8;
-      line-height: 1;
+    #float-titlebar:active { cursor: grabbing; }
+    #float-title {
+      font-size: .82rem;
+      color: #888;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
     }
-    #fs-bar button:hover { opacity: 1; }
-    #fs-bar button:disabled { opacity: 0.25; cursor: default; }
-    #fs-bar span { color: #ddd; font-size: 0.85rem; white-space: nowrap; }
-
-    #fs-close {
-      position: absolute;
-      top: 16px;
-      right: 20px;
-      background: rgba(255,255,255,0.15);
+    #float-close {
+      background: #3a1a1a;
       border: none;
-      color: #fff;
-      font-size: 1.4rem;
-      width: 40px; height: 40px;
+      color: #ff6b6b;
+      font-size: 1rem;
+      width: 28px; height: 28px;
       border-radius: 50%;
       cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-left: 10px;
+      transition: background .15s;
+    }
+    #float-close:hover { background: #c0392b; color: #fff; }
+
+    /* Zone image dans la fenêtre flottante */
+    #float-body {
+      flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
+      overflow: hidden;
     }
-    #fs-close:hover { background: rgba(255,255,255,0.3); }
+    #float-img {
+      max-width: 100%; max-height: 100%;
+      object-fit: contain; display: none; user-select: none;
+    }
+    #float-canvas {
+      max-width: 100%; max-height: 100%;
+      display: none; background: #fff;
+    }
 
-    .fs-nav {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(255,255,255,0.12);
-      border: none;
-      color: #fff;
-      font-size: 2.2rem;
-      width: 52px; height: 80px;
-      cursor: pointer;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
+    /* Flèches dans la fenêtre flottante */
+    .f-arrow {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      background: rgba(0,0,0,.55); border: none; color: #fff;
+      font-size: 2rem; width: 52px; height: 80px;
+      cursor: pointer; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .2s; z-index: 10;
+    }
+    #float-body:hover .f-arrow { opacity: 1; }
+    .f-arrow:hover { background: rgba(0,0,0,.85); }
+    #f-prev { left: 10px; } #f-next { right: 10px; }
+    .f-arrow.hidden { display: none; }
+
+    /* Contrôles PDF dans la fenêtre flottante */
+    #float-pdf-bar {
+      display: none;
+      background: #111;
+      border-top: 1px solid #222;
+      padding: 6px 0;
       justify-content: center;
+      align-items: center;
+      gap: 16px;
+      font-size: .85rem;
+      flex-shrink: 0;
     }
-    .fs-nav:hover { background: rgba(255,255,255,0.25); }
-    .fs-nav.hidden { display: none; }
-    #fs-prev { left: 10px; }
-    #fs-next { right: 10px; }
+    #float-pdf-bar.visible { display: flex; }
+    #float-pdf-bar button {
+      background: none; border: none; color: #fff;
+      cursor: pointer; font-size: 1.2rem; padding: 0 8px;
+    }
+    #float-pdf-bar button:disabled { opacity: .3; cursor: default; }
 
-    #fs-hint {
-      position: absolute;
-      top: 18px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: rgba(255,255,255,0.45);
-      font-size: 0.75rem;
-      pointer-events: none;
-      white-space: nowrap;
+    /* Compteur dans la fenêtre flottante */
+    #float-counter {
+      position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,.6); padding: 3px 12px; border-radius: 12px;
+      font-size: .8rem; pointer-events: none; white-space: nowrap;
     }
 
     /* ════════════════════════════════════════════════════
        ── PANNEAU MODE D'EMPLOI ──
        ════════════════════════════════════════════════════ */
     #help-panel {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: #12181f;
-      z-index: 2000;
-      overflow-y: auto;
-      padding: 28px 24px 36px;
+      display: none; position: fixed; inset: 0;
+      background: #12181f; z-index: 6000;
+      overflow-y: auto; padding: 28px 24px 36px;
     }
     #help-panel.open { display: block; }
-
     .help-close {
-      position: fixed;
-      top: 14px; right: 16px;
-      background: #2a3340;
-      border: none;
-      color: #fff;
-      font-size: 1.3rem;
-      width: 36px; height: 36px;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 2001;
+      position: fixed; top: 14px; right: 16px;
+      background: #2a3340; border: none; color: #fff;
+      font-size: 1.3rem; width: 36px; height: 36px;
+      border-radius: 50%; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; z-index: 6001;
     }
     .help-close:hover { background: #3a4860; }
-
-    .help-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 24px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid #2a3340;
-    }
+    .help-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding-bottom: 14px; border-bottom: 1px solid #2a3340; }
     .help-header h1 { font-size: 1.1rem; font-weight: 600; color: #e8ecf0; }
-    .help-header p  { font-size: 0.8rem; color: #7a8898; margin-top: 2px; }
-
+    .help-header p  { font-size: .8rem; color: #7a8898; margin-top: 2px; }
     .help-section { margin-bottom: 22px; }
-    .help-section h2 {
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #4a9eff;
-      margin-bottom: 10px;
-    }
-
-    .fmt-grid {
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid #2a3340;
-      font-size: 0.82rem;
-    }
-    .fmt-grid .hd {
-      background: #1e2a38;
-      color: #7a8898;
-      font-size: 0.72rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      padding: 7px 12px;
-    }
-    .fmt-grid .row > div {
-      padding: 8px 12px;
-      border-top: 1px solid #1e2a38;
-      background: #161e28;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+    .help-section h2 { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #4a9eff; margin-bottom: 10px; }
+    .fmt-grid { display: grid; grid-template-columns: auto 1fr auto; border-radius: 8px; overflow: hidden; border: 1px solid #2a3340; font-size: .82rem; }
+    .fmt-grid .hd { background: #1e2a38; color: #7a8898; font-size: .72rem; font-weight: 600; text-transform: uppercase; padding: 7px 12px; }
+    .fmt-grid .row > div { padding: 8px 12px; border-top: 1px solid #1e2a38; background: #161e28; display: flex; align-items: center; gap: 6px; }
     .fmt-grid .row:nth-child(odd) > div { background: #131a22; }
-    .badge-ok { color: #2ecc71; font-weight: 700; }
-    .badge-no { color: #e74c3c; font-weight: 700; }
-
-    .keys-grid {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 6px 14px;
-      font-size: 0.83rem;
-    }
-    .keys-grid .ctx {
-      grid-column: 1 / -1;
-      font-size: 0.72rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #7a8898;
-      margin-top: 10px;
-      padding-top: 8px;
-      border-top: 1px solid #2a3340;
-    }
+    .badge-ok { color: #2ecc71; font-weight: 700; } .badge-no { color: #e74c3c; font-weight: 700; }
+    .keys-grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: .83rem; }
+    .keys-grid .ctx { grid-column: 1/-1; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #7a8898; margin-top: 10px; padding-top: 8px; border-top: 1px solid #2a3340; }
     .keys-grid .ctx:first-child { border-top: none; margin-top: 0; }
-    kbd {
-      background: #2a3340;
-      border: 1px solid #3a4860;
-      border-bottom-width: 2px;
-      border-radius: 4px;
-      padding: 2px 7px;
-      font-family: monospace;
-      font-size: 0.78rem;
-      color: #c8d8e8;
-    }
-
-    .col-example {
-      background: #161e28;
-      border: 1px solid #2a3340;
-      border-radius: 8px;
-      overflow: hidden;
-      font-size: 0.82rem;
-    }
-    .col-example .ex-head {
-      background: #1e2a38;
-      padding: 7px 14px;
-      font-size: 0.72rem;
-      color: #7a8898;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
+    kbd { background: #2a3340; border: 1px solid #3a4860; border-bottom-width: 2px; border-radius: 4px; padding: 2px 7px; font-family: monospace; font-size: .78rem; color: #c8d8e8; }
+    .col-example { background: #161e28; border: 1px solid #2a3340; border-radius: 8px; overflow: hidden; font-size: .82rem; }
+    .col-example .ex-head { background: #1e2a38; padding: 7px 14px; font-size: .72rem; color: #7a8898; font-weight: 600; text-transform: uppercase; }
     .col-example .ex-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 14px; }
     .col-example .ex-case { display: flex; flex-direction: column; gap: 4px; }
-    .col-example .ex-label { font-size: 0.72rem; color: #7a8898; font-weight: 600; text-transform: uppercase; }
-    .col-example pre {
-      background: #0d1117;
-      border-radius: 5px;
-      padding: 8px 10px;
-      font-size: 0.78rem;
-      color: #7dd3a8;
-      white-space: pre-wrap;
-      word-break: break-all;
-      line-height: 1.6;
-      border: 1px solid #1e2a38;
-    }
-    .col-example .note { font-size: 0.75rem; color: #7a8898; line-height: 1.5; }
-
-    .tip-box {
-      background: #1a2535;
-      border-left: 3px solid #4a9eff;
-      border-radius: 0 6px 6px 0;
-      padding: 10px 14px;
-      font-size: 0.82rem;
-      color: #a8c0d8;
-      line-height: 1.55;
-    }
+    .col-example .ex-label { font-size: .72rem; color: #7a8898; font-weight: 600; text-transform: uppercase; }
+    .col-example pre { background: #0d1117; border-radius: 5px; padding: 8px 10px; font-size: .78rem; color: #7dd3a8; white-space: pre-wrap; word-break: break-all; line-height: 1.6; border: 1px solid #1e2a38; }
+    .col-example .note { font-size: .75rem; color: #7a8898; line-height: 1.5; }
+    .tip-box { background: #1a2535; border-left: 3px solid #4a9eff; border-radius: 0 6px 6px 0; padding: 10px 14px; font-size: .82rem; color: #a8c0d8; line-height: 1.55; }
     .tip-box strong { color: #c8ddf0; }
   </style>
 </head>
@@ -500,7 +311,7 @@
     <button id="pdf-next-page">&#8250;</button>
   </div>
   <div id="counter"></div>
-  <div id="zoom-hint">🔍 Clic pour plein écran</div>
+  <div id="zoom-hint">🔍 Clic pour agrandir</div>
   <div id="type-badge"></div>
   <div id="empty">
     <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
@@ -513,35 +324,40 @@
   <div id="config-msg" class="visible">
     <h3>Configuration requise</h3>
     <p>Cliquez sur <strong>⋯ → Options du widget</strong><br>pour mapper la colonne contenant vos fichiers.</p>
-    <p style="margin-top:8px;font-size:0.8rem;">Formats : <code>JPEG PNG GIF SVG WebP PDF</code></p>
+    <p style="margin-top:8px;font-size:.8rem;">Formats : <code>JPEG PNG GIF SVG WebP PDF</code></p>
   </div>
 </div>
 
 <div id="dots"></div>
 
 <!-- ════════════════════════════════════════════════════════
-     ── PLEIN ÉCRAN (sort de l'iframe via Fullscreen API) ──
+     ── FENÊTRE FLOTTANTE DRAGGABLE ──
      ════════════════════════════════════════════════════════ -->
-<div id="fs-container">
-  <div id="fs-hint">Échap pour fermer · ← → pour naviguer</div>
-  <button id="fs-close" title="Fermer (Échap)">&#x2715;</button>
-  <img id="fs-img" alt="Image en plein écran">
-  <canvas id="fs-canvas"></canvas>
-  <div id="fs-bar">
-    <button id="fs-pdf-prev" disabled>&#8249;</button>
-    <span id="fs-pdf-info"></span>
-    <button id="fs-pdf-next" disabled>&#8250;</button>
+<div id="float-win">
+  <!-- Barre de titre (drag handle) -->
+  <div id="float-titlebar">
+    <span id="float-title">Image</span>
+    <button id="float-close" title="Fermer">&#x2715;</button>
   </div>
-  <button class="fs-nav hidden" id="fs-prev">&#8249;</button>
-  <button class="fs-nav hidden" id="fs-next">&#8250;</button>
+  <!-- Corps -->
+  <div id="float-body">
+    <img id="float-img" alt="Image agrandie" draggable="false">
+    <canvas id="float-canvas"></canvas>
+    <button class="f-arrow hidden" id="f-prev">&#8249;</button>
+    <button class="f-arrow hidden" id="f-next">&#8250;</button>
+    <div id="float-counter"></div>
+  </div>
+  <!-- Barre PDF -->
+  <div id="float-pdf-bar">
+    <button id="f-pdf-prev">&#8249;</button>
+    <span id="f-pdf-info">1 / 1</span>
+    <button id="f-pdf-next">&#8250;</button>
+  </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════
-     ── PANNEAU MODE D'EMPLOI ──
-     ════════════════════════════════════════════════════════ -->
+<!-- ── MODE D'EMPLOI ── -->
 <div id="help-panel">
   <button class="help-close" id="help-close">&#x2715;</button>
-
   <div class="help-header">
     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4a9eff" stroke-width="1.5">
       <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -553,74 +369,68 @@
       <p>Widget personnalisé Grist — Mode d'emploi</p>
     </div>
   </div>
-
   <div class="help-section">
     <h2>Formats supportés</h2>
     <div class="fmt-grid">
       <div class="hd">Format</div><div class="hd">Description</div><div class="hd">Support</div>
       <div class="row"><div><strong>JPEG / JPG</strong></div><div>Photos</div><div><span class="badge-ok">✓</span></div></div>
       <div class="row"><div><strong>PNG</strong></div><div>Images avec transparence</div><div><span class="badge-ok">✓</span></div></div>
-      <div class="row"><div><strong>WebP</strong></div><div>Format moderne</div><div><span class="badge-ok">✓</span></div></div>
-      <div class="row"><div><strong>GIF</strong></div><div>Animé supporté</div><div><span class="badge-ok">✓</span></div></div>
-      <div class="row"><div><strong>SVG</strong></div><div>Vectoriel, plans</div><div><span class="badge-ok">✓</span></div></div>
+      <div class="row"><div><strong>WebP / GIF</strong></div><div>Formats modernes, animé</div><div><span class="badge-ok">✓</span></div></div>
+      <div class="row"><div><strong>SVG</strong></div><div>Vectoriel, plans, schémas</div><div><span class="badge-ok">✓</span></div></div>
       <div class="row"><div><strong>PDF</strong></div><div>Multi-pages via PDF.js</div><div><span class="badge-ok">✓</span></div></div>
-      <div class="row"><div><strong>TIFF / RAW</strong></div><div>Formats professionnels</div><div><span class="badge-no">✗</span></div></div>
+      <div class="row"><div><strong>TIFF / RAW</strong></div><div>Formats professionnels bruts</div><div><span class="badge-no">✗</span></div></div>
     </div>
   </div>
-
   <div class="help-section">
     <h2>Touches de contrôle</h2>
     <div class="keys-grid">
       <div class="ctx">Navigation entre fichiers</div>
       <div><kbd>←</kbd> <kbd>→</kbd></div><div>Fichier précédent / suivant</div>
-      <div><kbd>Clic</kbd> ‹ ›</div><div>Flèches latérales du widget</div>
-      <div><kbd>Clic</kbd> points</div><div>Aller directement à un fichier</div>
-
-      <div class="ctx">Plein écran</div>
-      <div><kbd>Clic</kbd> image</div><div>Ouvrir en plein écran (hors iframe)</div>
-      <div><kbd>Échap</kbd></div><div>Quitter le plein écran</div>
-      <div><kbd>←</kbd> <kbd>→</kbd></div><div>Naviguer en plein écran</div>
-
+      <div>Flèches ‹ ›</div><div>Boutons latéraux du widget</div>
+      <div>Points •</div><div>Aller directement à un fichier</div>
+      <div class="ctx">Fenêtre agrandie</div>
+      <div><kbd>Clic</kbd> image</div><div>Ouvrir la fenêtre flottante</div>
+      <div>Bouton ✕</div><div>Fermer la fenêtre</div>
+      <div>Barre du haut</div><div>Déplacer la fenêtre (glisser-déposer)</div>
+      <div><kbd>←</kbd> <kbd>→</kbd></div><div>Naviguer en mode agrandi</div>
       <div class="ctx">Navigation PDF</div>
       <div><kbd>↑</kbd> <kbd>↓</kbd></div><div>Page précédente / suivante (widget)</div>
-      <div><kbd>←</kbd> <kbd>→</kbd></div><div>Page précédente / suivante (plein écran)</div>
+      <div>Boutons ‹ › PDF</div><div>Pages dans la fenêtre agrandie</div>
     </div>
   </div>
-
   <div class="help-section">
     <h2>Renseigner la colonne</h2>
     <div class="col-example">
-      <div class="ex-head">Colonne Texte — URLs Nextcloud (une par ligne)</div>
+      <div class="ex-head">Colonne Texte — une URL par ligne</div>
       <div class="ex-body">
         <div class="ex-case">
           <pre>https://upvdrive.univ-montp3.fr/s/rcaX7329CWkwodF
 https://upvdrive.univ-montp3.fr/s/apbtGpLMs9gj4Kg
 https://upvdrive.univ-montp3.fr/s/planRDC.pdf</pre>
-          <div class="note">Séparateurs : saut de ligne, virgule <code>,</code> ou point-virgule <code>;</code>. Les liens Nextcloud sont convertis automatiquement en liens directs.</div>
+          <div class="note">Séparateurs acceptés : saut de ligne, virgule ou point-virgule. Les liens Nextcloud sont convertis automatiquement en liens directs.</div>
         </div>
       </div>
     </div>
   </div>
-
   <div class="help-section">
     <h2>Conseil</h2>
     <div class="tip-box">
-      <strong>Plusieurs vues par bâtiment :</strong> saisissez une URL par ligne. Le widget affiche la première au chargement, utilisez ← → pour parcourir. Changer de ligne remet la visionneuse sur la première image.
+      <strong>Plusieurs vues par bâtiment :</strong> une URL par ligne dans la colonne. Changer de ligne remet la visionneuse sur la première image automatiquement.
     </div>
   </div>
 </div>
 
 <script>
-// ── PDF.js ───────────────────────────────────────────────
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // ── État ────────────────────────────────────────────────
 let files = [];
 let current = 0;
+let recordVersion = 0;   // anti-race-condition
 let pdfDoc = null, pdfPage = 1;
-let fsPdfDoc = null, fsPdfPage = 1;
-let fsOpen = false;
+let fPdfDoc = null, fPdfPage = 1;
+let floatOpen = false;
 
 // ── DOM ──────────────────────────────────────────────────
 const viewer      = document.getElementById('viewer');
@@ -639,111 +449,80 @@ const emptyEl     = document.getElementById('empty');
 const emptyMsg    = document.getElementById('empty-msg');
 const configMsg   = document.getElementById('config-msg');
 
-// Plein écran
-const fsContainer = document.getElementById('fs-container');
-const fsImg       = document.getElementById('fs-img');
-const fsCanvas    = document.getElementById('fs-canvas');
-const fsClose     = document.getElementById('fs-close');
-const fsPrev      = document.getElementById('fs-prev');
-const fsNext      = document.getElementById('fs-next');
-const fsBar       = document.getElementById('fs-bar');
-const fsPdfPrev   = document.getElementById('fs-pdf-prev');
-const fsPdfNext   = document.getElementById('fs-pdf-next');
-const fsPdfInfo   = document.getElementById('fs-pdf-info');
+// Fenêtre flottante
+const floatWin    = document.getElementById('float-win');
+const floatTitle  = document.getElementById('float-title');
+const floatClose  = document.getElementById('float-close');
+const floatBody   = document.getElementById('float-body');
+const floatImg    = document.getElementById('float-img');
+const floatCanvas = document.getElementById('float-canvas');
+const fPrev       = document.getElementById('f-prev');
+const fNext       = document.getElementById('f-next');
+const floatCounter= document.getElementById('float-counter');
+const floatPdfBar = document.getElementById('float-pdf-bar');
+const fPdfPrev    = document.getElementById('f-pdf-prev');
+const fPdfNext    = document.getElementById('f-pdf-next');
+const fPdfInfo    = document.getElementById('f-pdf-info');
 
 // Aide
 const helpPanel = document.getElementById('help-panel');
 const helpClose = document.getElementById('help-close');
 
 // ── Aide ────────────────────────────────────────────────
-function openHelp()  { helpPanel.classList.add('open'); }
-function closeHelp() { helpPanel.classList.remove('open'); }
-helpClose.addEventListener('click', closeHelp);
+helpClose.addEventListener('click', () => helpPanel.classList.remove('open'));
 
-// ── Détection PDF ────────────────────────────────────────
+// ── Utilitaires ──────────────────────────────────────────
 function isPdfUrl(url) {
-  try {
-    const path = new URL(url).pathname.toLowerCase();
-    if (path.endsWith('.pdf')) return true;
-  } catch(e) {}
-  return false;
+  try { return new URL(url).pathname.toLowerCase().endsWith('.pdf'); } catch(e) { return false; }
 }
-
-// ── Normalisation URL Nextcloud ──────────────────────────
 function normalizeUrl(url) {
   url = url.trim();
-  if (/\/s\/[a-zA-Z0-9_-]+\/?$/.test(url)) {
-    url = url.replace(/\/?$/, '') + '/download';
-  }
+  if (/\/s\/[a-zA-Z0-9_-]+\/?$/.test(url)) url = url.replace(/\/?$/, '') + '/download';
   return url;
 }
-
-// ── Parsing ──────────────────────────────────────────────
 function parseUrlColumn(value) {
   let raw = [];
-  if (Array.isArray(value)) {
-    const start = (value[0] === 'L') ? 1 : 0;
-    raw = value.slice(start).map(v => String(v));
-  } else if (typeof value === 'string') {
-    raw = value.split(/[\n,;]+/);
-  }
-  return raw
-    .map(s => s.trim())
-    .filter(s => s.length > 0 && /^https?:\/\//i.test(s))
-    .map(url => ({ url: normalizeUrl(url), type: 'url', isPdf: isPdfUrl(url) }));
+  if (Array.isArray(value)) { const s = value[0]==='L'?1:0; raw = value.slice(s).map(v=>String(v)); }
+  else if (typeof value === 'string') raw = value.split(/[\n,;]+/);
+  return raw.map(s=>s.trim()).filter(s=>s.length>0 && /^https?:\/\//i.test(s))
+            .map(url=>({ url: normalizeUrl(url), type:'url', isPdf: isPdfUrl(url) }));
 }
-
 async function parseAttachmentColumn(value) {
   let ids = [];
-  if (Array.isArray(value)) {
-    const start = (value[0] === 'L') ? 1 : 0;
-    ids = value.slice(start).filter(v => typeof v === 'number' && v > 0);
-  } else if (typeof value === 'number' && value > 0) {
-    ids = [value];
-  }
+  if (Array.isArray(value)) { const s=value[0]==='L'?1:0; ids=value.slice(s).filter(v=>typeof v==='number'&&v>0); }
+  else if (typeof value==='number'&&value>0) ids=[value];
   const results = [];
   for (const id of ids) {
-    try {
-      const url = await grist.docApi.getAttachmentUrl(id);
-      results.push({ url, type: 'attachment', isPdf: isPdfUrl(url) });
-    } catch(e) { console.warn('getAttachmentUrl failed', id, e); }
+    try { const url = await grist.docApi.getAttachmentUrl(id); results.push({url, type:'attachment', isPdf:isPdfUrl(url)}); }
+    catch(e) { console.warn('getAttachmentUrl failed', id, e); }
   }
   return results;
 }
-
 function isAttachmentValue(value) {
-  if (Array.isArray(value) && value[0] === 'L') {
-    const inner = value.slice(1);
-    return inner.length > 0 && inner.every(v => typeof v === 'number');
-  }
-  return typeof value === 'number';
+  if (Array.isArray(value)&&value[0]==='L') { const i=value.slice(1); return i.length>0&&i.every(v=>typeof v==='number'); }
+  return typeof value==='number';
 }
 
 // ── Rendu PDF ────────────────────────────────────────────
 async function renderPdfPage(pdf, pageNum, canvas, maxW, maxH) {
   const page = await pdf.getPage(pageNum);
-  const vp0  = page.getViewport({ scale: 1 });
-  const scale = Math.min(maxW / vp0.width, maxH / vp0.height, 3);
-  const vp   = page.getViewport({ scale });
-  canvas.width  = vp.width;
-  canvas.height = vp.height;
-  await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+  const vp0  = page.getViewport({scale:1});
+  const scale = Math.min(maxW/vp0.width, maxH/vp0.height, 3);
+  const vp   = page.getViewport({scale});
+  canvas.width = vp.width; canvas.height = vp.height;
+  await page.render({canvasContext: canvas.getContext('2d'), viewport: vp}).promise;
 }
 
-// ── Charger image ou PDF dans le widget ──────────────────
-async function loadInWidget(fileObj) {
-  const { url, isPdf } = fileObj;
+// ── Widget : charger image ou PDF ────────────────────────
+async function loadInWidget(item) {
+  const {url, isPdf} = item;
   if (isPdf) {
-    mainImg.style.display = 'none';
-    mainCanvas.style.display = 'block';
-    try {
-      const pdf = await pdfjsLib.getDocument({ url, withCredentials: false }).promise;
-      return pdf;
-    } catch(e) { console.error('PDF load error:', e); return null; }
+    mainImg.style.display = 'none'; mainCanvas.style.display = 'block';
+    try { return await pdfjsLib.getDocument({url, withCredentials:false}).promise; }
+    catch(e) { console.error('PDF load error:', e); return null; }
   } else {
-    mainCanvas.style.display = 'none';
-    mainImg.style.display = 'block';
-    return new Promise((resolve) => {
+    mainCanvas.style.display = 'none'; mainImg.style.display = 'block';
+    return new Promise(resolve => {
       mainImg.onload  = () => resolve(null);
       mainImg.onerror = () => {
         emptyMsg.textContent = 'Impossible de charger le fichier';
@@ -756,22 +535,18 @@ async function loadInWidget(fileObj) {
   }
 }
 
-// ── Affichage principal ──────────────────────────────────
-async function showFile(index) {
+// ── Affichage principal ─────────────────────────────────
+// version : pour annuler les appels obsolètes (race condition)
+async function showFile(index, version) {
   configMsg.classList.remove('visible');
   if (files.length === 0) {
-    mainImg.style.display = 'none';
-    mainCanvas.style.display = 'none';
+    mainImg.style.display = 'none'; mainCanvas.style.display = 'none';
     emptyEl.style.display = 'flex';
-    prevBtn.classList.add('hidden');
-    nextBtn.classList.add('hidden');
+    prevBtn.classList.add('hidden'); nextBtn.classList.add('hidden');
     pdfControls.classList.remove('visible');
-    dotsEl.innerHTML = '';
-    counter.textContent = '';
-    typeBadge.textContent = '';
+    dotsEl.innerHTML = ''; counter.textContent = ''; typeBadge.textContent = '';
     return;
   }
-
   emptyEl.style.display = 'none';
   current = Math.max(0, Math.min(index, files.length - 1));
   pdfDoc = null; pdfPage = 1;
@@ -779,9 +554,13 @@ async function showFile(index) {
 
   const item = files[current];
   viewer.classList.add('loading');
-  pdfDoc = await loadInWidget(item);
+  const loaded = await loadInWidget(item);
   viewer.classList.remove('loading');
 
+  // Si un nouvel enregistrement a été chargé entre-temps → abandonner
+  if (version !== recordVersion) return;
+
+  pdfDoc = loaded;
   if (item.isPdf && pdfDoc) {
     const rect = viewer.getBoundingClientRect();
     await renderPdfPage(pdfDoc, 1, mainCanvas, rect.width - 100, rect.height - 60);
@@ -803,8 +582,8 @@ async function showFile(index) {
   if (multi) {
     files.forEach((f, i) => {
       const dot = document.createElement('div');
-      dot.className = 'dot' + (f.isPdf ? ' pdf' : '') + (i === current ? ' active' : '');
-      dot.onclick = () => showFile(i);
+      dot.className = 'dot' + (f.isPdf?' pdf':'') + (i===current?' active':'');
+      dot.onclick = () => showFile(i, recordVersion);
       dotsEl.appendChild(dot);
     });
   }
@@ -819,219 +598,186 @@ async function goPdfPage(delta) {
   const rect = viewer.getBoundingClientRect();
   await renderPdfPage(pdfDoc, p, mainCanvas, rect.width - 100, rect.height - 60);
   pdfPageInfo.textContent = `${p} / ${pdfDoc.numPages}`;
-  pdfPrevPage.disabled = p <= 1;
-  pdfNextPage.disabled = p >= pdfDoc.numPages;
+  pdfPrevPage.disabled = p <= 1; pdfNextPage.disabled = p >= pdfDoc.numPages;
 }
+pdfPrevPage.addEventListener('click', e => { e.stopPropagation(); goPdfPage(-1); });
+pdfNextPage.addEventListener('click', e => { e.stopPropagation(); goPdfPage(+1); });
 
-pdfPrevPage.addEventListener('click', (e) => { e.stopPropagation(); goPdfPage(-1); });
-pdfNextPage.addEventListener('click', (e) => { e.stopPropagation(); goPdfPage(+1); });
-
-function goNext() { showFile(current + 1 < files.length ? current + 1 : 0); }
-function goPrev() { showFile(current - 1 >= 0 ? current - 1 : files.length - 1); }
-
-prevBtn.addEventListener('click', (e) => { e.stopPropagation(); goPrev(); });
-nextBtn.addEventListener('click', (e) => { e.stopPropagation(); goNext(); });
+function goNext() { showFile(current + 1 < files.length ? current + 1 : 0, recordVersion); }
+function goPrev() { showFile(current - 1 >= 0 ? current - 1 : files.length - 1, recordVersion); }
+prevBtn.addEventListener('click', e => { e.stopPropagation(); goPrev(); });
+nextBtn.addEventListener('click', e => { e.stopPropagation(); goNext(); });
 
 // ════════════════════════════════════════════════════════
-// ── PLEIN ÉCRAN — Fullscreen API ─────────────────────────
-// Sort complètement de l'iframe Grist
+// ── FENÊTRE FLOTTANTE ────────────────────────────────────
 // ════════════════════════════════════════════════════════
 
-function requestFS(el) {
-  if (el.requestFullscreen)            return el.requestFullscreen();
-  if (el.webkitRequestFullscreen)      return el.webkitRequestFullscreen();
-  if (el.mozRequestFullScreen)         return el.mozRequestFullScreen();
-  if (el.msRequestFullscreen)          return el.msRequestFullscreen();
-  // Fallback : ouvrir dans un nouvel onglet
-  window.open(files[current]?.url, '_blank');
-}
-
-function exitFS() {
-  if (document.exitFullscreen)            return document.exitFullscreen();
-  if (document.webkitExitFullscreen)      return document.webkitExitFullscreen();
-  if (document.mozCancelFullScreen)       return document.mozCancelFullScreen();
-  if (document.msExitFullscreen)          return document.msExitFullscreen();
-}
-
-function isFullscreen() {
-  return !!(document.fullscreenElement ||
-            document.webkitFullscreenElement ||
-            document.mozFullScreenElement ||
-            document.msFullscreenElement);
-}
-
-async function openFullscreen() {
+async function openFloat() {
   if (files.length === 0) return;
+  floatWin.classList.add('open');
+  floatOpen = true;
+  await refreshFloat();
+}
+function closeFloat() {
+  floatWin.classList.remove('open');
+  floatOpen = false;
+  fPdfDoc = null;
+}
+
+async function refreshFloat() {
   const item = files[current];
-
-  // Préparer le contenu plein écran
-  fsPdfDoc = null; fsPdfPage = 1;
-  fsBar.style.display = 'none';
-
-  if (item.isPdf) {
-    fsImg.style.display = 'none';
-    fsCanvas.style.display = 'block';
-    fsPdfDoc = await pdfjsLib.getDocument({ url: item.url, withCredentials: false }).promise;
-    await renderPdfPage(fsPdfDoc, 1, fsCanvas, window.screen.width * 0.92, window.screen.height * 0.85);
-    fsPdfInfo.textContent = `${fsPdfPage} / ${fsPdfDoc.numPages}`;
-    fsPdfPrev.disabled = true;
-    fsPdfNext.disabled = fsPdfDoc.numPages <= 1;
-    if (fsPdfDoc.numPages > 1) fsBar.style.display = 'flex';
-  } else {
-    fsCanvas.style.display = 'none';
-    fsImg.style.display = 'block';
-    fsImg.src = item.url;
-  }
+  fPdfDoc = null; fPdfPage = 1;
+  floatPdfBar.classList.remove('visible');
+  floatTitle.textContent = item.type === 'attachment' ? '📎 Pièce jointe' : '🔗 ' + item.url.split('/').pop();
 
   const multi = files.length > 1;
-  fsPrev.classList.toggle('hidden', !multi);
-  fsNext.classList.toggle('hidden', !multi);
-
-  // Demander le plein écran sur le container
-  try {
-    await requestFS(fsContainer);
-    fsOpen = true;
-  } catch(e) {
-    // Si Fullscreen refusé (ex: policy), ouvrir dans un nouvel onglet
-    console.warn('Fullscreen refusé, ouverture dans un onglet', e);
-    window.open(item.url, '_blank');
-  }
-}
-
-async function closeFullscreen() {
-  if (isFullscreen()) exitFS();
-  fsOpen = false;
-}
-
-// Naviguer en plein écran
-async function fsGoNext() {
-  current = current + 1 < files.length ? current + 1 : 0;
-  await refreshFsContent();
-  // Sync widget
-  showFile(current);
-}
-async function fsGoPrev() {
-  current = current - 1 >= 0 ? current - 1 : files.length - 1;
-  await refreshFsContent();
-  showFile(current);
-}
-
-async function refreshFsContent() {
-  const item = files[current];
-  fsPdfDoc = null; fsPdfPage = 1;
-  fsBar.style.display = 'none';
+  fPrev.classList.toggle('hidden', !multi);
+  fNext.classList.toggle('hidden', !multi);
+  floatCounter.textContent = multi ? `${current + 1} / ${files.length}` : '';
 
   if (item.isPdf) {
-    fsImg.style.display = 'none';
-    fsCanvas.style.display = 'block';
-    fsPdfDoc = await pdfjsLib.getDocument({ url: item.url, withCredentials: false }).promise;
-    await renderPdfPage(fsPdfDoc, 1, fsCanvas, window.screen.width * 0.92, window.screen.height * 0.85);
-    fsPdfInfo.textContent = `1 / ${fsPdfDoc.numPages}`;
-    fsPdfPrev.disabled = true;
-    fsPdfNext.disabled = fsPdfDoc.numPages <= 1;
-    if (fsPdfDoc.numPages > 1) fsBar.style.display = 'flex';
+    floatImg.style.display = 'none'; floatCanvas.style.display = 'block';
+    fPdfDoc = await pdfjsLib.getDocument({url: item.url, withCredentials:false}).promise;
+    const rect = floatBody.getBoundingClientRect();
+    await renderPdfPage(fPdfDoc, 1, floatCanvas, rect.width * .92, rect.height * .92);
+    fPdfInfo.textContent = `1 / ${fPdfDoc.numPages}`;
+    fPdfPrev.disabled = true; fPdfNext.disabled = fPdfDoc.numPages <= 1;
+    if (fPdfDoc.numPages > 1) floatPdfBar.classList.add('visible');
   } else {
-    fsCanvas.style.display = 'none';
-    fsImg.style.display = 'block';
-    fsImg.src = item.url;
+    floatCanvas.style.display = 'none'; floatImg.style.display = 'block';
+    floatImg.src = item.url;
   }
 }
 
-async function fsPdfChangePage(delta) {
-  if (!fsPdfDoc) return;
-  const p = fsPdfPage + delta;
-  if (p < 1 || p > fsPdfDoc.numPages) return;
-  fsPdfPage = p;
-  await renderPdfPage(fsPdfDoc, p, fsCanvas, window.screen.width * 0.92, window.screen.height * 0.85);
-  fsPdfInfo.textContent = `${p} / ${fsPdfDoc.numPages}`;
-  fsPdfPrev.disabled = p <= 1;
-  fsPdfNext.disabled = p >= fsPdfDoc.numPages;
+async function fGoNext() {
+  current = current + 1 < files.length ? current + 1 : 0;
+  showFile(current, recordVersion);
+  await refreshFloat();
+}
+async function fGoPrev() {
+  current = current - 1 >= 0 ? current - 1 : files.length - 1;
+  showFile(current, recordVersion);
+  await refreshFloat();
 }
 
-// Événements plein écran
-viewer.addEventListener('click', (e) => {
+async function fPdfChangePage(delta) {
+  if (!fPdfDoc) return;
+  const p = fPdfPage + delta;
+  if (p < 1 || p > fPdfDoc.numPages) return;
+  fPdfPage = p;
+  const rect = floatBody.getBoundingClientRect();
+  await renderPdfPage(fPdfDoc, p, floatCanvas, rect.width * .92, rect.height * .92);
+  fPdfInfo.textContent = `${p} / ${fPdfDoc.numPages}`;
+  fPdfPrev.disabled = p <= 1; fPdfNext.disabled = p >= fPdfDoc.numPages;
+}
+
+// Événements fenêtre flottante
+viewer.addEventListener('click', e => {
   if ([prevBtn, nextBtn, pdfPrevPage, pdfNextPage].includes(e.target)) return;
-  if (files.length > 0) openFullscreen();
+  if (files.length > 0) openFloat();
 });
+floatClose.addEventListener('click', closeFloat);
+fPrev.addEventListener('click', e => { e.stopPropagation(); fGoPrev(); });
+fNext.addEventListener('click', e => { e.stopPropagation(); fGoNext(); });
+fPdfPrev.addEventListener('click', e => { e.stopPropagation(); fPdfChangePage(-1); });
+fPdfNext.addEventListener('click', e => { e.stopPropagation(); fPdfChangePage(+1); });
 
-fsClose.addEventListener('click', closeFullscreen);
-fsPrev.addEventListener('click', (e) => { e.stopPropagation(); fsGoPrev(); });
-fsNext.addEventListener('click', (e) => { e.stopPropagation(); fsGoNext(); });
-fsPdfPrev.addEventListener('click', (e) => { e.stopPropagation(); fsPdfChangePage(-1); });
-fsPdfNext.addEventListener('click', (e) => { e.stopPropagation(); fsPdfChangePage(+1); });
+// ── Drag de la fenêtre ───────────────────────────────────
+(function initDrag() {
+  const titlebar = document.getElementById('float-titlebar');
+  let dragging = false, ox = 0, oy = 0;
 
-// Détecter la sortie du plein écran (touche Échap native du navigateur)
-document.addEventListener('fullscreenchange',       onFsChange);
-document.addEventListener('webkitfullscreenchange', onFsChange);
-document.addEventListener('mozfullscreenchange',    onFsChange);
-document.addEventListener('MSFullscreenChange',     onFsChange);
-
-function onFsChange() {
-  if (!isFullscreen()) {
-    fsOpen = false;
-    fsPdfDoc = null;
-  }
-}
+  titlebar.addEventListener('mousedown', e => {
+    if (e.target === floatClose) return;
+    dragging = true;
+    const rect = floatWin.getBoundingClientRect();
+    ox = e.clientX - rect.left;
+    oy = e.clientY - rect.top;
+    floatWin.style.transition = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    let x = e.clientX - ox;
+    let y = e.clientY - oy;
+    // Garder dans la fenêtre
+    x = Math.max(0, Math.min(x, window.innerWidth  - floatWin.offsetWidth));
+    y = Math.max(0, Math.min(y, window.innerHeight - floatWin.offsetHeight));
+    floatWin.style.left = x + 'px';
+    floatWin.style.top  = y + 'px';
+  });
+  document.addEventListener('mouseup', () => { dragging = false; });
+})();
 
 // ── Clavier ──────────────────────────────────────────────
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', e => {
   if (helpPanel.classList.contains('open')) {
-    if (e.key === 'Escape') closeHelp();
+    if (e.key === 'Escape') helpPanel.classList.remove('open');
     return;
   }
-  if (fsOpen) {
+  if (floatOpen) {
     const isPdf = files[current]?.isPdf;
-    if (e.key === 'Escape')      { closeFullscreen(); return; }
     if (e.key === 'ArrowRight') {
       e.preventDefault();
-      (isPdf && fsPdfDoc && fsPdfPage < fsPdfDoc.numPages) ? fsPdfChangePage(+1) : fsGoNext();
+      (isPdf && fPdfDoc && fPdfPage < fPdfDoc.numPages) ? fPdfChangePage(+1) : fGoNext();
     }
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      (isPdf && fsPdfDoc && fsPdfPage > 1) ? fsPdfChangePage(-1) : fsGoPrev();
+      (isPdf && fPdfDoc && fPdfPage > 1) ? fPdfChangePage(-1) : fGoPrev();
     }
     return;
   }
-  // Widget normal
   const isPdf = files[current]?.isPdf;
   if (e.key === 'ArrowRight') { e.preventDefault(); goNext(); }
   if (e.key === 'ArrowLeft')  { e.preventDefault(); goPrev(); }
-  if (!isPdf) return;
-  if (e.key === 'ArrowDown') { e.preventDefault(); goPdfPage(+1); }
-  if (e.key === 'ArrowUp')   { e.preventDefault(); goPdfPage(-1); }
+  if (isPdf) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); goPdfPage(+1); }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); goPdfPage(-1); }
+  }
 });
 
 // ── Grist API ────────────────────────────────────────────
 grist.ready({
   requiredAccess: 'read table',
-  onEditOptions() { openHelp(); },
-  columns: [
-    {
-      name: 'images',
-      title: 'Images / Documents',
-      optional: false,
-      type: 'Attachments,Text,Any',
-      description: 'Colonne Pièces jointes ou Texte avec URLs (Nextcloud supporté).'
-    }
-  ]
+  onEditOptions() { helpPanel.classList.add('open'); },
+  columns: [{
+    name: 'images', title: 'Images / Documents', optional: false,
+    type: 'Attachments,Text,Any',
+    description: 'Colonne Pièces jointes ou Texte avec URLs (Nextcloud supporté).'
+  }]
 });
 
 grist.onRecord(async (record, mappings) => {
-  if (!record) { files = []; showFile(0); return; }
+  // Incrémenter la version pour invalider tout showFile() en cours
+  const version = ++recordVersion;
+
+  if (!record) { files = []; showFile(0, version); return; }
   if (!mappings) {
     configMsg.classList.add('visible');
-    mainImg.style.display = 'none';
-    mainCanvas.style.display = 'none';
+    mainImg.style.display = 'none'; mainCanvas.style.display = 'none';
     emptyEl.style.display = 'none';
     return;
   }
+
   const mapped = grist.mapColumnNames(record, mappings);
-  if (!mapped || mapped.images == null) { files = []; showFile(0); return; }
+  if (!mapped || mapped.images == null) { files = []; showFile(0, version); return; }
+
   const value = mapped.images;
-  files = isAttachmentValue(value)
+  // Vider immédiatement pour éviter que l'ancien état soit visible
+  files = [];
+
+  const newFiles = isAttachmentValue(value)
     ? await parseAttachmentColumn(value)
     : parseUrlColumn(value);
-  showFile(0);
+
+  // Si entre-temps un autre enregistrement a été chargé → abandonner
+  if (version !== recordVersion) return;
+
+  files = newFiles;
+  showFile(0, version);
+
+  // Fermer la fenêtre flottante au changement de ligne
+  if (floatOpen) closeFloat();
 });
 </script>
 </body>
