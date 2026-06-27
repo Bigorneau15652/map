@@ -431,6 +431,23 @@ async function showFile(index, ver) {
   pdfDoc = null; pdfPage = 1;
   pdfControls.classList.remove('visible');
 
+  // ── Mettre à jour navigation IMMÉDIATEMENT (avant le chargement) ──
+  // Ceci évite que les flèches/dots de la ligne précédente restent visibles
+  const multi = files.length > 1;
+  prevBtn.classList.toggle('hidden', !multi);
+  nextBtn.classList.toggle('hidden', !multi);
+  counter.textContent = multi ? `${current+1} / ${files.length}` : '';
+  dotsEl.innerHTML = '';
+  if (multi) {
+    files.forEach((f,i) => {
+      const d = document.createElement('div');
+      d.className = 'dot'+(f.isPdf?' pdf':'')+(i===current?' active':'');
+      d.onclick = () => showFile(i, recordVersion);
+      dotsEl.appendChild(d);
+    });
+  }
+
+  // ── Charger l'image / PDF ──
   const item = files[current];
   viewer.classList.add('loading');
   const loaded = await loadInWidget(item);
@@ -451,21 +468,6 @@ async function showFile(index, ver) {
     typeBadge.textContent = '📄 PDF';
   } else if (!item.isPdf) {
     typeBadge.textContent = item.type==='attachment' ? '📎 Pièce jointe' : '🔗 URL';
-  }
-
-  const multi = files.length > 1;
-  prevBtn.classList.toggle('hidden', !multi);
-  nextBtn.classList.toggle('hidden', !multi);
-  counter.textContent = multi ? `${current+1} / ${files.length}` : '';
-
-  dotsEl.innerHTML = '';
-  if (multi) {
-    files.forEach((f,i) => {
-      const d = document.createElement('div');
-      d.className = 'dot'+(f.isPdf?' pdf':'')+(i===current?' active':'');
-      d.onclick = () => showFile(i, recordVersion);
-      dotsEl.appendChild(d);
-    });
   }
 }
 
@@ -502,22 +504,23 @@ function isFullscreen() {
 async function openFullscreen() {
   if (files.length === 0) return;
 
-  // Préparer le contenu dans fs-layer
-  fsLayer.style.display = 'flex';
-  await loadFsContent();
-
+  // Tenter l'API Fullscreen (sort réellement de l'iframe)
   if (document.fullscreenEnabled || document.webkitFullscreenEnabled) {
+    fsLayer.style.display = 'flex';
+    await loadFsContent();
     try {
-      if (fsLayer.requestFullscreen)       await fsLayer.requestFullscreen();
+      if (fsLayer.requestFullscreen)            await fsLayer.requestFullscreen();
       else if (fsLayer.webkitRequestFullscreen) fsLayer.webkitRequestFullscreen();
       else if (fsLayer.mozRequestFullScreen)    fsLayer.mozRequestFullScreen();
-      return; // succès
+      return; // succès → on reste en fullscreen
     } catch(e) {
       console.warn('Fullscreen API refusée:', e);
+      // Masquer la couche interne AVANT d'ouvrir le popup
+      fsLayer.style.display = 'none';
     }
   }
 
-  // Fallback : popup navigateur avec page HTML (pas l'URL brute)
+  // Fallback : popup navigateur (page HTML, pas l'URL brute)
   openPopup();
 }
 
