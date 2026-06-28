@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Viewer SI Patrimoine</title>
+
+  <!-- Grist Plugin API -->
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <!-- Pannellum 360° -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
+  <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #1e1e2e;
+      --surface: #2a2a3e;
+      --border: #3a3a5c;
+      --accent: #4f8ef7;
+      --accent2: #f7a24f;
+      --text: #e0e0f0;
+      --text-muted: #888aaa;
+      --highlight: rgba(79,142,247,0.35);
+      --room-fill: rgba(79,142,247,0.15);
+      --room-stroke: #4f8ef7;
+    }
+
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+
+    /* ── Layout ── */
+    #app { display: flex; height: 100vh; }
+    #sidebar { width: 220px; min-width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10; transition: width .2s; }
+    #sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; }
+    #viewer-area { flex: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      height: 36px; background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 8px; gap: 6px; flex-shrink: 0;
+    }
+    .tb-btn {
+      background: none; border: 1px solid var(--border); color: var(--text);
+      border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 12px;
+      display: flex; align-items: center; gap: 4px; white-space: nowrap;
+    }
+    .tb-btn:hover { background: var(--border); }
+    .tb-btn.active { border-color: var(--accent); color: var(--accent); }
+    #format-badge {
+      margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: .5px;
+      padding: 2px 8px; border-radius: 12px; background: var(--border); color: var(--text-muted);
+    }
+    #format-badge.dxf { background: #1a3a1a; color: #6fcf6f; }
+    #format-badge.pdf { background: #3a1a1a; color: #f07070; }
+    #format-badge.img360 { background: #1a2a3a; color: #70b0f0; }
+
+    /* ── Sidebar: layers panel ── */
+    #sidebar-header { padding: 10px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+    #layer-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+    .layer-item {
+      display: flex; align-items: center; gap: 8px; padding: 5px 12px;
+      cursor: pointer; transition: background .1s;
+    }
+    .layer-item:hover { background: var(--border); }
+    .layer-color { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; border: 1px solid rgba(255,255,255,.15); }
+    .layer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    .layer-eye { font-size: 14px; opacity: .5; flex-shrink: 0; transition: opacity .15s; }
+    .layer-item.hidden .layer-name { opacity: .35; text-decoration: line-through; }
+    .layer-item.hidden .layer-eye { opacity: .25; }
+
+    #sidebar-footer { padding: 8px 12px; border-top: 1px solid var(--border); display: flex; gap: 6px; }
+    .sf-btn { flex: 1; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 4px; padding: 4px 0; font-size: 11px; cursor: pointer; }
+    .sf-btn:hover { background: var(--border); color: var(--text); }
+
+    /* ── DXF Canvas viewer ── */
+    #dxf-canvas { display: block; cursor: crosshair; }
+    #canvas-wrap { flex: 1; overflow: hidden; position: relative; }
+
+    /* ── PDF viewer ── */
+    #pdf-wrap { flex: 1; overflow: auto; display: flex; flex-direction: column; align-items: center; padding: 12px; gap: 8px; }
+    #pdf-wrap canvas { box-shadow: 0 2px 16px rgba(0,0,0,.5); }
+
+    /* ── 360° viewer ── */
+    #pano-wrap { flex: 1; position: relative; }
+
+    /* ── Empty / loading ── */
+    #empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text-muted); }
+    #empty .icon { font-size: 48px; opacity: .25; }
+    #loading-bar { position: absolute; bottom: 0; left: 0; width: 0; height: 3px; background: var(--accent); transition: width .3s; z-index: 100; }
+
+    /* ── Config overlay ── */
+    #config-overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,.75);
+      display: flex; align-items: center; justify-content: center; z-index: 200;
+    }
+    #config-overlay.hidden { display: none; }
+    #config-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 24px; width: 380px; max-width: 95vw;
+    }
+    #config-box h2 { font-size: 15px; margin-bottom: 4px; }
+    #config-box p { color: var(--text-muted); font-size: 12px; margin-bottom: 20px; }
+    .config-row { margin-bottom: 14px; }
+    .config-row label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 5px; }
+    .config-row select, .config-row input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      border-radius: 5px; padding: 7px 10px; font-size: 13px;
+    }
+    .config-row select:focus, .config-row input:focus { outline: none; border-color: var(--accent); }
+    .config-row .hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .config-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .btn-primary { flex: 1; background: var(--accent); border: none; color: #fff; border-radius: 5px; padding: 9px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn-primary:hover { background: #3a7ae8; }
+    .btn-secondary { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 5px; padding: 9px 16px; font-size: 13px; cursor: pointer; }
+    .btn-secondary:hover { background: var(--border); color: var(--text); }
+
+    /* ── Tooltip / room info ── */
+    #room-tooltip {
+      position: absolute; bottom: 12px; left: 12px; background: var(--surface);
+      border: 1px solid var(--accent); border-radius: 6px; padding: 8px 12px;
+      font-size: 12px; pointer-events: none; z-index: 50; max-width: 260px;
+      display: none;
+    }
+    #room-tooltip .rt-id { font-size: 11px; color: var(--text-muted); }
+    #room-tooltip .rt-name { font-weight: 600; margin-top: 2px; }
+
+    /* ── Scrollbars ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Toggle sidebar btn ── */
+    #toggle-sidebar { font-size: 16px; }
+
+    /* ── Zoom info ── */
+    #zoom-info { position: absolute; bottom: 12px; right: 12px; background: rgba(30,30,46,.75); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; font-size: 11px; color: var(--text-muted); pointer-events: none; }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Sidebar: calques DXF -->
+  <div id="sidebar">
+    <div id="sidebar-header">Calques</div>
+    <div id="layer-list"><div style="padding:20px 12px;color:var(--text-muted);font-size:12px;">Chargez un fichier DXF</div></div>
+    <div id="sidebar-footer">
+      <button class="sf-btn" id="btn-all-on" title="Tout afficher">Tout ✓</button>
+      <button class="sf-btn" id="btn-all-off" title="Tout masquer">Tout ✗</button>
+    </div>
+  </div>
+
+  <!-- Zone principale -->
+  <div id="viewer-area">
+    <div id="toolbar">
+      <button class="tb-btn" id="toggle-sidebar" title="Calques">☰ Calques</button>
+      <button class="tb-btn" id="btn-fit" title="Recadrer la vue">⊡ Ajuster</button>
+      <button class="tb-btn" id="btn-zoom-room" title="Centrer sur la pièce sélectionnée" style="display:none">◎ Pièce</button>
+      <button class="tb-btn" id="btn-config" title="Configuration">⚙ Config</button>
+      <span id="format-badge">—</span>
+    </div>
+
+    <!-- Viewers (un seul visible à la fois) -->
+    <div id="canvas-wrap" style="display:none"><canvas id="dxf-canvas"></canvas></div>
+    <div id="pdf-wrap" style="display:none"></div>
+    <div id="pano-wrap" style="display:none"></div>
+
+    <!-- État vide -->
+    <div id="empty">
+      <div class="icon">📐</div>
+      <div>Sélectionnez une ligne dans Grist</div>
+      <div style="font-size:11px">Formats supportés : DXF · PDF · Image 360°</div>
+    </div>
+
+    <div id="loading-bar"></div>
+    <div id="room-tooltip"><div class="rt-id" id="tt-id"></div><div class="rt-name" id="tt-name"></div></div>
+    <div id="zoom-info" id="zoom-display">100%</div>
+  </div>
+</div>
+
+<!-- Overlay de configuration -->
+<div id="config-overlay" class="hidden">
+  <div id="config-box">
+    <h2>⚙ Configuration du Viewer</h2>
+    <p>Associez les colonnes Grist aux champs du viewer. Les modifications sont sauvegardées automatiquement.</p>
+
+    <div class="config-row">
+      <label>Colonne URL du fichier <span style="color:#f07070">*</span></label>
+      <select id="cfg-col-url"><option value="">— sélectionner —</option></select>
+      <div class="hint">Lien Nextcloud ou URL directe vers le fichier (.dxf, .pdf, .jpg…)</div>
+    </div>
+
+    <div class="config-row">
+      <label>Colonne ID Pièce</label>
+      <select id="cfg-col-room"><option value="">— aucune —</option></select>
+      <div class="hint">ID unique de la pièce pour le zoom automatique dans le DXF</div>
+    </div>
+
+    <div class="config-row">
+      <label>Colonne Nom Pièce <span style="color:var(--text-muted)">(optionnel)</span></label>
+      <select id="cfg-col-name"><option value="">— aucune —</option></select>
+      <div class="hint">Affiché dans l'infobulle lors du survol</div>
+    </div>
+
+    <div class="config-row">
+      <label>Correspondance ID dans le DXF</label>
+      <select id="cfg-match-mode">
+        <option value="layer">Par nom de calque (ex: calque "R001" = pièce "R001")</option>
+        <option value="text">Par texte dans la polyligne (entity TEXT/MTEXT)</option>
+        <option value="handle">Par handle d'entité DXF (code 5)</option>
+      </select>
+    </div>
+
+    <div class="config-row">
+      <label>Image 360° — détecter automatiquement</label>
+      <select id="cfg-360-detect">
+        <option value="suffix">Par suffixe dans le nom de fichier (_360, -360, _pano)</option>
+        <option value="column">Par colonne dédiée</option>
+        <option value="never">Jamais (toujours image normale)</option>
+      </select>
+    </div>
+
+    <div class="config-row" id="cfg-360-col-row" style="display:none">
+      <label>Colonne booléenne 360°</label>
+      <select id="cfg-col-360"><option value="">— aucune —</option></select>
+    </div>
+
+    <div class="config-actions">
+      <button class="btn-secondary" id="cfg-cancel">Annuler</button>
+      <button class="btn-primary" id="cfg-save">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   ÉTAT GLOBAL
+═══════════════════════════════════════════════════════════ */
+const state = {
+  config: {},
+  columns: [],
+  currentRecord: null,
+  currentFormat: null, // 'dxf' | 'pdf' | 'img360' | 'img'
+  dxf: {
+    parsed: null,
+    layers: {},      // { name: { color, visible } }
+    transform: { scale: 1, ox: 0, oy: 0 },
+    isDragging: false,
+    dragStart: { x: 0, y: 0 },
+    highlightId: null,
+    highlightPoly: null,
+  },
+  pdf: { doc: null, pageNum: 1, scale: 1.5 },
+};
+
+/* ═══════════════════════════════════════════════════════════
+   UTILITAIRES
+═══════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+
+function setLoading(pct) {
+  $('loading-bar').style.width = pct + '%';
+  if (pct >= 100) setTimeout(() => { $('loading-bar').style.width = '0'; }, 400);
+}
+
+function showSection(name) {
+  ['canvas-wrap', 'pdf-wrap', 'pano-wrap', 'empty'].forEach(id => {
+    $(id).style.display = 'none';
+  });
+  if (name) $(name).style.display = name === 'canvas-wrap' ? 'block' : 'flex';
+  $('sidebar').style.display = name === 'canvas-wrap' ? 'flex' : 'none';
+  $('toggle-sidebar').style.display = name === 'canvas-wrap' ? '' : 'none';
+  $('btn-fit').style.display = name === 'canvas-wrap' ? '' : 'none';
+  updateFormatBadge();
+}
+
+function showEmpty() {
+  showSection(null);
+  $('empty').style.display = 'flex';
+  $('sidebar').style.display = 'flex';
+  $('toggle-sidebar').style.display = '';
+  $('btn-fit').style.display = '';
+  $('format-badge').className = '';
+  $('format-badge').textContent = '—';
+}
+
+function updateFormatBadge() {
+  const badge = $('format-badge');
+  const f = state.currentFormat;
+  badge.className = f || '';
+  badge.textContent = f ? f.toUpperCase() : '—';
+}
+
+async function fetchFile(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r;
+}
+
+function detectFormat(url, record) {
+  if (!url) return null;
+  const clean = url.split('?')[0].toLowerCase();
+  if (clean.endsWith('.dxf')) return 'dxf';
+  if (clean.endsWith('.pdf')) return 'pdf';
+
+  const img360Suffixes = ['_360', '-360', '_pano', '-pano', '_panorama'];
+  const isImg = /\.(jpe?g|png|webp|gif)$/.test(clean);
+  if (isImg) {
+    const mode = state.config.detect360 || 'suffix';
+    if (mode === 'suffix' && img360Suffixes.some(s => clean.includes(s))) return 'img360';
+    if (mode === 'column' && state.config.col360 && record && record[state.config.col360]) return 'img360';
+    return 'img';
+  }
+  return null;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PARSER DXF
+═══════════════════════════════════════════════════════════ */
+function parseDXF(text) {
+  const lines = text.split(/\r?\n/);
+  let i = 0;
+
+  function next() {
+    while (i < lines.length && lines[i].trim() === '') i++;
+    if (i >= lines.length) return null;
+    const code = parseInt(lines[i++].trim(), 10);
+    const val = (lines[i++] || '').trim();
+    return { code, val };
+  }
+
+  const result = { layers: {}, entities: [] };
+  let section = null;
+  let ent = null;
+  let inTableLayer = false;
+  let curLayerDef = null;
+
+  function flushEntity() {
+    if (!ent) return;
+    if (ent.type === '_LAYERDEF') {
+      if (ent.name) result.layers[ent.name] = { color: ent.color ?? 7, frozen: ent.frozen ?? false };
+    } else if (['LWPOLYLINE','LINE','ARC','CIRCLE','TEXT','MTEXT','INSERT','POLYLINE'].includes(ent.type)) {
+      result.entities.push(ent);
+    }
+    ent = null;
+  }
+
+  // For old POLYLINE: accumulate vertices
+  let polylineBuffer = null;
+
+  let pair;
+  while ((pair = next()) !== null) {
+    const { code, val } = pair;
+
+    if (code === 0) {
+      flushEntity();
+
+      if (val === 'SECTION') {
+        const p2 = next(); section = p2?.val ?? null;
+      } else if (val === 'ENDSEC') {
+        section = null;
+      } else if (section === 'TABLES' && val === 'LAYER') {
+        ent = { type: '_LAYERDEF' };
+      } else if (section === 'ENTITIES' || section === 'BLOCKS') {
+        if (val === 'VERTEX' && polylineBuffer) {
+          // vertex entity for old-style POLYLINE
+          ent = { type: '_VERTEX', x: 0, y: 0 };
+        } else if (val === 'SEQEND' && polylineBuffer) {
+          result.entities.push(polylineBuffer);
+          polylineBuffer = null;
+          ent = null;
+        } else {
+          if (val === 'POLYLINE') {
+            ent = { type: 'LWPOLYLINE', layer: '0', vertices: [], closed: false };
+            polylineBuffer = ent;
+          } else {
+            polylineBuffer = null;
+            ent = { type: val, layer: '0', vertices: [], x: 0, y: 0, x1:0,y1:0,x2:0,y2:0 };
+          }
+        }
+      }
+      continue;
+    }
+
+    if (!ent) continue;
+
+    // _VERTEX handler
+    if (ent.type === '_VERTEX') {
+      if (code === 10) ent.x = parseFloat(val);
+      if (code === 20) ent.y = parseFloat(val);
+      // when next group 0 comes, flushEntity is called; handle in flush
+      // Actually we handle it at flush:
+      // but we need to add vertex to polylineBuffer
+      continue;
+    }
+
+    // Common fields
+    if (code === 8)  ent.layer = val;
+    if (code === 5)  ent.handle = val;
+    if (code === 62) ent.colorNum = parseInt(val, 10);
+
+    switch (ent.type) {
+      case '_LAYERDEF':
+        if (code === 2) ent.name = val;
+        if (code === 62) ent.color = parseInt(val, 10);
+        if (code === 70) ent.frozen = (parseInt(val,10) & 1) !== 0;
+        break;
+
+      case 'LWPOLYLINE': {
+        if (code === 70) ent.closed = (parseInt(val,10) & 1) !== 0;
+        if (code === 90) ent.vertexCount = parseInt(val,10);
+        if (code === 10) {
+          const v = { x: parseFloat(val), y: 0 };
+          ent._lastVertex = v;
+          ent.vertices.push(v);
+        }
+        if (code === 20 && ent._lastVertex) ent._lastVertex.y = parseFloat(val);
+        break;
+      }
+
+      case 'LINE':
+        if (code === 10) ent.x1 = parseFloat(val);
+        if (code === 20) ent.y1 = parseFloat(val);
+        if (code === 11) ent.x2 = parseFloat(val);
+        if (code === 21) ent.y2 = parseFloat(val);
+        break;
+
+      case 'ARC':
+      case 'CIRCLE':
+        if (code === 10) ent.cx = parseFloat(val);
+        if (code === 20) ent.cy = parseFloat(val);
+        if (code === 40) ent.radius = parseFloat(val);
+        if (code === 50) ent.startAngle = parseFloat(val);
+        if (code === 51) ent.endAngle = parseFloat(val);
+        break;
+
+      case 'TEXT':
+      case 'MTEXT':
+        if (code === 10) ent.x = parseFloat(val);
+        if (code === 20) ent.y = parseFloat(val);
+        if (code === 1)  ent.text = val.replace(/\\[A-Za-z][^;]*;|[{}]/g,''); // strip MTEXT codes
+        if (code === 40) ent.height = parseFloat(val);
+        if (code === 50) ent.rotation = parseFloat(val);
+        break;
+
+      case 'INSERT':
+        if (code === 2)  ent.blockName = val;
+        if (code === 10) ent.x = parseFloat(val);
+        if (code === 20) ent.y = parseFloat(val);
+        break;
+    }
+  }
+  flushEntity();
+
+  // Ensure layer '0' exists
+  if (!result.layers['0']) result.layers['0'] = { color: 7, frozen: false };
+
+  return result;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ACI → CSS color  (AutoCAD Color Index)
+═══════════════════════════════════════════════════════════ */
+const ACI = {
+  1:'#ff0000',2:'#ffff00',3:'#00ff00',4:'#00ffff',5:'#0000ff',6:'#ff00ff',
+  7:'#d0d0d0',8:'#808080',9:'#c0c0c0',
+  10:'#ff4040',11:'#ff8080',12:'#ff4040',13:'#ff8080',14:'#b54040',15:'#ffb0b0',
+  16:'#ff7f00',17:'#ffbf7f',18:'#b55900',19:'#ffdfb0',
+  20:'#ffbf00',21:'#ffdf7f',22:'#b58600',30:'#ff8000',
+  40:'#ffff00',50:'#80ff00',60:'#00ff00',70:'#00ff80',80:'#00ffff',
+  90:'#0080ff',100:'#0000ff',110:'#8000ff',120:'#ff00ff',130:'#ff0080',
+  140:'#ff4040',150:'#ff8040',160:'#ffc040',170:'#ffff40',180:'#c0ff40',
+  190:'#40ff40',200:'#40ffc0',210:'#40ffff',220:'#40c0ff',230:'#4080ff',
+  240:'#4040ff',250:'#808080',251:'#a0a0a0',252:'#b4b4b4',253:'#c8c8c8',254:'#e0e0e0',255:'#ffffff',
+};
+function aciColor(n) {
+  if (n === 256 || n == null) return null; // bylayer
+  if (n === 0) return null; // byblock
+  return ACI[n] || `hsl(${(n * 137) % 360},70%,65%)`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDERER DXF (Canvas 2D)
+═══════════════════════════════════════════════════════════ */
+const canvas = $('dxf-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const wrap = $('canvas-wrap');
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  renderDXF();
+}
+
+function worldToScreen(wx, wy) {
+  const { scale, ox, oy } = state.dxf.transform;
+  return { x: wx * scale + ox, y: -wy * scale + oy };
+}
+
+function screenToWorld(sx, sy) {
+  const { scale, ox, oy } = state.dxf.transform;
+  return { x: (sx - ox) / scale, y: -(sy - oy) / scale };
+}
+
+function getEntityColor(ent) {
+  // Entity color > layer color > default
+  if (ent.colorNum != null && ent.colorNum !== 256) {
+    const c = aciColor(ent.colorNum);
+    if (c) return c;
+  }
+  const layer = state.dxf.layers[ent.layer] || state.dxf.layers['0'];
+  if (layer) {
+    const c = aciColor(layer.color);
+    if (c) return c;
+  }
+  return '#cccccc';
+}
+
+function isLayerVisible(layerName) {
+  const l = state.dxf.layers[layerName];
+  return l ? l.visible !== false : true;
+}
+
+function renderDXF() {
+  if (!state.dxf.parsed) return;
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#1a1a2a';
+  ctx.fillRect(0, 0, w, h);
+
+  const entities = state.dxf.parsed.entities;
+  const highlightId = state.dxf.highlightId;
+
+  for (const ent of entities) {
+    if (!isLayerVisible(ent.layer)) continue;
+
+    const color = getEntityColor(ent);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 1 / state.dxf.transform.scale * canvas.width / 800;
+
+    const isHighlighted = highlightId && isEntityMatch(ent, highlightId);
+
+    switch (ent.type) {
+      case 'LWPOLYLINE':
+        if (ent.vertices.length < 2) break;
+        ctx.beginPath();
+        const p0 = worldToScreen(ent.vertices[0].x, ent.vertices[0].y);
+        ctx.moveTo(p0.x, p0.y);
+        for (let i = 1; i < ent.vertices.length; i++) {
+          const p = worldToScreen(ent.vertices[i].x, ent.vertices[i].y);
+          ctx.lineTo(p.x, p.y);
+        }
+        if (ent.closed) ctx.closePath();
+        if (isHighlighted) {
+          ctx.fillStyle = 'rgba(79,142,247,0.2)';
+          ctx.fill();
+          ctx.strokeStyle = '#4f8ef7';
+          ctx.lineWidth = Math.max(2, 2 / state.dxf.transform.scale * canvas.width / 800);
+        }
+        ctx.stroke();
+        break;
+
+      case 'LINE': {
+        const a = worldToScreen(ent.x1, ent.y1);
+        const b = worldToScreen(ent.x2, ent.y2);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+        break;
+      }
+
+      case 'CIRCLE': {
+        const c = worldToScreen(ent.cx, ent.cy);
+        const r = ent.radius * state.dxf.transform.scale;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+      }
+
+      case 'ARC': {
+        const c = worldToScreen(ent.cx, ent.cy);
+        const r = ent.radius * state.dxf.transform.scale;
+        const sa = -(ent.startAngle || 0) * Math.PI / 180;
+        const ea = -(ent.endAngle || 0) * Math.PI / 180;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, r, sa, ea, true);
+        ctx.stroke();
+        break;
+      }
+
+      case 'TEXT':
+      case 'MTEXT': {
+        const minPx = 6;
+        const pxHeight = (ent.height || 2.5) * state.dxf.transform.scale;
+        if (pxHeight < minPx) break;
+        const p = worldToScreen(ent.x, ent.y);
+        ctx.save();
+        ctx.font = `${Math.min(pxHeight, 18)}px sans-serif`;
+        ctx.fillText(ent.text || '', p.x, p.y);
+        ctx.restore();
+        break;
+      }
+    }
+  }
+
+  // Zoom info
+  $('zoom-info').textContent = Math.round(state.dxf.transform.scale * 100 / state._baseScale * 100) + '%';
+}
+
+/* ── Matching entity to room ID ── */
+function isEntityMatch(ent, id) {
+  if (!id) return false;
+  const mode = state.config.matchMode || 'layer';
+  if (mode === 'layer')  return ent.layer === String(id);
+  if (mode === 'handle') return ent.handle === String(id);
+  if (mode === 'text') {
+    // look for TEXT entity with matching text nearby — handled separately
+    return false;
+  }
+  return false;
+}
+
+/* ── Bounding box ── */
+function polyBBox(vertices) {
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  for (const v of vertices) {
+    if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x;
+    if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y;
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+function allEntitiesBBox() {
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  for (const ent of state.dxf.parsed.entities) {
+    if (!isLayerVisible(ent.layer)) continue;
+    const pts = [];
+    if (ent.type === 'LWPOLYLINE') pts.push(...ent.vertices.map(v=>({x:v.x,y:v.y})));
+    if (ent.type === 'LINE') pts.push({x:ent.x1,y:ent.y1},{x:ent.x2,y:ent.y2});
+    if (ent.type === 'CIRCLE'||ent.type==='ARC') {
+      pts.push({x:ent.cx-ent.radius,y:ent.cy-ent.radius},{x:ent.cx+ent.radius,y:ent.cy+ent.radius});
+    }
+    for (const p of pts) {
+      if (p.x<minX) minX=p.x; if (p.x>maxX) maxX=p.x;
+      if (p.y<minY) minY=p.y; if (p.y>maxY) maxY=p.y;
+    }
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+function fitToBBox(bbox, padding = 40) {
+  const w = canvas.width, h = canvas.height;
+  const bw = bbox.maxX - bbox.minX, bh = bbox.maxY - bbox.minY;
+  if (!bw || !bh) return;
+  const scale = Math.min((w - padding*2) / bw, (h - padding*2) / bh);
+  const cx = (bbox.minX + bbox.maxX) / 2;
+  const cy = (bbox.minY + bbox.maxY) / 2;
+  state.dxf.transform = {
+    scale,
+    ox: w/2 - cx * scale,
+    oy: h/2 + cy * scale,
+  };
+  state._baseScale = scale;
+  renderDXF();
+}
+
+function fitAll() {
+  if (!state.dxf.parsed) return;
+  fitToBBox(allEntitiesBBox());
+}
+
+function zoomToRoom(id) {
+  if (!state.dxf.parsed || !id) return;
+  const ent = state.dxf.parsed.entities.find(e => e.type === 'LWPOLYLINE' && isEntityMatch(e, id));
+  if (!ent || !ent.vertices.length) return;
+  const bbox = polyBBox(ent.vertices);
+  const pad = Math.max((bbox.maxX-bbox.minX),(bbox.maxY-bbox.minY)) * 0.4 + 2;
+  fitToBBox({ minX: bbox.minX-pad, maxX: bbox.maxX+pad, minY: bbox.minY-pad, maxY: bbox.maxY+pad });
+}
+
+/* ── Pan & Zoom ── */
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  state.dxf.isDragging = true;
+  state.dxf.dragStart = { x: e.clientX - state.dxf.transform.ox, y: e.clientY - state.dxf.transform.oy };
+});
+window.addEventListener('mousemove', e => {
+  if (!state.dxf.isDragging) return;
+  state.dxf.transform.ox = e.clientX - state.dxf.dragStart.x;
+  state.dxf.transform.oy = e.clientY - state.dxf.dragStart.y;
+  renderDXF();
+});
+window.addEventListener('mouseup', () => { state.dxf.isDragging = false; });
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.12 : 1/1.12;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const { scale, ox, oy } = state.dxf.transform;
+  const newScale = scale * factor;
+  state.dxf.transform = {
+    scale: newScale,
+    ox: mx - (mx - ox) * factor,
+    oy: my - (my - oy) * factor,
+  };
+  renderDXF();
+}, { passive: false });
+
+/* ── Hover tooltip (room name by text matching) ── */
+canvas.addEventListener('mousemove', e => {
+  if (state.currentFormat !== 'dxf' || !state.dxf.parsed) return;
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+  const w = screenToWorld(sx, sy);
+  let found = null;
+  for (const ent of state.dxf.parsed.entities) {
+    if (ent.type !== 'LWPOLYLINE' || !ent.closed || !isLayerVisible(ent.layer)) continue;
+    if (pointInPolygon(w.x, w.y, ent.vertices)) { found = ent; break; }
+  }
+  const tt = $('room-tooltip');
+  if (found) {
+    const id = found.layer;
+    $('tt-id').textContent = 'Calque : ' + id;
+    $('tt-name').textContent = ''; // could look up name from Grist
+    tt.style.display = 'block';
+  } else {
+    tt.style.display = 'none';
+  }
+});
+canvas.addEventListener('mouseleave', () => { $('room-tooltip').style.display = 'none'; });
+
+function pointInPolygon(px, py, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length-1; i < pts.length; j = i++) {
+    const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
+    if (((yi>py) !== (yj>py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi)) inside = !inside;
+  }
+  return inside;
+}
+
+/* ── Layer panel ── */
+function buildLayerPanel() {
+  const list = $('layer-list');
+  list.innerHTML = '';
+  const layers = state.dxf.layers;
+  const sorted = Object.keys(layers).sort();
+  for (const name of sorted) {
+    const l = layers[name];
+    const color = aciColor(l.color) || '#d0d0d0';
+    const visible = l.visible !== false;
+    const item = document.createElement('div');
+    item.className = 'layer-item' + (visible ? '' : ' hidden');
+    item.dataset.layer = name;
+    item.innerHTML = `
+      <div class="layer-color" style="background:${color}"></div>
+      <div class="layer-name" title="${name}">${name}</div>
+      <div class="layer-eye">${visible ? '👁' : '🚫'}</div>
+    `;
+    item.addEventListener('click', () => toggleLayer(name, item));
+    list.appendChild(item);
+  }
+}
+
+function toggleLayer(name, el) {
+  const l = state.dxf.layers[name];
+  l.visible = l.visible === false;
+  el.className = 'layer-item' + (l.visible ? '' : ' hidden');
+  el.querySelector('.layer-eye').textContent = l.visible ? '👁' : '🚫';
+  renderDXF();
+}
+
+$('btn-all-on').addEventListener('click', () => {
+  Object.values(state.dxf.layers).forEach(l => l.visible = true);
+  buildLayerPanel(); renderDXF();
+});
+$('btn-all-off').addEventListener('click', () => {
+  Object.values(state.dxf.layers).forEach(l => l.visible = false);
+  buildLayerPanel(); renderDXF();
+});
+
+/* ═══════════════════════════════════════════════════════════
+   CHARGEMENT DXF
+═══════════════════════════════════════════════════════════ */
+async function loadDXF(url, roomId) {
+  setLoading(10);
+  const resp = await fetchFile(url);
+  setLoading(50);
+  const text = await resp.text();
+  setLoading(80);
+
+  const parsed = parseDXF(text);
+
+  // Init layers visibility
+  const layers = {};
+  for (const [name, def] of Object.entries(parsed.layers)) {
+    layers[name] = { color: def.color, frozen: def.frozen, visible: !def.frozen };
+  }
+  // Add layers referenced by entities but not in table
+  for (const ent of parsed.entities) {
+    if (!layers[ent.layer]) layers[ent.layer] = { color: 7, frozen: false, visible: true };
+  }
+
+  state.dxf.parsed = parsed;
+  state.dxf.layers = layers;
+  state.dxf.highlightId = roomId || null;
+  state.currentFormat = 'dxf';
+
+  showSection('canvas-wrap');
+  resizeCanvas();
+  buildLayerPanel();
+
+  if (roomId) {
+    state.dxf.highlightId = String(roomId);
+    zoomToRoom(String(roomId));
+    $('btn-zoom-room').style.display = '';
+  } else {
+    fitAll();
+    $('btn-zoom-room').style.display = 'none';
+  }
+  setLoading(100);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VIEWER PDF
+═══════════════════════════════════════════════════════════ */
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+async function loadPDF(url) {
+  setLoading(10);
+  const doc = await pdfjsLib.getDocument(url).promise;
+  state.pdf.doc = doc;
+  state.currentFormat = 'pdf';
+  showSection('pdf-wrap');
+  $('pdf-wrap').innerHTML = '';
+  setLoading(50);
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const vp = page.getViewport({ scale: state.pdf.scale });
+    const c = document.createElement('canvas');
+    c.width = vp.width; c.height = vp.height;
+    $('pdf-wrap').appendChild(c);
+    await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+    setLoading(50 + Math.round(50 * i / doc.numPages));
+  }
+  setLoading(100);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VIEWER 360°
+═══════════════════════════════════════════════════════════ */
+let pannellumViewer = null;
+
+async function load360(url) {
+  state.currentFormat = 'img360';
+  showSection('pano-wrap');
+  if (pannellumViewer) { try { pannellumViewer.destroy(); } catch(e){} pannellumViewer = null; }
+  $('pano-wrap').innerHTML = '<div id="pano-container" style="width:100%;height:100%"></div>';
+  pannellumViewer = pannellum.viewer('pano-container', {
+    type: 'equirectangular',
+    panorama: url,
+    autoLoad: true,
+    showZoomCtrl: true,
+    showFullscreenCtrl: true,
+    hotSpotDebug: false,
+  });
+  setLoading(100);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DISPATCH FORMAT
+═══════════════════════════════════════════════════════════ */
+async function loadFile(url, roomId, record) {
+  if (!url) { showEmpty(); return; }
+  const fmt = detectFormat(url, record);
+  try {
+    if (fmt === 'dxf')    await loadDXF(url, roomId);
+    else if (fmt === 'pdf')   await loadPDF(url);
+    else if (fmt === 'img360') await load360(url);
+    else if (fmt === 'img') {
+      state.currentFormat = 'img';
+      showSection('pdf-wrap'); // reuse flex container
+      $('pdf-wrap').innerHTML = `<img src="${url}" style="max-width:100%;max-height:100%;object-fit:contain">`;
+      setLoading(100);
+    } else {
+      showEmpty();
+    }
+    updateFormatBadge();
+  } catch(err) {
+    console.error('Viewer error:', err);
+    showEmpty();
+    $('empty').innerHTML = `<div class="icon">⚠️</div><div>Erreur de chargement</div><div style="font-size:11px;color:#f07070">${err.message}</div>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   GRIST INTEGRATION
+═══════════════════════════════════════════════════════════ */
+let gristColumns = [];
+
+function populateConfigSelects() {
+  const selects = ['cfg-col-url','cfg-col-room','cfg-col-name','cfg-col-360'];
+  selects.forEach(id => {
+    const el = $(id);
+    const cur = el.value;
+    while (el.options.length > 1) el.remove(1);
+    for (const col of gristColumns) {
+      const opt = document.createElement('option');
+      opt.value = col.id; opt.textContent = col.label || col.id;
+      el.appendChild(opt);
+    }
+    el.value = cur || '';
+  });
+}
+
+function applyConfigToUI() {
+  const c = state.config;
+  $('cfg-col-url').value   = c.colUrl   || '';
+  $('cfg-col-room').value  = c.colRoom  || '';
+  $('cfg-col-name').value  = c.colName  || '';
+  $('cfg-col-360').value   = c.col360   || '';
+  $('cfg-match-mode').value = c.matchMode || 'layer';
+  $('cfg-360-detect').value = c.detect360 || 'suffix';
+  toggle360ColRow();
+}
+
+function toggle360ColRow() {
+  $('cfg-360-col-row').style.display = $('cfg-360-detect').value === 'column' ? '' : 'none';
+}
+$('cfg-360-detect').addEventListener('change', toggle360ColRow);
+
+grist.ready({ requiredAccess: 'read table' });
+
+grist.onOptions((options, _widgetConf) => {
+  state.config = options || {};
+  applyConfigToUI();
+});
+
+grist.on('message', (msg) => {
+  if (msg.tableId && Array.isArray(msg.columns)) {
+    gristColumns = msg.columns;
+    populateConfigSelects();
+    applyConfigToUI();
+  }
+});
+
+// Fetch columns when ready
+(async () => {
+  try {
+    const cols = await grist.docApi.fetchSelectedTable();
+    // cols is a column dict; keys are column names
+    gristColumns = Object.keys(cols).map(k => ({ id: k, label: k }));
+    populateConfigSelects();
+    applyConfigToUI();
+  } catch (e) { /* not critical */ }
+})();
+
+grist.onRecord(async (record) => {
+  state.currentRecord = record;
+  if (!state.config.colUrl) { openConfig(); return; }
+  const url    = record[state.config.colUrl]   || '';
+  const roomId = state.config.colRoom ? record[state.config.colRoom] : null;
+  await loadFile(url, roomId, record);
+});
+
+/* ═══════════════════════════════════════════════════════════
+   CONFIG PANEL
+═══════════════════════════════════════════════════════════ */
+function openConfig() { $('config-overlay').classList.remove('hidden'); }
+function closeConfig() { $('config-overlay').classList.add('hidden'); }
+
+$('btn-config').addEventListener('click', openConfig);
+$('cfg-cancel').addEventListener('click', closeConfig);
+
+$('cfg-save').addEventListener('click', async () => {
+  const colUrl = $('cfg-col-url').value;
+  if (!colUrl) { alert('Veuillez sélectionner la colonne URL du fichier.'); return; }
+  state.config = {
+    colUrl,
+    colRoom:    $('cfg-col-room').value   || null,
+    colName:    $('cfg-col-name').value   || null,
+    col360:     $('cfg-col-360').value    || null,
+    matchMode:  $('cfg-match-mode').value,
+    detect360:  $('cfg-360-detect').value,
+  };
+  await grist.widgetApi.setOptions(state.config);
+  closeConfig();
+  if (state.currentRecord) {
+    const url    = state.currentRecord[state.config.colUrl] || '';
+    const roomId = state.config.colRoom ? state.currentRecord[state.config.colRoom] : null;
+    await loadFile(url, roomId, state.currentRecord);
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   TOOLBAR BUTTONS
+═══════════════════════════════════════════════════════════ */
+$('toggle-sidebar').addEventListener('click', () => {
+  $('sidebar').classList.toggle('collapsed');
+  setTimeout(resizeCanvas, 220);
+});
+
+$('btn-fit').addEventListener('click', () => {
+  if (state.currentFormat === 'dxf') fitAll();
+  else if (state.currentFormat === 'pdf') {
+    $('pdf-wrap').scrollTo({ top: 0, behavior: 'smooth' });
+  }
+});
+
+$('btn-zoom-room').addEventListener('click', () => {
+  if (state.dxf.highlightId) zoomToRoom(state.dxf.highlightId);
+});
+
+/* ═══════════════════════════════════════════════════════════
+   RESIZE
+═══════════════════════════════════════════════════════════ */
+const ro = new ResizeObserver(() => {
+  if (state.currentFormat === 'dxf') resizeCanvas();
+});
+ro.observe($('canvas-wrap'));
+
+/* Init */
+showEmpty();
+</script>
+</body>
+</html>
