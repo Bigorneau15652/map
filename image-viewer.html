@@ -314,6 +314,7 @@ let current = 0;
 let recordVersion = 0;   // anti-race : invalide les showFile() périmés
 let pdfDoc = null, pdfPage = 1;
 let fsPdfDoc = null, fsPdfPage = 1;
+let popupWindow = null;
 
 // ── DOM ──────────────────────────────────────────────────
 const viewer      = document.getElementById('viewer');
@@ -488,10 +489,12 @@ pdfNextPage.addEventListener('click', e => { e.stopPropagation(); goPdfPage(+1);
 async function goNext() {
   showFile(current+1 < files.length ? current+1 : 0, recordVersion);
   if (fsLayer.style.display === 'flex') await loadFsContent();
+  else updatePopup();
 }
 async function goPrev() {
   showFile(current-1 >= 0 ? current-1 : files.length-1, recordVersion);
   if (fsLayer.style.display === 'flex') await loadFsContent();
+  else updatePopup();
 }
 prevBtn.addEventListener('click', e => { e.stopPropagation(); goPrev(); });
 nextBtn.addEventListener('click', e => { e.stopPropagation(); goNext(); });
@@ -575,9 +578,8 @@ async function loadFsContent() {
 }
 
 // Fallback popup navigateur
-function openPopup() {
-  const item = files[current];
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+function buildPopupHtml(item) {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>Image</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
@@ -586,14 +588,20 @@ function openPopup() {
 </style></head><body>
 <img src="${item.url}" onerror="this.alt='Impossible de charger'">
 </body></html>`;
-  const blob = new Blob([html], {type:'text/html'});
-  const blobUrl = URL.createObjectURL(blob);
+}
+function openPopup() {
   const w = Math.round(screen.width * .85);
   const h = Math.round(screen.height * .85);
   const left = Math.round((screen.width - w) / 2);
   const top  = Math.round((screen.height - h) / 2);
-  window.open(blobUrl, '_blank',
+  const blob = new Blob([buildPopupHtml(files[current])], {type:'text/html'});
+  popupWindow = window.open(URL.createObjectURL(blob), 'grist-viewer',
     `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=no,menubar=no,toolbar=no,location=no`);
+}
+function updatePopup() {
+  if (!popupWindow || popupWindow.closed) { popupWindow = null; return; }
+  const blob = new Blob([buildPopupHtml(files[current])], {type:'text/html'});
+  popupWindow.location.href = URL.createObjectURL(blob);
 }
 
 // Navigation fullscreen
