@@ -195,24 +195,21 @@
     </div>
 
     <div class="config-row">
-      <label>Colonne ID Pièce</label>
-      <select id="cfg-col-room"><option value="">— aucune —</option></select>
-      <div class="hint">ID unique de la pièce pour le zoom automatique dans le DXF</div>
+      <label>Colonne ID Pièce <span style="color:var(--text-muted)">(optionnel)</span></label>
+      <select id="cfg-col-room"><option value="">— aucune (vue globale) —</option></select>
+      <div class="hint">Si vide : le DXF s'ouvre en vue globale sans zoom sur une pièce</div>
+    </div>
+
+    <div class="config-row">
+      <label>Calque contenant les IDs de salles <span style="color:var(--text-muted)">(optionnel)</span></label>
+      <select id="cfg-layer-id"><option value="">— aucun (correspondance par nom de calque) —</option></select>
+      <div class="hint">Calque avec les textes numéros de salles. Chargez d'abord un DXF pour voir les calques disponibles.</div>
     </div>
 
     <div class="config-row">
       <label>Colonne Nom Pièce <span style="color:var(--text-muted)">(optionnel)</span></label>
       <select id="cfg-col-name"><option value="">— aucune —</option></select>
       <div class="hint">Affiché dans l'infobulle lors du survol</div>
-    </div>
-
-    <div class="config-row">
-      <label>Correspondance ID dans le DXF</label>
-      <select id="cfg-match-mode">
-        <option value="layer">Par nom de calque (ex: calque "R001" = pièce "R001")</option>
-        <option value="text">Par texte dans la polyligne (entity TEXT/MTEXT)</option>
-        <option value="handle">Par handle d'entité DXF (code 5)</option>
-      </select>
     </div>
 
     <div class="config-row">
@@ -614,17 +611,41 @@ function renderDXF() {
   $('zoom-info').textContent = Math.round(state.dxf.transform.scale * 100 / state._baseScale * 100) + '%';
 }
 
+/* ── Room map: text entities on ID layer → enclosing polygon ── */
+function buildRoomMap() {
+  state.dxf.roomMap = {};
+  const layerId = state.config.layerId;
+  if (!layerId || !state.dxf.parsed) return;
+
+  const texts = state.dxf.parsed.entities.filter(e =>
+    (e.type === 'TEXT' || e.type === 'MTEXT') && e.layer === layerId && e.text
+  );
+  const polys = state.dxf.parsed.entities.filter(e =>
+    e.type === 'LWPOLYLINE' && e.closed && e.vertices.length >= 3
+  );
+
+  for (const txt of texts) {
+    const id = String(txt.text).trim();
+    if (!id) continue;
+    for (const poly of polys) {
+      if (pointInPolygon(txt.x, txt.y, poly.vertices)) {
+        state.dxf.roomMap[id] = poly;
+        break;
+      }
+    }
+  }
+  console.log('Room map built:', Object.keys(state.dxf.roomMap).length, 'rooms found on layer', layerId);
+}
+
 /* ── Matching entity to room ID ── */
 function isEntityMatch(ent, id) {
   if (!id) return false;
-  const mode = state.config.matchMode || 'layer';
-  if (mode === 'layer')  return ent.layer === String(id);
-  if (mode === 'handle') return ent.handle === String(id);
-  if (mode === 'text') {
-    // look for TEXT entity with matching text nearby — handled separately
-    return false;
+  // If room map exists and has entries, use it
+  if (state.dxf.roomMap && Object.keys(state.dxf.roomMap).length > 0) {
+    return state.dxf.roomMap[String(id)] === ent;
   }
-  return false;
+  // Fallback: match by layer name
+  return ent.layer === String(id);
 }
 
 /* ── Bounding box ── */
@@ -677,12 +698,23 @@ function fitAll() {
 }
 
 function zoomToRoom(id) {
-  if (!state.dxf.parsed || !id) return;
-  const ent = state.dxf.parsed.entities.find(e => e.type === 'LWPOLYLINE' && isEntityMatch(e, id));
-  if (!ent || !ent.vertices.length) return;
+  if (!state.dxf.parsed) { fitAll(); return; }
+  if (!id) { fitAll(); return; }
+
+  // Try room map first
+  let ent = state.dxf.roomMap ? state.dxf.roomMap[String(id)] : null;
+  // Fallback: scan entities
+  if (!ent) ent = state.dxf.parsed.entities.find(e => e.type === 'LWPOLYLINE' && isEntityMatch(e, id));
+
+  if (!ent || !ent.vertices || !ent.vertices.length) {
+    // Room not found → show full plan
+    console.warn('Room not found:', id, '— showing full plan');
+    fitAll();
+    return;
+  }
   const bbox = polyBBox(ent.vertices);
-  const pad = Math.max((bbox.maxX-bbox.minX),(bbox.maxY-bbox.minY)) * 0.4 + 2;
-  fitToBBox({ minX: bbox.minX-pad, maxX: bbox.maxX+pad, minY: bbox.minY-pad, maxY: bbox.maxY+pad });
+  const pad = Math.max((bbox.maxX - bbox.minX), (bbox.maxY - bbox.minY)) * 0.4 + 2;
+  fitToBBox({ minX: bbox.minX - pad, maxX: bbox.maxX + pad, minY: bbox.minY - pad, maxY: bbox.maxY + pad });
 }
 
 /* ── Pan & Zoom ── */
@@ -810,20 +842,24 @@ async function loadDXF(url, roomId) {
 
   state.dxf.parsed = parsed;
   state.dxf.layers = layers;
-  state.dxf.highlightId = roomId || null;
+  state.dxf.roomMap = {};
+  state.dxf.highlightId = roomId ? String(roomId) : null;
   state.currentFormat = 'dxf';
 
   showSection('canvas-wrap');
   resizeCanvas();
   buildLayerPanel();
+  populateDxfLayerSelect(); // update Config dropdown with actual DXF layers
+
+  // Build room map if a text-layer ID is configured
+  buildRoomMap();
 
   if (roomId) {
-    state.dxf.highlightId = String(roomId);
-    zoomToRoom(String(roomId));
     $('btn-zoom-room').style.display = '';
+    zoomToRoom(String(roomId)); // falls back to fitAll if not found
   } else {
-    fitAll();
     $('btn-zoom-room').style.display = 'none';
+    fitAll();
   }
   setLoading(100);
 }
@@ -923,13 +959,29 @@ function populateConfigSelects() {
 
 function applyConfigToUI() {
   const c = state.config;
-  $('cfg-col-url').value   = c.colUrl   || '';
-  $('cfg-col-room').value  = c.colRoom  || '';
-  $('cfg-col-name').value  = c.colName  || '';
-  $('cfg-col-360').value   = c.col360   || '';
-  $('cfg-match-mode').value = c.matchMode || 'layer';
+  $('cfg-col-url').value    = c.colUrl   || '';
+  $('cfg-col-room').value   = c.colRoom  || '';
+  $('cfg-col-name').value   = c.colName  || '';
+  $('cfg-col-360').value    = c.col360   || '';
   $('cfg-360-detect').value = c.detect360 || 'suffix';
   toggle360ColRow();
+  // layerId is populated from DXF layers — set value if already saved
+  if (c.layerId && $('cfg-layer-id').querySelector(`option[value="${c.layerId}"]`)) {
+    $('cfg-layer-id').value = c.layerId;
+  }
+}
+
+function populateDxfLayerSelect() {
+  const sel = $('cfg-layer-id');
+  const cur = state.config.layerId || '';
+  sel.innerHTML = '<option value="">— aucun (correspondance par nom de calque) —</option>';
+  const names = Object.keys(state.dxf.layers || {}).sort();
+  for (const name of names) {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    sel.appendChild(opt);
+  }
+  sel.value = cur;
 }
 
 function toggle360ColRow() {
@@ -947,16 +999,23 @@ grist.onOptions((options) => {
 grist.onRecord((record) => {
   state.currentRecord = record;
 
-  // Extract column names from the record itself (most reliable method)
+  // Extract column names from the record (most reliable method)
   const keys = Object.keys(record).filter(k => k !== 'id' && !k.startsWith('_'));
-  if (keys.length > 0) {
+  if (keys.length > 0 && gristColumns.length === 0) {
     gristColumns = keys.map(k => ({ id: k, label: k }));
     populateConfigSelects();
     applyConfigToUI();
   }
 
   if (!state.config.colUrl) {
-    openConfig();
+    // Not configured yet — show a friendly hint instead of forcing the panel open
+    showEmpty();
+    $('empty').innerHTML = `
+      <div class="icon">⚙</div>
+      <div>Widget non configuré</div>
+      <div style="font-size:11px;color:var(--accent);cursor:pointer" onclick="$('btn-config').click()">
+        Cliquez sur ⚙ Config pour sélectionner la colonne fichier
+      </div>`;
     return;
   }
 
@@ -979,20 +1038,26 @@ $('cfg-save').addEventListener('click', async () => {
   if (!colUrl) { alert('Veuillez sélectionner la colonne URL du fichier.'); return; }
   state.config = {
     colUrl,
-    colRoom:    $('cfg-col-room').value   || null,
-    colName:    $('cfg-col-name').value   || null,
-    col360:     $('cfg-col-360').value    || null,
-    matchMode:  $('cfg-match-mode').value,
-    detect360:  $('cfg-360-detect').value,
+    colRoom:   $('cfg-col-room').value  || null,
+    colName:   $('cfg-col-name').value  || null,
+    col360:    $('cfg-col-360').value   || null,
+    layerId:   $('cfg-layer-id').value  || null,
+    detect360: $('cfg-360-detect').value,
   };
-  // setOptions API varies by Grist version
-  if (typeof grist.setOptions === 'function') await grist.setOptions(state.config);
-  else if (grist.widgetApi?.setOptions) await grist.widgetApi.setOptions(state.config);
+  try {
+    if (typeof grist.setOptions === 'function') await grist.setOptions(state.config);
+    else if (grist.widgetApi?.setOptions) await grist.widgetApi.setOptions(state.config);
+  } catch(e) { console.warn('setOptions failed:', e); }
   closeConfig();
+  // Rebuild room map with new layerId and reload if DXF already parsed
+  if (state.dxf.parsed) {
+    buildRoomMap();
+    renderDXF();
+  }
   if (state.currentRecord) {
     const url    = state.currentRecord[state.config.colUrl] || '';
     const roomId = state.config.colRoom ? state.currentRecord[state.config.colRoom] : null;
-    await loadFile(url, roomId, state.currentRecord);
+    loadFile(url, roomId, state.currentRecord);
   }
 });
 
