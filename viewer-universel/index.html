@@ -939,36 +939,30 @@ $('cfg-360-detect').addEventListener('change', toggle360ColRow);
 
 grist.ready({ requiredAccess: 'read table' });
 
-grist.onOptions((options, _widgetConf) => {
+grist.onOptions((options) => {
   state.config = options || {};
   applyConfigToUI();
 });
 
-grist.on('message', (msg) => {
-  if (msg.tableId && Array.isArray(msg.columns)) {
-    gristColumns = msg.columns;
+grist.onRecord((record) => {
+  state.currentRecord = record;
+
+  // Extract column names from the record itself (most reliable method)
+  const keys = Object.keys(record).filter(k => k !== 'id' && !k.startsWith('_'));
+  if (keys.length > 0) {
+    gristColumns = keys.map(k => ({ id: k, label: k }));
     populateConfigSelects();
     applyConfigToUI();
   }
-});
 
-// Fetch columns when ready
-(async () => {
-  try {
-    const cols = await grist.docApi.fetchSelectedTable();
-    // cols is a column dict; keys are column names
-    gristColumns = Object.keys(cols).map(k => ({ id: k, label: k }));
-    populateConfigSelects();
-    applyConfigToUI();
-  } catch (e) { /* not critical */ }
-})();
+  if (!state.config.colUrl) {
+    openConfig();
+    return;
+  }
 
-grist.onRecord(async (record) => {
-  state.currentRecord = record;
-  if (!state.config.colUrl) { openConfig(); return; }
-  const url    = record[state.config.colUrl]   || '';
+  const url    = record[state.config.colUrl] || '';
   const roomId = state.config.colRoom ? record[state.config.colRoom] : null;
-  await loadFile(url, roomId, record);
+  loadFile(url, roomId, record);
 });
 
 /* ═══════════════════════════════════════════════════════════
@@ -991,7 +985,9 @@ $('cfg-save').addEventListener('click', async () => {
     matchMode:  $('cfg-match-mode').value,
     detect360:  $('cfg-360-detect').value,
   };
-  await grist.widgetApi.setOptions(state.config);
+  // setOptions API varies by Grist version
+  if (typeof grist.setOptions === 'function') await grist.setOptions(state.config);
+  else if (grist.widgetApi?.setOptions) await grist.widgetApi.setOptions(state.config);
   closeConfig();
   if (state.currentRecord) {
     const url    = state.currentRecord[state.config.colUrl] || '';
