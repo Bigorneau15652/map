@@ -600,8 +600,11 @@ function openPopup() {
 }
 function updatePopup() {
   if (!popupWindow || popupWindow.closed) { popupWindow = null; return; }
-  const blob = new Blob([buildPopupHtml(files[current])], {type:'text/html'});
-  popupWindow.location.href = URL.createObjectURL(blob);
+  try {
+    popupWindow.document.open();
+    popupWindow.document.write(buildPopupHtml(files[current]));
+    popupWindow.document.close();
+  } catch(e) { console.warn('popup update failed', e); }
 }
 
 // Navigation fullscreen
