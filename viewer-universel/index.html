@@ -213,6 +213,18 @@
     </div>
 
     <div class="config-row">
+      <label>Format de fichier</label>
+      <select id="cfg-force-format">
+        <option value="auto">Détection automatique (par extension dans l'URL)</option>
+        <option value="dxf">Toujours DXF</option>
+        <option value="pdf">Toujours PDF</option>
+        <option value="img360">Toujours Image 360°</option>
+        <option value="img">Toujours Image</option>
+      </select>
+      <div class="hint">Si vos URLs Nextcloud se terminent par /download sans extension, forcez le format ici.</div>
+    </div>
+
+    <div class="config-row">
       <label>Image 360° — détecter automatiquement</label>
       <select id="cfg-360-detect">
         <option value="suffix">Par suffixe dans le nom de fichier (_360, -360, _pano)</option>
@@ -300,18 +312,36 @@ async function fetchFile(url) {
 
 function detectFormat(url, record) {
   if (!url) return null;
-  const clean = url.split('?')[0].toLowerCase();
-  if (clean.endsWith('.dxf')) return 'dxf';
-  if (clean.endsWith('.pdf')) return 'pdf';
+
+  // Format forcé dans la config — priorité absolue
+  const forced = state.config.forceFormat;
+  if (forced && forced !== 'auto') return forced;
+
+  const lower = url.toLowerCase();
+  const clean = lower.split('?')[0];
+
+  // Chercher l'extension n'importe où dans l'URL (avant /download, query params, etc.)
+  if (/\.dxf([/?#]|$)/.test(clean)) return 'dxf';
+  if (/\.pdf([/?#]|$)/.test(clean)) return 'pdf';
 
   const img360Suffixes = ['_360', '-360', '_pano', '-pano', '_panorama'];
-  const isImg = /\.(jpe?g|png|webp|gif)$/.test(clean);
+  const isImg = /\.(jpe?g|png|webp|gif)([/?#]|$)/.test(clean);
   if (isImg) {
     const mode = state.config.detect360 || 'suffix';
     if (mode === 'suffix' && img360Suffixes.some(s => clean.includes(s))) return 'img360';
     if (mode === 'column' && state.config.col360 && record && record[state.config.col360]) return 'img360';
     return 'img';
   }
+
+  // Dernière chance : regarder la colonne type si elle existe
+  if (state.config.col360 && record && record[state.config.col360]) {
+    const t = String(record[state.config.col360]).toLowerCase();
+    if (t === 'dxf') return 'dxf';
+    if (t === 'pdf') return 'pdf';
+    if (t.includes('360') || t === 'pano') return 'img360';
+    if (t === 'img' || t === 'image') return 'img';
+  }
+
   return null;
 }
 
@@ -963,7 +993,8 @@ function applyConfigToUI() {
   $('cfg-col-room').value   = c.colRoom  || '';
   $('cfg-col-name').value   = c.colName  || '';
   $('cfg-col-360').value    = c.col360   || '';
-  $('cfg-360-detect').value = c.detect360 || 'suffix';
+  $('cfg-force-format').value = c.forceFormat || 'auto';
+  $('cfg-360-detect').value   = c.detect360  || 'suffix';
   toggle360ColRow();
   // layerId is populated from DXF layers — set value if already saved
   if (c.layerId && $('cfg-layer-id').querySelector(`option[value="${c.layerId}"]`)) {
@@ -1041,8 +1072,9 @@ $('cfg-save').addEventListener('click', async () => {
     colRoom:   $('cfg-col-room').value  || null,
     colName:   $('cfg-col-name').value  || null,
     col360:    $('cfg-col-360').value   || null,
-    layerId:   $('cfg-layer-id').value  || null,
-    detect360: $('cfg-360-detect').value,
+    layerId:     $('cfg-layer-id').value     || null,
+    forceFormat: $('cfg-force-format').value || 'auto',
+    detect360:   $('cfg-360-detect').value,
   };
   try {
     if (typeof grist.setOptions === 'function') await grist.setOptions(state.config);
