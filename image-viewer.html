@@ -485,8 +485,14 @@ async function goPdfPage(delta) {
 pdfPrevPage.addEventListener('click', e => { e.stopPropagation(); goPdfPage(-1); });
 pdfNextPage.addEventListener('click', e => { e.stopPropagation(); goPdfPage(+1); });
 
-function goNext() { showFile(current+1 < files.length ? current+1 : 0, recordVersion); }
-function goPrev() { showFile(current-1 >= 0 ? current-1 : files.length-1, recordVersion); }
+async function goNext() {
+  showFile(current+1 < files.length ? current+1 : 0, recordVersion);
+  if (fsLayer.style.display === 'flex') await loadFsContent();
+}
+async function goPrev() {
+  showFile(current-1 >= 0 ? current-1 : files.length-1, recordVersion);
+  if (fsLayer.style.display === 'flex') await loadFsContent();
+}
 prevBtn.addEventListener('click', e => { e.stopPropagation(); goPrev(); });
 nextBtn.addEventListener('click', e => { e.stopPropagation(); goNext(); });
 
