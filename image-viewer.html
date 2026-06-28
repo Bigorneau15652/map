@@ -669,22 +669,31 @@ grist.onRecord(async (record, mappings) => {
   const mapped = grist.mapColumnNames(record, mappings);
   if (!mapped || mapped.images == null) { files = []; showFile(0, ver); return; }
 
-  // ── Correction bug navigation ──
-  // 1. Vider files et mettre à jour l'affichage IMMÉDIATEMENT
-  //    (efface les flèches/dots de la ligne précédente)
+  // ── Réinitialisation synchrone immédiate ──
+  // On vide l'état ET l'UI SANS passer par showFile (évite tout appel async intermédiaire).
+  // Les flèches/dots/counter de la ligne précédente disparaissent instantanément.
   files = [];
-  showFile(0, ver);
+  current = 0;
+  prevBtn.classList.add('hidden');
+  nextBtn.classList.add('hidden');
+  dotsEl.innerHTML = '';
+  counter.textContent = '';
+  typeBadge.textContent = '';
+  mainImg.style.display = 'none';
+  mainCanvas.style.display = 'none';
+  pdfControls.classList.remove('visible');
+  emptyEl.style.display = 'none';
 
-  // 2. Calculer les nouvelles images (peut être async pour les pièces jointes)
+  // ── Calculer les nouvelles images (async pour les pièces jointes) ──
   const value = mapped.images;
   const newFiles = isAttachmentValue(value)
     ? await parseAttachmentColumn(value)
     : parseUrlColumn(value);
 
-  // 3. Si on a changé de ligne entre-temps → abandonner
+  // Si on a changé de ligne entre-temps → abandonner
   if (ver !== recordVersion) return;
 
-  // 4. Mettre à jour et afficher
+  // Afficher les nouvelles images (showFile appelé UNE SEULE FOIS)
   files = newFiles;
   showFile(0, ver);
 });
