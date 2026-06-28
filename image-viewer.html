@@ -223,6 +223,7 @@
 </div>
 
 <div id="dots"></div>
+<div id="debug-val" style="background:#222;color:#ff0;font-size:.7rem;padding:4px 8px;word-break:break-all;max-height:60px;overflow:auto;"></div>
 
 <!-- ════════════════════════════════════════════════════════
      COUCHE FULLSCREEN — ce div prend tout l'écran navigateur
@@ -692,6 +693,10 @@ grist.onRecord(async (record, mappings) => {
 
   // Si on a changé de ligne entre-temps → abandonner
   if (ver !== recordVersion) return;
+
+  // DEBUG TEMPORAIRE — affiche la valeur brute reçue de Grist
+  const dbg = document.getElementById('debug-val');
+  if (dbg) dbg.textContent = 'val: ' + JSON.stringify(value) + ' → ' + newFiles.length + ' fichier(s)';
 
   // Afficher les nouvelles images (showFile appelé UNE SEULE FOIS)
   files = newFiles;
