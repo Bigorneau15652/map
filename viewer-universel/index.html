@@ -178,7 +178,7 @@
 
     <div id="loading-bar"></div>
     <div id="room-tooltip"><div class="rt-id" id="tt-id"></div><div class="rt-name" id="tt-name"></div></div>
-    <div id="zoom-info" id="zoom-display">100%</div>
+    <div id="zoom-info">100%</div>
   </div>
 </div>
 
@@ -368,8 +368,14 @@ function parseDXF(text) {
 
   function flushEntity() {
     if (!ent) return;
+    // L'en-tête d'une POLYLINE ancien format ne doit PAS être poussé ici :
+    // il est accumulé dans polylineBuffer et poussé une seule fois au SEQEND.
+    if (ent === polylineBuffer) { ent = null; return; }
     if (ent.type === '_LAYERDEF') {
       if (ent.name) result.layers[ent.name] = { color: ent.color ?? 7, frozen: ent.frozen ?? false };
+    } else if (ent.type === '_VERTEX') {
+      // Vertex d'une POLYLINE ancien format : on l'ajoute au buffer courant
+      if (polylineBuffer) polylineBuffer.vertices.push({ x: ent.x || 0, y: ent.y || 0 });
     } else if (['LWPOLYLINE','LINE','ARC','CIRCLE','TEXT','MTEXT','INSERT','POLYLINE'].includes(ent.type)) {
       result.entities.push(ent);
     }
@@ -637,45 +643,60 @@ function renderDXF() {
     }
   }
 
-  // Zoom info
-  $('zoom-info').textContent = Math.round(state.dxf.transform.scale * 100 / state._baseScale * 100) + '%';
+  // Zoom info (100 % = vue ajustée d'origine)
+  const base = state._baseScale || state.dxf.transform.scale || 1;
+  $('zoom-info').textContent = Math.round(state.dxf.transform.scale / base * 100) + '%';
 }
 
-/* ── Room map: text entities on ID layer → enclosing polygon ── */
-function buildRoomMap() {
-  state.dxf.roomMap = {};
-  const layerId = state.config.layerId;
-  if (!layerId || !state.dxf.parsed) return;
+/* ── Normalisation d'un identifiant de salle (DXF ↔ Grist) ──
+   On enlève les espaces de bord et on met en majuscules pour que
+   "  a102 " (texte DXF) corresponde à "A102" (colonne Grist). */
+function normId(s) {
+  return String(s == null ? '' : s).trim().toUpperCase();
+}
 
+/* ── Room map: textes (calque ID) → polyligne fermée englobante ──
+   Si aucun calque n'est configuré, on tente TOUS les textes : utile
+   quand on ne connaît pas encore le bon calque. */
+function buildRoomMap() {
+  state.dxf.roomMap = {};            // normId -> polygone
+  state.dxf.polyRoomId = new Map();  // polygone -> normId (lookup inverse, pour l'infobulle)
+  if (!state.dxf.parsed) return;
+
+  const layerId = state.config.layerId;
   const texts = state.dxf.parsed.entities.filter(e =>
-    (e.type === 'TEXT' || e.type === 'MTEXT') && e.layer === layerId && e.text
+    (e.type === 'TEXT' || e.type === 'MTEXT') && e.text &&
+    (!layerId || e.layer === layerId)
   );
   const polys = state.dxf.parsed.entities.filter(e =>
     e.type === 'LWPOLYLINE' && e.closed && e.vertices.length >= 3
   );
 
   for (const txt of texts) {
-    const id = String(txt.text).trim();
+    const id = normId(txt.text);
     if (!id) continue;
     for (const poly of polys) {
       if (pointInPolygon(txt.x, txt.y, poly.vertices)) {
-        state.dxf.roomMap[id] = poly;
+        if (!state.dxf.roomMap[id]) state.dxf.roomMap[id] = poly;
+        if (!state.dxf.polyRoomId.has(poly)) state.dxf.polyRoomId.set(poly, id);
         break;
       }
     }
   }
-  console.log('Room map built:', Object.keys(state.dxf.roomMap).length, 'rooms found on layer', layerId);
+  console.log('Room map :', Object.keys(state.dxf.roomMap).length, 'salles trouvées',
+    layerId ? `(calque "${layerId}")` : '(tous calques)');
 }
 
 /* ── Matching entity to room ID ── */
 function isEntityMatch(ent, id) {
   if (!id) return false;
-  // If room map exists and has entries, use it
+  const nid = normId(id);
+  // Si la room map existe, on l'utilise
   if (state.dxf.roomMap && Object.keys(state.dxf.roomMap).length > 0) {
-    return state.dxf.roomMap[String(id)] === ent;
+    return state.dxf.roomMap[nid] === ent;
   }
-  // Fallback: match by layer name
-  return ent.layer === String(id);
+  // Repli : correspondance par nom de calque
+  return normId(ent.layer) === nid;
 }
 
 /* ── Bounding box ── */
@@ -732,7 +753,7 @@ function zoomToRoom(id) {
   if (!id) { fitAll(); return; }
 
   // Try room map first
-  let ent = state.dxf.roomMap ? state.dxf.roomMap[String(id)] : null;
+  let ent = state.dxf.roomMap ? state.dxf.roomMap[normId(id)] : null;
   // Fallback: scan entities
   if (!ent) ent = state.dxf.parsed.entities.find(e => e.type === 'LWPOLYLINE' && isEntityMatch(e, id));
 
@@ -789,9 +810,12 @@ canvas.addEventListener('mousemove', e => {
   }
   const tt = $('room-tooltip');
   if (found) {
-    const id = found.layer;
-    $('tt-id').textContent = 'Calque : ' + id;
-    $('tt-name').textContent = ''; // could look up name from Grist
+    // Identifiant de salle via la room map (texte du calque ID), sinon nom de calque
+    const roomId = (state.dxf.polyRoomId && state.dxf.polyRoomId.get(found)) || null;
+    $('tt-id').textContent = roomId ? ('Salle : ' + roomId) : ('Calque : ' + found.layer);
+    // Nom Grist : seulement si on survole la salle actuellement sélectionnée
+    const isSelected = roomId && state.dxf.highlightId && normId(roomId) === normId(state.dxf.highlightId);
+    $('tt-name').textContent = isSelected && state.dxf.highlightName ? state.dxf.highlightName : '';
     tt.style.display = 'block';
   } else {
     tt.style.display = 'none';
@@ -963,7 +987,12 @@ async function loadFile(url, roomId, record) {
   } catch(err) {
     console.error('Viewer error:', err);
     showEmpty();
-    $('empty').innerHTML = `<div class="icon">⚠️</div><div>Erreur de chargement</div><div style="font-size:11px;color:#f07070">${err.message}</div>`;
+    // Un "Failed to fetch" est presque toujours un blocage CORS côté Nextcloud
+    const isCors = err instanceof TypeError || /failed to fetch|networkerror/i.test(err.message || '');
+    const hint = isCors
+      ? `Le navigateur n'a pas pu télécharger le fichier.<br>Causes probables : lien Nextcloud non public, ou blocage CORS.<br>Utilisez un <b>lien de partage public</b> finissant par <code>/download</code>.`
+      : `<span style="color:#f07070">${err.message}</span>`;
+    $('empty').innerHTML = `<div class="icon">⚠️</div><div>Erreur de chargement</div><div style="font-size:11px;max-width:320px;text-align:center;line-height:1.5">${hint}</div>`;
   }
 }
 
@@ -1052,6 +1081,7 @@ grist.onRecord((record) => {
 
   const url    = record[state.config.colUrl] || '';
   const roomId = state.config.colRoom ? record[state.config.colRoom] : null;
+  state.dxf.highlightName = state.config.colName ? record[state.config.colName] : null;
   loadFile(url, roomId, record);
 });
 
@@ -1089,6 +1119,7 @@ $('cfg-save').addEventListener('click', async () => {
   if (state.currentRecord) {
     const url    = state.currentRecord[state.config.colUrl] || '';
     const roomId = state.config.colRoom ? state.currentRecord[state.config.colRoom] : null;
+    state.dxf.highlightName = state.config.colName ? state.currentRecord[state.config.colName] : null;
     loadFile(url, roomId, state.currentRecord);
   }
 });
