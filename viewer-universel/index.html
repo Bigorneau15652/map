@@ -207,6 +207,12 @@
     </div>
 
     <div class="config-row">
+      <label>Calque de cadrage <span style="color:var(--text-muted)">(optionnel)</span></label>
+      <select id="cfg-fit-layer"><option value="">— auto (architecture, hors cartouche) —</option></select>
+      <div class="hint">Calque sur lequel cadrer la vue « étage entier ». Laisser en auto convient à la plupart des plans. Utile si le plan apparaît minuscule (cartouche).</div>
+    </div>
+
+    <div class="config-row">
       <label>Colonne Nom Pièce <span style="color:var(--text-muted)">(optionnel)</span></label>
       <select id="cfg-col-name"><option value="">— aucune —</option></select>
       <div class="hint">Affiché dans l'infobulle lors du survol</div>
@@ -709,10 +715,17 @@ function polyBBox(vertices) {
   return { minX, minY, maxX, maxY };
 }
 
-function allEntitiesBBox() {
-  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+// Calques typiquement hors-plan (cartouche, présentation, points de repère…)
+// qui font exploser le cadrage s'ils sont inclus.
+const NONPLAN_RE = /cartouche|presentation|présentation|defpoints|viewport|^x-|wipeout/i;
+// Calques d'architecture sur lesquels cadrer en priorité.
+const ARCH_RE = /mur|cloison|local|fenetre|fenêtre|porte|poteau|dalle|escalier|doublage|beton|béton|wall|partition|room|piece|pièce/i;
+
+function entitiesBBox(filterFn) {
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity, count=0;
   for (const ent of state.dxf.parsed.entities) {
     if (!isLayerVisible(ent.layer)) continue;
+    if (filterFn && !filterFn(ent)) continue;
     const pts = [];
     if (ent.type === 'LWPOLYLINE') pts.push(...ent.vertices.map(v=>({x:v.x,y:v.y})));
     if (ent.type === 'LINE') pts.push({x:ent.x1,y:ent.y1},{x:ent.x2,y:ent.y2});
@@ -721,10 +734,29 @@ function allEntitiesBBox() {
     }
     for (const p of pts) {
       if (p.x<minX) minX=p.x; if (p.x>maxX) maxX=p.x;
-      if (p.y<minY) minY=p.y; if (p.y>maxY) maxY=p.y;
+      if (p.y<minY) minY=p.y; if (p.y>maxY) maxY=p.y; count++;
     }
   }
-  return { minX, minY, maxX, maxY };
+  return { minX, minY, maxX, maxY, count };
+}
+
+function allEntitiesBBox() { return entitiesBBox(null); }
+
+/* Cadrage « intelligent » sur l'architecture, pas sur les cartouches.
+   Priorité : 1) calque de référence choisi en config →
+              2) calques d'architecture (murs/cloisons/locaux…) →
+              3) tout sauf cartouche/présentation. */
+function architectureBBox() {
+  const ref = state.config.fitLayer;
+  if (ref) {
+    const b = entitiesBBox(e => e.layer === ref);
+    if (b.count && b.maxX > b.minX) return b;
+  }
+  const arch = entitiesBBox(e => ARCH_RE.test(e.layer));
+  if (arch.count && arch.maxX > arch.minX) return arch;
+  const noFrame = entitiesBBox(e => !NONPLAN_RE.test(e.layer));
+  if (noFrame.count && noFrame.maxX > noFrame.minX) return noFrame;
+  return allEntitiesBBox();
 }
 
 function fitToBBox(bbox, padding = 40) {
@@ -745,7 +777,8 @@ function fitToBBox(bbox, padding = 40) {
 
 function fitAll() {
   if (!state.dxf.parsed) return;
-  fitToBBox(allEntitiesBBox());
+  // Cadrage sur l'architecture (exclut cartouches/cadres) plutôt que sur tout
+  fitToBBox(architectureBBox());
 }
 
 function zoomToRoom(id) {
@@ -1025,23 +1058,29 @@ function applyConfigToUI() {
   $('cfg-force-format').value = c.forceFormat || 'auto';
   $('cfg-360-detect').value   = c.detect360  || 'suffix';
   toggle360ColRow();
-  // layerId is populated from DXF layers — set value if already saved
+  // layerId / fitLayer sont remplis depuis les calques du DXF — on restaure si déjà connus
   if (c.layerId && $('cfg-layer-id').querySelector(`option[value="${c.layerId}"]`)) {
     $('cfg-layer-id').value = c.layerId;
+  }
+  if (c.fitLayer && $('cfg-fit-layer').querySelector(`option[value="${c.fitLayer}"]`)) {
+    $('cfg-fit-layer').value = c.fitLayer;
   }
 }
 
 function populateDxfLayerSelect() {
-  const sel = $('cfg-layer-id');
-  const cur = state.config.layerId || '';
-  sel.innerHTML = '<option value="">— aucun (correspondance par nom de calque) —</option>';
   const names = Object.keys(state.dxf.layers || {}).sort();
-  for (const name of names) {
-    const opt = document.createElement('option');
-    opt.value = name; opt.textContent = name;
-    sel.appendChild(opt);
-  }
-  sel.value = cur;
+  const fill = (selId, placeholder, cur) => {
+    const sel = $(selId);
+    sel.innerHTML = `<option value="">${placeholder}</option>`;
+    for (const name of names) {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      sel.appendChild(opt);
+    }
+    sel.value = cur || '';
+  };
+  fill('cfg-layer-id', '— aucun (correspondance par nom de calque) —', state.config.layerId);
+  fill('cfg-fit-layer', '— auto (architecture, hors cartouche) —', state.config.fitLayer);
 }
 
 function toggle360ColRow() {
@@ -1103,6 +1142,7 @@ $('cfg-save').addEventListener('click', async () => {
     colName:   $('cfg-col-name').value  || null,
     col360:    $('cfg-col-360').value   || null,
     layerId:     $('cfg-layer-id').value     || null,
+    fitLayer:    $('cfg-fit-layer').value    || null,
     forceFormat: $('cfg-force-format').value || 'auto',
     detect360:   $('cfg-360-detect').value,
   };

@@ -47,6 +47,15 @@ l'englobe (test point-dans-polygone). Le numéro de salle doit **correspondre à
 l'identifiant de la pièce dans Grist** (la comparaison ignore espaces et casse :
 ` a101 ` ↔ `A101`).
 
+> ⚠️ **Important — plans existants.** Beaucoup de DXF d'architecture ne contiennent
+> pas de numéro de salle proprement placé au centre de chaque pièce : les numéros
+> y sont souvent des **numéros de portes** ou des **étiquettes de surface**, et les
+> polylignes de pièces peuvent être incomplètes. Dans ce cas, la correspondance
+> automatique « texte ↔ polyligne » n'est pas fiable. Deux solutions :
+> 1. **Préparer un calque dédié** (ci-dessus) avec l'ID de salle dans chaque pièce ;
+> 2. **Calibrage par coordonnées** (voir feuille de route) : enregistrer dans Grist
+>    la position (x,y) de chaque salle pour un zoom fiable sans retouche du DXF.
+
 ---
 
 ## 3. Accès aux fichiers (Nextcloud)
@@ -75,8 +84,15 @@ Si l'URL n'a pas d'extension (`…/download`), forcez le format dans ⚙ Config.
 | **Colonne URL du fichier** *(requis)* | lien du DXF/PDF/image (souvent le plan d'étage) |
 | **Colonne ID Pièce** *(option)* | identifiant de la pièce → zoom. Vide = vue étage globale |
 | **Calque des IDs de salles** *(option)* | calque portant les n° de salle (sélectionnable après chargement d'un DXF) |
+| **Calque de cadrage** *(option)* | calque sur lequel cadrer la vue « étage entier ». `auto` = architecture, hors cartouche (recommandé) |
 | **Colonne Nom Pièce** *(option)* | affiché dans l'infobulle |
 | **Format de fichier** | `auto` ou forcé (utile pour les URLs `…/download`) |
+
+> **Cadrage automatique** : les plans AutoCAD contiennent souvent un *cartouche*
+> (grand cadre de titre) bien plus grand que le plan lui-même. Le widget cadre
+> donc par défaut sur les **calques d'architecture** (murs, cloisons, locaux…) et
+> ignore les cartouches, sinon le plan apparaîtrait minuscule. Si le cadrage reste
+> incorrect, désignez un **Calque de cadrage** explicite.
 
 ---
 
