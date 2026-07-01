@@ -1,0 +1,17 @@
+{
+  "name": "@bigorneau15652/widget-dashboard-batiment",
+  "description": "Tableau de bord de synthèse patrimoniale par site et bâtiment (SI Patrimoine UMPV).",
+  "version": "0.0.1",
+  "grist": {
+    "name": "Tableau de bord Bâtiment",
+    "url": "https://bigorneau15652.github.io/map/dashboard-batiment/index.html",
+    "widgetId": "@bigorneau15652/widget-dashboard-batiment",
+    "published": true,
+    "accessLevel": "full",
+    "renderAfterReady": true,
+    "description": "Sélectionne un site puis un bâtiment et affiche une synthèse patrimoniale (surfaces par niveau, ratios, surfaces fonctionnelles) avec graphiques, à partir des tables BDD_Sites / BDD_Batiments / BDD_Etages / BDD_Salles / Table_locaux_types_et_correspondance.",
+    "authors": [
+      { "name": "Bigorneau15652" }
+    ]
+  }
+}
