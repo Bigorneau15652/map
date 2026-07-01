@@ -33,7 +33,8 @@
 
   /* Fond satellite */
   #sat-ctl{position:absolute;bottom:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:6px;padding:6px 10px;font-size:11px;z-index:1000;display:flex;align-items:center;gap:6px;color:#333}
-  #sat-ctl input[type=range]{width:100px}
+  #sat-ctl input[type=range]{width:90px}
+  #sat-ctl select{font-size:11px;padding:2px 4px;border:1px solid #ccc;border-radius:3px;background:#fff;color:#222;max-width:150px}
 
   /* Légende */
   #leg{position:absolute;top:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:6px;padding:7px 10px;font-size:11px;z-index:1000;min-width:120px;max-height:200px;overflow-y:auto;color:#333}
@@ -165,6 +166,14 @@
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <pattern id="lockHatch" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="#bbbbbb"></rect>
+      <line x1="0" y1="0" x2="0" y2="8" stroke="#888888" stroke-width="4"></line>
+    </pattern>
+  </defs>
+</svg>
 <div id="app">
   <div id="hdr">
     <h1>🏢 Carte des Bâtiments</h1>
@@ -179,7 +188,9 @@
     <div id="mp">
       <div id="map"></div>
       <div id="sat-ctl">
-        🛰️ <input type="range" id="sat-op" min="0" max="100" value="70" oninput="setSatOpacity(this.value)"> <span id="sat-op-val">70%</span>
+        🗺️ <select id="base-sel" onchange="onBaseSelectChange(this.value)"></select>
+        <span style="color:#ccc">|</span>
+        <input type="range" id="sat-op" min="0" max="100" value="100" oninput="setSatOpacity(this.value)"> <span id="sat-op-val">100%</span>
       </div>
       <div id="leg"><h4>Légende</h4><div id="li"></div></div>
       <div id="tip"></div>
@@ -325,7 +336,7 @@
           <li>Cochez ✓ une catégorie → active sur la carte. Cliquez ✏️ pour éditer son nom/couleur.</li>
           <li>Cliquez la <b>pastille colorée</b> d'un bâtiment → ajoute/retire de la catégorie.</li>
           <li>Décochez ☑ à gauche → le bâtiment devient grisé sur la carte.</li>
-          <li>🛰️ réglez la transparence du fond satellite avec le curseur en bas à gauche.</li>
+          <li>🗺️ changez de fond de carte (OpenStreetMap, satellite Esri…) et réglez sa transparence en bas à gauche.</li>
         </ul>
       </div>
       <div class="guide-section">
@@ -336,6 +347,12 @@
           <li><b>💾 Enregistrer</b> mémorise le calage pour tous les utilisateurs du document.</li>
           <li>Le calage de départ est approximatif (basé sur le centre GPS du site) — un réglage fin est nécessaire la première fois.</li>
         </ul>
+      </div>
+      <div class="guide-section">
+        <h3>🔒 Zones verrouillées</h3>
+        <p>Certaines zones (ex : partie non possédée à Saint-Charles) sont affichées en trame
+        hachurée grise, en permanence, et ne sont pas cliquables — elles ne font pas partie de la
+        table <code>Batiments</code>.</p>
       </div>
     </div>
     <div class="mft"><button class="btn-primary" onclick="closeModal('guide-modal')">Fermer</button></div>
@@ -373,8 +390,7 @@ const CODE_MAP={
   'Route de Mende|Amphis 5 6 7':'567',
   'Route de Mende|Maison des Personnels':'MDP',
   'Route de Mende|Kiosque':'KIOSQUE',
-  'Route de Mende|Préfa 1-2-3':null,
-  'Route de Mende|P4':null,'Route de Mende|P6':null,'Route de Mende|P9':null,'Route de Mende|P12':null,
+  'Route de Mende|P12':null,
   'Béziers|Du Guesclin':'Du Guesclin',
   'Saint-Charles|Saint-Charles 1':'Saint-Charles 1',
   'Saint-Charles|Saint-Charles 2':'Saint-Charles 2',
@@ -414,22 +430,51 @@ let currentSite=SITES[0];
 let buildingFilter='all';
 let editingCatId=null;
 
+// ── Fonds de carte ────────────────────────────────────────
+const BASE_LAYERS=[
+  {id:'osm-standard', label:'OpenStreetMap Standard (précis)', url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution:'&copy; OpenStreetMap contributors', maxZoom:19},
+  {id:'esri-satellite', label:'Esri Satellite (végétation)', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution:'Tiles &copy; Esri', maxZoom:20},
+  {id:'esri-street', label:'Esri Street Map', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', attribution:'Tiles &copy; Esri', maxZoom:19},
+  {id:'esri-topo', label:'Esri World Topo Map', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', attribution:'Tiles &copy; Esri', maxZoom:19},
+  {id:'cartodb-positron', label:'CartoDB Positron (clair)', url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', attribution:'&copy; CARTO, &copy; OpenStreetMap contributors', maxZoom:19},
+  {id:'cartodb-voyager', label:'CartoDB Voyager (clair)', url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', attribution:'&copy; CARTO, &copy; OpenStreetMap contributors', maxZoom:19},
+];
+let activeBaseId='osm-standard';
+
 // ── Carte ─────────────────────────────────────────────────
-let map, satLayer, buildingsLayer;
+let map, baseLayer, buildingsLayer, lockedLayer;
 let calibMode=false, calibDrag=null;
 
 function initMap(){
   map=L.map('map',{zoomControl:true,attributionControl:false}).setView([currentSite.lat,currentSite.lng],17);
-  satLayer=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
-    maxZoom:20, opacity:0.7, attribution:'Esri World Imagery'
-  }).addTo(map);
+  baseLayer=L.tileLayer('', {maxZoom:20}).addTo(map);
   buildingsLayer=L.layerGroup().addTo(map);
+  lockedLayer=L.layerGroup().addTo(map);
+  setBaseLayer(activeBaseId);
   map.on('mousedown', onMapMouseDown);
 }
 
+function populateBaseSelect(){
+  const sel=document.getElementById('base-sel');
+  sel.innerHTML='';
+  for(const b of BASE_LAYERS){const o=document.createElement('option');o.value=b.id;o.textContent=b.label;sel.appendChild(o);}
+  sel.value=activeBaseId;
+}
+function setBaseLayer(id){
+  const preset=BASE_LAYERS.find(b=>b.id===id)||BASE_LAYERS[0];
+  activeBaseId=preset.id;
+  const opacity=document.getElementById('sat-op')?document.getElementById('sat-op').value/100:1;
+  map.removeLayer(baseLayer);
+  baseLayer=L.tileLayer(preset.url,{attribution:preset.attribution,maxZoom:preset.maxZoom,opacity}).addTo(map);
+  const sel=document.getElementById('base-sel'); if(sel)sel.value=activeBaseId;
+}
 function setSatOpacity(v){
-  satLayer.setOpacity(v/100);
+  baseLayer.setOpacity(v/100);
   document.getElementById('sat-op-val').textContent=v+'%';
+}
+function onBaseSelectChange(id){
+  setBaseLayer(id);
+  if(window.grist)grist.setOptions({baseLayer:id}).catch(e=>console.warn(e.message));
 }
 
 // ── Sélection du site ─────────────────────────────────────
@@ -488,7 +533,23 @@ function renderMap(){
       buildingsLayer.addLayer(poly);
     }
   }
+  renderLockedZones();
   renderLegend();
+}
+
+// ── Zones verrouillées (non sélectionnables, ex: partie non possédée) ──
+function renderLockedZones(){
+  lockedLayer.clearLayers();
+  const zones=LOCKED_ZONES[currentSite.key]||[];
+  for(const zone of zones){
+    for(const ring of zone.rings){
+      const latlngs=ring.map(([px,py])=>pxToLatLng(px,py,currentSite));
+      const poly=L.polygon(latlngs,{color:'#c0392b',weight:1.5,fillColor:'#999',fillOpacity:0.55,dashArray:'4,3',interactive:true});
+      poly.bindTooltip(`🔒 ${zone.label}`,{sticky:true,opacity:0.9});
+      poly.on('add', ()=>{ if(poly._path)poly._path.setAttribute('fill','url(#lockHatch)'); });
+      lockedLayer.addLayer(poly);
+    }
+  }
 }
 
 function refresh(){ renderMap(); }
@@ -804,6 +865,10 @@ function loadConfig(opts){
       if(CALIB[k])Object.assign(CALIB[k],opts.calib[k]);
     }
   }
+  if(opts?.baseLayer && BASE_LAYERS.some(b=>b.id===opts.baseLayer)){
+    activeBaseId=opts.baseLayer;
+    if(map)setBaseLayer(activeBaseId);
+  }
 }
 
 async function fetchAllTables(){
@@ -866,6 +931,8 @@ async function fetchAllTables(){
 async function boot(){
   populateSiteSelect();
   initMap();
+  populateBaseSelect();
+  document.getElementById('sat-op').value=100;
   document.getElementById('site-sel').value=currentSite.key;
 
   if(window.grist){

@@ -18,7 +18,7 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 > C'est directement la liste de votre fichier `Site et bâtiment.xlsx` — vous pouvez l'importer telle quelle.
 
 <details>
-<summary>Liste complète des 47 lignes (cliquer pour déplier)</summary>
+<summary>Liste complète des 51 lignes (cliquer pour déplier)</summary>
 
 | Site | Bâtiment |
 |------|----------|
@@ -42,16 +42,17 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 | Route de Mende | Maison des Personnels |
 | Route de Mende | Bâtiment O |
 | Route de Mende | Bâtiment P |
-| Route de Mende | Préfa 1-2-3 *(non tracé, voir note)* |
-| Route de Mende | P4 *(non tracé, voir note)* |
+| Route de Mende | Préfa 1-2-3 |
+| Route de Mende | P4 |
 | Route de Mende | P5 |
-| Route de Mende | P6 *(non tracé, voir note)* |
+| Route de Mende | P6 |
 | Route de Mende | P7 |
 | Route de Mende | P8 |
-| Route de Mende | P9 *(non tracé, voir note)* |
+| Route de Mende | P9 |
 | Route de Mende | P10 |
 | Route de Mende | P11 |
 | Route de Mende | P12 *(non tracé, voir note)* |
+| Route de Mende | P13 |
 | Route de Mende | P14 |
 | Route de Mende | Bâtiment Q |
 | Route de Mende | Kiosque |
@@ -63,6 +64,8 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 | Route de Mende | Bâtiment W |
 | Route de Mende | Bâtiment Z |
 | Béziers | Du Guesclin |
+| Béziers | Préfa |
+| Béziers | Projet d'extension |
 | Boutonnet | Bâtiment A |
 | Boutonnet | Bâtiment H |
 | Boutonnet | Bâtiment I |
@@ -75,10 +78,15 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 
 ### ⚠️ Points à vérifier avec vous
 
-- **5 bâtiments sans forme dessinée** : `Préfa 1-2-3`, `P4`, `P6`, `P9`, `P12` (Route de Mende)
-  n'apparaissent pas sur le plan PDF fourni — la ligne existe donc dans Grist mais ne
-  s'affiche pas sur la carte (elle reste listée dans le panneau "Bâtiments", marquée ⚠︎).
-  Si vous avez leur emplacement, je peux les ajouter.
+- **`P12`** reste sans forme : vous m'avez indiqué qu'il se trouvait entre `L` et `G`, mais
+  j'ai vérifié pixel par pixel les deux plans que vous m'avez envoyés (avant et après vos
+  ajouts) et seul le **Kiosque** (petit carré bleu) apparaît entre `L` et `S`. Aucune forme `P12`
+  n'est présente dans les fichiers reçus. Dès que vous l'ajoutez sur un nouveau plan, je la trace.
+- **`Projet d'extension`** (Béziers) est tracé mais **volontairement sans catégorie par défaut**
+  (le bâtiment n'existe pas encore) — vous choisirez sa couleur/catégorie vous-même le moment venu.
+- **Zone non maîtrisée à Saint-Charles** : la partie hachurée accolée à `Saint-Charles 1` n'est
+  **pas une ligne Grist** — c'est une zone fixe, verrouillée, non cliquable, affichée automatiquement
+  par le widget (voir plus bas). Vous n'avez rien à ajouter dans Grist pour elle.
 - **Boutonnet (A / H / I / J)** : le plan ne nomme pas individuellement ces 4 bâtiments
   (contrairement à Route de Mende). J'ai fait une **hypothèse raisonnable** sur la correspondance
   forme ↔ nom (le plus grand bloc = A, les 3 autres = H / I / J). Si ce n'est pas le bon
@@ -129,10 +137,27 @@ cliquez sur les pastilles de couleur dans le panneau "Bâtiments".
 3. Accès requis : **Accès complet au document** (obligatoire pour lire/écrire les 3 tables)
 4. Ouvrir ⚙️ dans le widget et choisir vos 3 tables (Bâtiments / Catégories / Affiliations)
 
-## Fond satellite
+## Fonds de carte
 
-Le fond de carte utilise **Esri World Imagery** (satellite, gratuit, sans clé API). Le curseur
-🛰️ en bas à gauche de la carte règle sa transparence.
+Un sélecteur 🗺️ en bas à gauche de la carte permet de changer de fond à la volée (aucune clé API
+requise) :
+
+| Fond | Usage recommandé |
+|------|-------------------|
+| **OpenStreetMap Standard** *(par défaut)* | le plus précis pour positionner les bâtiments (rues, emprises au sol) |
+| **Esri Satellite** | vue aérienne réelle — pratique pour voir la végétation / le bâti existant |
+| Esri Street Map, Esri World Topo, CartoDB Positron, CartoDB Voyager | variantes plus sobres selon le rendu souhaité |
+
+Le curseur de transparence à droite du sélecteur s'applique au fond actif. Le choix de fond est
+mémorisé (options du widget) pour tous les utilisateurs du document.
+
+## Zone verrouillée (non sélectionnable)
+
+À Saint-Charles, la partie du bâtiment que vous ne possédez pas est affichée avec une **trame
+hachurée grise et un contour pointillé rouge**, en permanence, quel que soit le mode d'affichage.
+Elle n'a pas de ligne dans la table `Batiments` et ne réagit pas au clic — elle sert uniquement de
+repère visuel. Si d'autres sites ont des zones similaires, indiquez-les-moi et je les ajoute de la
+même façon (fichier `buildings-data.js`, variable `LOCKED_ZONES`).
 
 ## Calage du plan sur le satellite
 
