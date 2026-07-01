@@ -88,6 +88,11 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 - **Zones non maîtrisées / hangars** (partie hachurée à Saint-Charles, 2 hangars à Boutonnet) ne
   sont **pas des lignes Grist** — ce sont des zones fixes, verrouillées, non cliquables, affichées
   automatiquement par le widget (voir plus bas). Vous n'avez rien à ajouter dans Grist pour elles.
+- **Saint-Charles** retracé à partir de votre nouveau plan (zone verrouillée plus petite, forme
+  affinée). Aucun changement de votre côté dans Grist.
+- **Correction interne** : plusieurs bâtiments avec une cour intérieure/fenêtre (`L`, `S`, `K`,
+  `H`, `Bâtiment ATRIUM`) s'affichaient à tort comme des blocs pleins — leurs découpes internes
+  s'affichent maintenant correctement. Aucun changement de votre côté dans Grist.
 - **Boutonnet (A / H / I / J)** : confirmé sur votre dernier plan (labels visibles) — `A` est le
   grand bâtiment en M, `H`/`I`/`J` les 3 petits blocs séparés. Les 2 hangars adjacents sont
   verrouillés (voir point ci-dessus).

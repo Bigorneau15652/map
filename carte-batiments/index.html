@@ -537,9 +537,10 @@ function renderMap(){
       fillOpacity: vis ? (c?0.82:0.35) : 0.55,
       opacity: vis?1:0.6,
     };
-    for(const ring of shapes[code]){
-      const latlngs=ring.map(([px,py])=>pxToLatLng(px,py,currentSite));
-      const poly=L.polygon(latlngs, style);
+    for(const part of shapes[code]){
+      // part = [outerRing, ...holeRings] — Leaflet natively renders subsequent rings as holes
+      const latlngRings=part.map(ring=>ring.map(([px,py])=>pxToLatLng(px,py,currentSite)));
+      const poly=L.polygon(latlngRings, style);
       poly.bindTooltip(`<b>${code}</b>`+(b?`<br><span style="font-size:10px;color:#666">${b.nomComplet||''}</span>`:''),{sticky:true,opacity:0.9});
       poly.on({
         mouseover(e){
