@@ -51,7 +51,7 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 | Route de Mende | P9 |
 | Route de Mende | P10 |
 | Route de Mende | P11 |
-| Route de Mende | P12 *(non tracé, voir note)* |
+| Route de Mende | P12 |
 | Route de Mende | P13 |
 | Route de Mende | P14 |
 | Route de Mende | Bâtiment Q |
@@ -78,20 +78,19 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 
 ### ⚠️ Points à vérifier avec vous
 
-- **`P12`** reste sans forme : vous m'avez indiqué qu'il se trouvait entre `L` et `G`, mais
-  j'ai vérifié pixel par pixel les deux plans que vous m'avez envoyés (avant et après vos
-  ajouts) et seul le **Kiosque** (petit carré bleu) apparaît entre `L` et `S`. Aucune forme `P12`
-  n'est présente dans les fichiers reçus. Dès que vous l'ajoutez sur un nouveau plan, je la trace.
+- **`P12`** est maintenant tracé (petit bâtiment bleu entre `Kiosque` et `G`), d'après votre
+  dernier plan.
+- **`Préfa 1-2-3`** est une **seule ligne / un seul bâtiment** dans Grist : les 3 rectangles
+  visibles sur le plan changent tous de couleur ensemble quand vous colorez cette ligne (ce n'est
+  pas 3 bâtiments distincts, conformément à votre remarque).
 - **`Projet d'extension`** (Béziers) est tracé mais **volontairement sans catégorie par défaut**
   (le bâtiment n'existe pas encore) — vous choisirez sa couleur/catégorie vous-même le moment venu.
-- **Zone non maîtrisée à Saint-Charles** : la partie hachurée accolée à `Saint-Charles 1` n'est
-  **pas une ligne Grist** — c'est une zone fixe, verrouillée, non cliquable, affichée automatiquement
-  par le widget (voir plus bas). Vous n'avez rien à ajouter dans Grist pour elle.
-- **Boutonnet (A / H / I / J)** : le plan ne nomme pas individuellement ces 4 bâtiments
-  (contrairement à Route de Mende). J'ai fait une **hypothèse raisonnable** sur la correspondance
-  forme ↔ nom (le plus grand bloc = A, les 3 autres = H / I / J). Si ce n'est pas le bon
-  découpage, dites-moi lequel est lequel et je corrige la table `SITE_SHAPES` dans
-  `buildings-data.js` (pas besoin de retracer les formes).
+- **Zones non maîtrisées / hangars** (partie hachurée à Saint-Charles, 2 hangars à Boutonnet) ne
+  sont **pas des lignes Grist** — ce sont des zones fixes, verrouillées, non cliquables, affichées
+  automatiquement par le widget (voir plus bas). Vous n'avez rien à ajouter dans Grist pour elles.
+- **Boutonnet (A / H / I / J)** : confirmé sur votre dernier plan (labels visibles) — `A` est le
+  grand bâtiment en M, `H`/`I`/`J` les 3 petits blocs séparés. Les 2 hangars adjacents sont
+  verrouillés (voir point ci-dessus).
 - Les bâtiments `A`, `H`, `I`, `J` existent à la fois sur **Route de Mende** et **Boutonnet** :
   le widget les distingue bien via la colonne `Site` (clé `Site|Bâtiment`).
 
@@ -151,13 +150,17 @@ requise) :
 Le curseur de transparence à droite du sélecteur s'applique au fond actif. Le choix de fond est
 mémorisé (options du widget) pour tous les utilisateurs du document.
 
-## Zone verrouillée (non sélectionnable)
+## Zones verrouillées (non sélectionnables)
 
-À Saint-Charles, la partie du bâtiment que vous ne possédez pas est affichée avec une **trame
-hachurée grise et un contour pointillé rouge**, en permanence, quel que soit le mode d'affichage.
-Elle n'a pas de ligne dans la table `Batiments` et ne réagit pas au clic — elle sert uniquement de
-repère visuel. Si d'autres sites ont des zones similaires, indiquez-les-moi et je les ajoute de la
-même façon (fichier `buildings-data.js`, variable `LOCKED_ZONES`).
+Ces zones sont affichées avec une **trame hachurée grise et un contour pointillé rouge**, en
+permanence, quel que soit le mode d'affichage. Elles n'ont pas de ligne dans la table `Batiments`
+et ne réagissent pas au clic — elles servent uniquement de repère visuel :
+
+- **Saint-Charles** : partie du bâtiment que vous ne possédez pas.
+- **Boutonnet** : les 2 hangars (non modifiables).
+
+Si d'autres sites ont des zones similaires, indiquez-les-moi et je les ajoute de la même façon
+(fichier `buildings-data.js`, variable `LOCKED_ZONES`).
 
 ## Calage du plan sur le satellite
 
