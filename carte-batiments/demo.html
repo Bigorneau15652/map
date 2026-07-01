@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carte des Bâtiments – Démo interactive</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="demo-seed.js"></script>
+<script src="mock-grist.js"></script>
+<script src="buildings-data.js"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;overflow:hidden;color:#222}
+  #app{display:flex;flex-direction:column;height:100vh}
+
+  /* Header */
+  #hdr{background:#1a3a5c;color:#fff;padding:6px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+  #hdr h1{font-size:14px;font-weight:600;color:#fff}
+  #hdr .sp{flex:1}
+  #site-sel{font-size:12px;padding:4px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.4);background:#254d80;color:#fff;cursor:pointer}
+  #site-sel option{color:#222;background:#fff}
+  .hbtn{font-size:11px;padding:3px 8px;border:1px solid rgba(255,255,255,0.35);border-radius:3px;background:transparent;color:#fff;cursor:pointer;white-space:nowrap}
+  .hbtn.on{background:rgba(255,255,255,0.22);border-color:#fff}
+  .hbtn.icon{font-size:14px;padding:2px 6px}
+
+  /* Layout */
+  #main{display:flex;flex:1;overflow:hidden}
+
+  /* Carte */
+  #mp{flex:1;position:relative;min-width:0}
+  #map{position:absolute;inset:0;background:#dce8f5}
+  .leaflet-container{background:#dce8f5!important}
+
+  /* Fond satellite */
+  #sat-ctl{position:absolute;bottom:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:6px;padding:6px 10px;font-size:11px;z-index:1000;display:flex;align-items:center;gap:6px;color:#333}
+  #sat-ctl input[type=range]{width:90px}
+  #sat-ctl select{font-size:11px;padding:2px 4px;border:1px solid #ccc;border-radius:3px;background:#fff;color:#222;max-width:150px}
+
+  /* Légende */
+  #leg{position:absolute;top:8px;left:8px;background:rgba(255,255,255,0.94);border:1px solid #ccc;border-radius:6px;padding:7px 10px;font-size:11px;z-index:1000;min-width:120px;max-height:200px;overflow-y:auto;color:#333}
+  #leg h4{font-size:11px;margin-bottom:4px;font-weight:600;color:#333}
+  .lr{display:flex;align-items:center;gap:5px;margin-bottom:3px;color:#333}
+  .ld{width:12px;height:12px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,0.15)}
+
+  /* Tooltip */
+  #tip{position:absolute;bottom:8px;right:8px;background:rgba(255,255,255,0.95);border:1px solid #ccc;border-radius:5px;padding:4px 8px;font-size:11px;z-index:1000;pointer-events:none;display:none;color:#222}
+  #tip.show{display:block}
+
+  /* Calibration */
+  #calib-bar{position:absolute;top:8px;right:8px;background:rgba(255,255,255,0.96);border:1px solid #e67e22;border-radius:6px;padding:8px 10px;font-size:11px;z-index:1000;display:none;color:#333;min-width:210px}
+  #calib-bar.show{display:block}
+  #calib-bar h4{font-size:11px;margin-bottom:6px;color:#e67e22}
+  .calib-row{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+  .calib-row label{width:64px;flex-shrink:0;font-size:10px;color:#555}
+  .calib-row input[type=range]{flex:1}
+  .calib-nudge{display:grid;grid-template-columns:repeat(3,26px);gap:2px;justify-content:center;margin:4px 0}
+  .calib-nudge button{font-size:11px;padding:3px 0;border:1px solid #ccc;border-radius:3px;background:#fff;cursor:pointer}
+  .calib-btns{display:flex;gap:5px;margin-top:6px;justify-content:flex-end}
+
+  /* Loading */
+  #ldg{position:absolute;inset:0;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;z-index:2000;flex-direction:column;gap:10px;font-size:13px;color:#555}
+  #ldg.gone{display:none}
+  .spin{width:28px;height:28px;border:3px solid #ddd;border-top-color:#1a3a5c;border-radius:50%;animation:sp 0.8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* Panneau droit */
+  #side{width:310px;background:#fff;border-left:1px solid #dde;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;color:#222}
+
+  /* Config banner */
+  #cfg-banner{background:#fff3e0;border-bottom:1px solid #ffcc80;padding:7px 11px;font-size:11px;color:#5d4037;display:none;cursor:pointer}
+  #cfg-banner.show{display:block}
+  #cfg-banner:hover{background:#ffe0b2}
+
+  /* Sections */
+  .sec{border-bottom:1px solid #eee;flex-shrink:0}
+  .sh{display:flex;align-items:center;padding:7px 11px;background:#f7f8fa;font-size:12px;font-weight:600;color:#444;cursor:pointer;user-select:none}
+  .sh .arr{margin-left:auto;font-size:10px}
+  .sb{padding:8px 11px}
+  .sb.closed{display:none}
+
+  /* Catégories */
+  #cl{display:flex;flex-direction:column;gap:5px;margin-bottom:6px}
+  .cr{display:flex;align-items:center;gap:7px;padding:5px 8px;border:1px solid #e0e0e0;border-radius:5px;background:#fafafa}
+  .cr.on{border-color:#4a90d9;background:#f0f6ff}
+  .cchk{width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:#1a3a5c}
+  .csw{width:18px;height:18px;border-radius:4px;border:1.5px solid rgba(0,0,0,0.2);flex-shrink:0;cursor:pointer}
+  .cn{flex:1;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333;font-weight:500}
+  .cedit{font-size:11px;background:none;border:none;cursor:pointer;color:#888;padding:1px 3px;border-radius:3px;flex-shrink:0}
+  .cedit:hover{background:#eee;color:#333}
+  .cat-edit-row{display:flex;flex-direction:column;gap:5px;padding:6px 8px;border:1px solid #4a90d9;border-radius:5px;background:#f0f6ff;margin-bottom:2px}
+  .cat-edit-row input[type=text]{font-size:12px;border:1px solid #ccc;border-radius:3px;padding:4px 7px;width:100%;color:#222;background:#fff}
+  .cat-edit-row .col-row{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+  .col-chip{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;flex-shrink:0;transition:transform .1s}
+  .col-chip:hover{transform:scale(1.15)}
+  .col-chip.sel{border-color:#333;transform:scale(1.15)}
+  .col-hex{font-size:10px;border:1px solid #ccc;border-radius:3px;padding:3px 5px;width:72px;color:#222;font-family:monospace}
+  .cat-edit-btns{display:flex;gap:5px;justify-content:flex-end}
+  .btn-sm{font-size:11px;padding:3px 10px;border-radius:3px;cursor:pointer;border:1px solid #ccc;background:#fff;color:#333}
+  .btn-sm.ok{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
+
+  .nc{font-size:11px;color:#888;padding:4px 0}
+  .cumr{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:#555}
+  .cumv{width:20px;height:20px;border-radius:3px;border:1px solid #ccc;cursor:pointer;position:relative;overflow:hidden;flex-shrink:0}
+  .cumv input{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer}
+
+  #add-cat-row{display:flex;gap:5px;margin-top:6px}
+  #add-cat-row input{flex:1;font-size:11px;border:1px solid #ddd;border-radius:3px;padding:3px 6px;color:#222}
+  #add-cat-row button{font-size:11px;padding:3px 8px;background:#1a3a5c;color:#fff;border:none;border-radius:3px;cursor:pointer}
+
+  /* Bâtiments */
+  #bs{flex:1;overflow:hidden;display:flex;flex-direction:column}
+  #bs .sb:not(.closed){flex:1;overflow:hidden;display:flex;flex-direction:column}
+  #bsearch{width:100%;font-size:12px;border:1px solid #ddd;border-radius:4px;padding:4px 8px;margin-bottom:5px;color:#222;background:#fff}
+  #bsearch:focus{outline:none;border-color:#4a90d9}
+  .fbs{display:flex;gap:3px;margin-bottom:4px;flex-wrap:wrap}
+  .fb{font-size:10px;padding:3px 6px;border:1px solid #ddd;border-radius:3px;background:#fff;cursor:pointer;color:#444}
+  .fb.on{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
+  .bulk-btns{display:flex;gap:3px;margin-bottom:5px}
+  .bbtn{font-size:10px;padding:2px 8px;border:1px solid #ddd;border-radius:3px;background:#f9f9f9;cursor:pointer;color:#444;flex:1;text-align:center}
+  .bbtn:hover{background:#eee}
+  #bw{flex:1;overflow-y:auto}
+  .dr{display:flex;align-items:center;gap:5px;padding:3px 2px;border-radius:3px;font-size:11px;color:#222}
+  .dr:hover{background:#f0f0f0}
+  .dr.gray{opacity:.4}
+  .dr.nogeo{color:#aaa}
+  .dvis{width:13px;height:13px;cursor:pointer;flex-shrink:0}
+  .dn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#222}
+  .dcs{display:flex;gap:3px;flex-shrink:0}
+  .cdot{width:14px;height:14px;border-radius:3px;cursor:pointer;border:1.5px solid rgba(0,0,0,0.2);flex-shrink:0;transition:transform .1s}
+  .cdot:hover{transform:scale(1.3)}
+
+  /* Modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:5000;display:flex;align-items:center;justify-content:center}
+  .modal-bg.gone{display:none}
+  .modal{background:#fff;border-radius:8px;width:min(520px,94vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.25);color:#222}
+  .mhd{background:#1a3a5c;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+  .mhd h2{font-size:14px;color:#fff}
+  .mhd button{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1}
+  .mbody{flex:1;overflow-y:auto;padding:16px}
+  .mft{padding:10px 16px;border-top:1px solid #eee;display:flex;gap:8px;justify-content:flex-end;background:#fff}
+  .cfg-group{margin-bottom:14px}
+  .cfg-group label{display:block;font-size:12px;font-weight:600;color:#333;margin-bottom:4px}
+  .cfg-group small{display:block;font-size:10px;color:#777;margin-bottom:4px}
+  .cfg-group select{width:100%;font-size:12px;border:1px solid #ccc;border-radius:4px;padding:5px 8px;background:#fff;color:#222}
+  .cfg-group select:focus{outline:none;border-color:#4a90d9}
+  .btn-primary{font-size:12px;padding:6px 16px;background:#1a3a5c;color:#fff;border:none;border-radius:4px;cursor:pointer}
+  .btn-primary:hover{background:#254d80}
+  .btn-secondary{font-size:12px;padding:6px 14px;background:#fff;color:#333;border:1px solid #ccc;border-radius:4px;cursor:pointer}
+  .btn-secondary:hover{background:#f5f5f5}
+  #cfg-msg{margin:8px 16px;font-size:11px;border-radius:4px;padding:7px 10px;display:none}
+  #cfg-msg.ok{background:#e8f5e9;color:#1b5e20;display:block}
+  #cfg-msg.err{background:#fce4ec;color:#880e4f;display:block}
+
+  /* Guide */
+  .guide-section{margin-bottom:14px}
+  .guide-section h3{font-size:12px;font-weight:700;color:#1a3a5c;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #e0e0e0}
+  .guide-section p,.guide-section li{font-size:11px;color:#333;line-height:1.5;margin-bottom:3px}
+  .guide-section ul{padding-left:14px}
+  .guide-section table{width:100%;border-collapse:collapse;font-size:10px;margin-top:4px}
+  .guide-section th{background:#1a3a5c;color:#fff;padding:4px 7px;text-align:left}
+  .guide-section td{padding:3px 7px;border-bottom:1px solid #eee;color:#333}
+  code{background:#f0f0f0;padding:1px 4px;border-radius:3px;font-size:10px;font-family:monospace;color:#333}
+
+  ::-webkit-scrollbar{width:5px}
+  ::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <pattern id="lockHatch" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="#bbbbbb"></rect>
+      <line x1="0" y1="0" x2="0" y2="8" stroke="#888888" stroke-width="4"></line>
+    </pattern>
+  </defs>
+</svg>
+<div id="app">
+  <div id="hdr">
+    <h1>🏢 Carte des Bâtiments</h1><span style="font-size:10px;background:#4a90d9;padding:2px 7px;border-radius:10px;color:#fff">DÉMO</span>
+    <select id="site-sel" onchange="setSite(this.value)"></select>
+    <span class="sp"></span>
+    <button class="hbtn" id="calib-toggle" onclick="toggleCalib()">📐 Caler le plan</button>
+    <button class="hbtn icon" onclick="showGuide()" title="Guide">❓</button>
+    <button class="hbtn icon" onclick="showConfig()" title="Configuration tables Grist">⚙️</button>
+  </div>
+
+  <div id="main">
+    <div id="mp">
+      <div id="map"></div>
+      <div id="sat-ctl">
+        🗺️ <select id="base-sel" onchange="onBaseSelectChange(this.value)"></select>
+        <span style="color:#ccc">|</span>
+        <input type="range" id="sat-op" min="0" max="100" value="100" oninput="setSatOpacity(this.value)"> <span id="sat-op-val">100%</span>
+      </div>
+      <div id="leg"><h4>Légende</h4><div id="li"></div></div>
+      <div id="tip"></div>
+      <div id="calib-bar">
+        <h4>📐 Calage du plan — <span id="calib-site-name"></span></h4>
+        <div class="calib-nudge">
+          <span></span><button onclick="nudge(0,-1)">▲</button><span></span>
+          <button onclick="nudge(-1,0)">◀</button><span style="text-align:center;font-size:9px;color:#999;line-height:26px">déplacer</span><button onclick="nudge(1,0)">▶</button>
+          <span></span><button onclick="nudge(0,1)">▼</button><span></span>
+        </div>
+        <div class="calib-row"><label>Échelle</label><input type="range" id="c-scale" min="0.01" max="1.5" step="0.005" oninput="setCalib('scale',this.value)"></div>
+        <div class="calib-row"><label>Rotation</label><input type="range" id="c-rot" min="-180" max="180" step="0.5" oninput="setCalib('rot',this.value)"></div>
+        <p style="font-size:10px;color:#777;margin-top:2px">Glissez le dessin directement sur la carte pour le repositionner. Ajustez ensuite l'échelle et la rotation pour caler chaque bâtiment sur l'image satellite.</p>
+        <div class="calib-btns">
+          <button class="btn-sm" onclick="resetCalib()">Réinitialiser</button>
+          <button class="btn-sm ok" onclick="saveCalib()">💾 Enregistrer</button>
+        </div>
+      </div>
+      <div id="ldg"><div class="spin"></div><span id="ldg-msg">Chargement…</span></div>
+    </div>
+
+    <div id="side">
+      <div id="cfg-banner" onclick="showConfig()">
+        ⚠️ <span id="cfg-banner-msg">Tables non configurées.</span> Cliquez → ⚙️
+      </div>
+
+      <!-- Catégories -->
+      <div class="sec">
+        <div class="sh" onclick="tog(this)">🏷 Catégories <span id="cbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span><span class="arr">▾</span></div>
+        <div class="sb">
+          <div id="cl"><div class="nc">Configurez les tables Grist via ⚙️</div></div>
+          <div id="add-cat-row">
+            <input type="text" id="new-cat-name" placeholder="Nouvelle catégorie…" onkeydown="if(event.key==='Enter')addCat()">
+            <button onclick="addCat()" title="Ajouter une catégorie">+ Ajouter</button>
+          </div>
+          <div class="cumr">
+            <input type="checkbox" id="cumchk" checked style="cursor:pointer;accent-color:#1a3a5c" onchange="APP.useCumul=this.checked;document.getElementById('cumsw').style.opacity=this.checked?'1':'0.3';refresh()">
+            <label for="cumchk" style="cursor:pointer">Cumul :</label>
+            <div class="cumv" id="cumsw" title="Couleur si plusieurs catégories sur un même bâtiment"><input type="color" id="cumc" value="#f39c12" oninput="APP.cumulColor=this.value;cumsw.style.background=this.value;refresh()"></div>
+            <span style="color:#777;font-size:10px">couleur si bât. dans plusieurs catégories</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bâtiments -->
+      <div class="sec" id="bs">
+        <div class="sh" onclick="tog(this)">🏢 Bâtiments <span id="bbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span><span class="arr">▾</span></div>
+        <div class="sb">
+          <input type="text" id="bsearch" placeholder="Rechercher un bâtiment…" oninput="renderBuildings()">
+          <div class="fbs">
+            <button class="fb on" onclick="setF('all',this)">Tous</button>
+            <button class="fb" onclick="setF('sel',this)">Sélectionnés</button>
+            <button class="fb" onclick="setF('vis',this)">Visibles</button>
+            <button class="fb" onclick="setF('hid',this)">Grisés</button>
+          </div>
+          <div class="bulk-btns">
+            <button class="bbtn" onclick="bulkVis(true)" title="Dégrise tous les bâtiments filtrés">👁 Tout visible</button>
+            <button class="bbtn" onclick="bulkVis(false)" title="Grise tous les bâtiments filtrés">◐ Tout griser</button>
+          </div>
+          <div id="bw"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Configuration -->
+<div class="modal-bg gone" id="cfg-modal">
+  <div class="modal">
+    <div class="mhd"><h2>⚙️ Configuration – Tables Grist</h2><button onclick="closeModal('cfg-modal')">✕</button></div>
+    <div class="mbody">
+      <div id="cfg-loading" style="text-align:center;padding:20px;color:#666;font-size:12px">
+        <div class="spin" style="margin:0 auto 10px"></div>Chargement des tables…
+      </div>
+      <div id="cfg-form" style="display:none">
+        <div class="cfg-group">
+          <label>Table des Bâtiments</label>
+          <small>Colonnes : Site, Bâtiment, visible (Site/Bâtiment doivent correspondre aux noms du plan — voir le Guide ❓)</small>
+          <select id="cfg-bat"></select>
+        </div>
+        <div class="cfg-group" id="cfg-bat-cols" style="display:none">
+          <label>Colonne "Site" dans la table Bâtiments</label>
+          <select id="cfg-col-site"></select>
+          <label style="margin-top:8px">Colonne "Bâtiment" dans la table Bâtiments</label>
+          <select id="cfg-col-bat"></select>
+        </div>
+        <div class="cfg-group">
+          <label>Table des Catégories</label>
+          <small>Colonnes : nom, couleur, active (ou selection)</small>
+          <select id="cfg-cats"></select>
+        </div>
+        <div class="cfg-group">
+          <label>Table des Affiliations (liaison bâtiment ↔ catégorie)</label>
+          <small>Laisser vide : le widget la remplit automatiquement</small>
+          <select id="cfg-dc" onchange="onCfgTableChange()"></select>
+        </div>
+        <div id="cfg-cols" style="display:none">
+          <div class="cfg-group">
+            <label>Colonne "bâtiment" dans Affiliations</label>
+            <select id="cfg-col-dept"></select>
+          </div>
+          <div class="cfg-group">
+            <label>Colonne "catégorie" dans Affiliations</label>
+            <select id="cfg-col-cat"></select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="cfg-msg"></div>
+    <div class="mft">
+      <button class="btn-secondary" onclick="closeModal('cfg-modal')">Annuler</button>
+      <button class="btn-primary" onclick="saveConfig()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Guide -->
+<div class="modal-bg gone" id="guide-modal">
+  <div class="modal" style="width:min(480px,94vw)">
+    <div class="mhd"><h2>❓ Guide – Carte des Bâtiments</h2><button onclick="closeModal('guide-modal')">✕</button></div>
+    <div class="mbody" style="padding:12px">
+      <div class="guide-section">
+        <h3>📋 3 tables à créer dans Grist</h3>
+        <table>
+          <tr><th>Table</th><th>Colonnes clés</th></tr>
+          <tr><td><code>Batiments</code></td><td><code>Site</code>, <code>Bâtiment</code>, <code>visible</code> (Bascule)</td></tr>
+          <tr><td><code>Categories</code></td><td><code>nom</code>, <code>couleur</code>, <code>active</code> (Bascule)</td></tr>
+          <tr><td><code>Batiment_categories</code></td><td><code>batiment</code> (Réf→Batiments), <code>categorie</code> (Réf→Categories)</td></tr>
+        </table>
+        <p style="margin-top:5px">Les valeurs de <code>Site</code> et <code>Bâtiment</code> doivent reprendre exactement les noms de votre fichier d'origine (ex : <code>Route de Mende</code> / <code>Bâtiment A</code>, <code>Amphis 1 2 3</code>, <code>Kiosque</code>…). Voir <code>grist-schema.md</code> pour la liste complète.</p>
+      </div>
+      <div class="guide-section">
+        <h3>🔌 Ajouter le widget</h3>
+        <ul>
+          <li><b>Widget personnalisé</b> → URL : <code>https://bigorneau15652.github.io/map/carte-batiments/</code></li>
+          <li>Accès : <b>Accès complet au document</b> (obligatoire)</li>
+        </ul>
+      </div>
+      <div class="guide-section">
+        <h3>🖱️ Utilisation</h3>
+        <ul>
+          <li>Choisissez un <b>site</b> en haut de la carte.</li>
+          <li>Cochez ✓ une catégorie → active sur la carte. Cliquez ✏️ pour éditer son nom/couleur.</li>
+          <li>Cliquez la <b>pastille colorée</b> d'un bâtiment → ajoute/retire de la catégorie.</li>
+          <li>Décochez ☑ à gauche → le bâtiment devient grisé sur la carte.</li>
+          <li>🗺️ changez de fond de carte (OpenStreetMap, satellite Esri…) et réglez sa transparence en bas à gauche.</li>
+        </ul>
+      </div>
+      <div class="guide-section">
+        <h3>📐 Caler le plan sur le satellite</h3>
+        <ul>
+          <li>Cliquez <b>📐 Caler le plan</b> pour chaque site : le dessin devient déplaçable.</li>
+          <li><b>Glissez</b> le dessin sur la carte pour le positionner, ajustez <b>échelle</b> et <b>rotation</b> avec les curseurs.</li>
+          <li><b>💾 Enregistrer</b> mémorise le calage pour tous les utilisateurs du document.</li>
+          <li>Le calage de départ est approximatif (basé sur le centre GPS du site) — un réglage fin est nécessaire la première fois.</li>
+        </ul>
+      </div>
+      <div class="guide-section">
+        <h3>🔒 Zones verrouillées</h3>
+        <p>Certaines zones (ex : partie non possédée à Saint-Charles) sont affichées en trame
+        hachurée grise, en permanence, et ne sont pas cliquables — elles ne font pas partie de la
+        table <code>Batiments</code>.</p>
+      </div>
+    </div>
+    <div class="mft"><button class="btn-primary" onclick="closeModal('guide-modal')">Fermer</button></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Couleurs ──────────────────────────────────────────────
+const NAMED={bleu:'#2980b9',rouge:'#e74c3c',vert:'#27ae60',jaune:'#f1c40f',orange:'#e67e22',violet:'#8e44ad',rose:'#e91e8c',marron:'#795548',gris:'#7f8c8d',noir:'#2c3e50',blanc:'#ecf0f1',cyan:'#00bcd4',turquoise:'#1abc9c',emeraude:'#2ecc71',brique:'#c0392b'};
+const COL_ALIASES={orage:'orange',indigo:'violet',corail:'rouge',ocre:'orange',bordeaux:'brique',saumon:'rose',lilas:'violet',ecru:'blanc',kaki:'marron',sable:'jaune',azur:'cyan',carmin:'rouge',incarnat:'rose',ecarlate:'rouge',grenat:'brique'};
+const NAMED_COLORS=Object.entries(NAMED).map(([k,v])=>({k,v}));
+
+function col(raw){
+  if(!raw)return null;
+  const k=String(raw).trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return NAMED[COL_ALIASES[k]||k]||(/^#[0-9a-f]{3,8}$/i.test(raw)?raw:null);
+}
+
+// ── Sites : métadonnées + calage géographique par défaut ──
+// Le calage (lat/lng/echelle/rotation) est approximatif au départ :
+// centre GPS réel du site + échelle estimée. À affiner avec le mode "📐 Caler le plan".
+const SITES=[
+  {key:'Route de Mende',   label:'Campus Route de Mende', lat:43.632865,  lng:3.8710011, scale:0.20, rot:0},
+  {key:'Boutonnet',        label:'Boutonnet',              lat:43.6210073, lng:3.8682548, scale:0.07, rot:0},
+  {key:'Saint-Charles',    label:'Saint-Charles',          lat:43.6161013, lng:3.8732687, scale:0.07, rot:0},
+  {key:'Saint-Louis',      label:'Saint-Louis',            lat:43.6104425, lng:3.8659388, scale:0.06, rot:0},
+  {key:'Béziers',          label:'Béziers (Du Guesclin)',  lat:43.3486481, lng:3.2242865, scale:0.15, rot:0},
+];
+
+// ── Normalisation nom Grist (Site, Bâtiment) → code de forme ──
+const CODE_MAP={
+  'Route de Mende|Amphis 1 2 3':'123',
+  'Route de Mende|Amphis 5 6 7':'567',
+  'Route de Mende|Maison des Personnels':'MDP',
+  'Route de Mende|Kiosque':'KIOSQUE',
+  'Béziers|Du Guesclin':'Du Guesclin',
+  'Saint-Charles|Saint-Charles 1':'Saint-Charles 1',
+  'Saint-Charles|Saint-Charles 2':'Saint-Charles 2',
+  'Saint-Louis|Saint-Louis':'Saint-Louis',
+};
+function shapeCode(site,bat){
+  const key=site+'|'+bat;
+  if(key in CODE_MAP)return CODE_MAP[key];
+  if(bat.startsWith('Bâtiment '))return bat.slice('Bâtiment '.length);
+  return bat;
+}
+
+// ── Config ────────────────────────────────────────────────
+let CFG={bat:'Batiments',cats:'Categories',dc:'Batiment_categories',colSite:'Site',colBat:'Bâtiment',colDept:'batiment',colCat:'categorie'};
+
+// ── Calage (calibration) ──────────────────────────────────
+let CALIB={}; // key -> {lat,lng,scale,rot}
+function initCalib(){for(const s of SITES)CALIB[s.key]={lat:s.lat,lng:s.lng,scale:s.scale,rot:s.rot};}
+initCalib();
+
+function pxToLatLng(px,py,site){
+  const panel=SITE_SHAPES[site.key].panel;
+  const c=CALIB[site.key];
+  const dxPx=px-panel[0]/2, dyPx=py-panel[1]/2;
+  const rad=c.rot*Math.PI/180;
+  const rx=dxPx*Math.cos(rad)-dyPx*Math.sin(rad);
+  const ry=dxPx*Math.sin(rad)+dyPx*Math.cos(rad);
+  const east=rx*c.scale, north=-ry*c.scale;
+  const dLat=north/111320;
+  const dLng=east/(111320*Math.cos(c.lat*Math.PI/180));
+  return [c.lat+dLat, c.lng+dLng];
+}
+
+// ── État ──────────────────────────────────────────────────
+const APP={cumulColor:'#f39c12',useCumul:true,cats:[],buildings:{},dcRows:{},batRowId:{}};
+let currentSite=SITES[0];
+let buildingFilter='all';
+let editingCatId=null;
+
+// ── Fonds de carte ────────────────────────────────────────
+const BASE_LAYERS=[
+  {id:'osm-standard', label:'OpenStreetMap Standard (précis)', url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution:'&copy; OpenStreetMap contributors', maxZoom:19},
+  {id:'esri-satellite', label:'Esri Satellite (végétation)', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution:'Tiles &copy; Esri', maxZoom:20},
+  {id:'esri-street', label:'Esri Street Map', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', attribution:'Tiles &copy; Esri', maxZoom:19},
+  {id:'esri-topo', label:'Esri World Topo Map', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', attribution:'Tiles &copy; Esri', maxZoom:19},
+  {id:'cartodb-positron', label:'CartoDB Positron (clair)', url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', attribution:'&copy; CARTO, &copy; OpenStreetMap contributors', maxZoom:19},
+  {id:'cartodb-voyager', label:'CartoDB Voyager (clair)', url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', attribution:'&copy; CARTO, &copy; OpenStreetMap contributors', maxZoom:19},
+];
+let activeBaseId='osm-standard';
+
+// ── Carte ─────────────────────────────────────────────────
+let map, baseLayer, buildingsLayer, lockedLayer;
+let calibMode=false, calibDrag=null;
+
+function initMap(){
+  map=L.map('map',{zoomControl:true,attributionControl:false}).setView([currentSite.lat,currentSite.lng],17);
+  baseLayer=L.tileLayer('', {maxZoom:20}).addTo(map);
+  buildingsLayer=L.layerGroup().addTo(map);
+  lockedLayer=L.layerGroup().addTo(map);
+  setBaseLayer(activeBaseId);
+  map.on('mousedown', onMapMouseDown);
+}
+
+function populateBaseSelect(){
+  const sel=document.getElementById('base-sel');
+  sel.innerHTML='';
+  for(const b of BASE_LAYERS){const o=document.createElement('option');o.value=b.id;o.textContent=b.label;sel.appendChild(o);}
+  sel.value=activeBaseId;
+}
+function setBaseLayer(id){
+  const preset=BASE_LAYERS.find(b=>b.id===id)||BASE_LAYERS[0];
+  activeBaseId=preset.id;
+  const opacity=document.getElementById('sat-op')?document.getElementById('sat-op').value/100:1;
+  map.removeLayer(baseLayer);
+  baseLayer=L.tileLayer(preset.url,{attribution:preset.attribution,maxZoom:preset.maxZoom,opacity}).addTo(map);
+  const sel=document.getElementById('base-sel'); if(sel)sel.value=activeBaseId;
+}
+function setSatOpacity(v){
+  baseLayer.setOpacity(v/100);
+  document.getElementById('sat-op-val').textContent=v+'%';
+}
+function onBaseSelectChange(id){
+  setBaseLayer(id);
+  if(window.grist)grist.setOptions({baseLayer:id}).catch(e=>console.warn(e.message));
+}
+
+// ── Sélection du site ─────────────────────────────────────
+function populateSiteSelect(){
+  const sel=document.getElementById('site-sel');
+  sel.innerHTML='';
+  for(const s of SITES){const o=document.createElement('option');o.value=s.key;o.textContent=s.label;sel.appendChild(o);}
+}
+function setSite(key){
+  currentSite=SITES.find(s=>s.key===key)||SITES[0];
+  document.getElementById('site-sel').value=currentSite.key;
+  map.setView([CALIB[currentSite.key].lat, CALIB[currentSite.key].lng], 17);
+  if(calibMode)refreshCalibControls();
+  renderMap();
+  renderBuildings();
+}
+
+// ── Style bâtiment ────────────────────────────────────────
+function buildingColor(site,code){
+  const b=APP.buildings[site+'|'+code];if(!b)return null;
+  const active=APP.cats.filter(c=>c.active);
+  const matched=active.filter(c=>b.catIds.includes(c._id));
+  if(!matched.length)return null;
+  if(matched.length===1)return col(matched[0].couleur)||NAMED.bleu;
+  if(!APP.useCumul)return col(matched[0].couleur)||NAMED.bleu;
+  return APP.cumulColor;
+}
+
+function renderMap(){
+  buildingsLayer.clearLayers();
+  const shapes=(SITE_SHAPES[currentSite.key]||{}).b||{};
+  for(const code of Object.keys(shapes)){
+    const b=APP.buildings[currentSite.key+'|'+code];
+    const vis=b?b.visible:true;
+    const c=buildingColor(currentSite.key,code);
+    const style={
+      color:'#444', weight:1.2,
+      fillColor: vis ? (c||'#c8d6e5') : '#999',
+      fillOpacity: vis ? (c?0.82:0.35) : 0.55,
+      opacity: vis?1:0.6,
+    };
+    for(const ring of shapes[code]){
+      const latlngs=ring.map(([px,py])=>pxToLatLng(px,py,currentSite));
+      const poly=L.polygon(latlngs, style);
+      poly.bindTooltip(`<b>${code}</b>`+(b?`<br><span style="font-size:10px;color:#666">${b.nomComplet||''}</span>`:''),{sticky:true,opacity:0.9});
+      poly.on({
+        mouseover(e){
+          e.target.setStyle({weight:2.4,color:'#111'});e.target.bringToFront();
+          const cats=b?APP.cats.filter(cc=>b.catIds.includes(cc._id)&&cc.active).map(cc=>cc.nom).join(', '):'';
+          const tip=document.getElementById('tip');
+          tip.innerHTML=`<b>${b?b.nomComplet:code}</b>`+(cats?`<br><span style="font-size:10px;color:#666">${cats}</span>`:'');
+          tip.classList.add('show');
+        },
+        mouseout(e){ poly.setStyle(style); document.getElementById('tip').classList.remove('show'); },
+      });
+      buildingsLayer.addLayer(poly);
+    }
+  }
+  renderLockedZones();
+  renderLegend();
+}
+
+// ── Zones verrouillées (non sélectionnables, ex: partie non possédée) ──
+function renderLockedZones(){
+  lockedLayer.clearLayers();
+  const zones=LOCKED_ZONES[currentSite.key]||[];
+  for(const zone of zones){
+    for(const ring of zone.rings){
+      const latlngs=ring.map(([px,py])=>pxToLatLng(px,py,currentSite));
+      const poly=L.polygon(latlngs,{color:'#c0392b',weight:1.5,fillColor:'#999',fillOpacity:0.55,dashArray:'4,3',interactive:true});
+      poly.bindTooltip(`🔒 ${zone.label}`,{sticky:true,opacity:0.9});
+      poly.on('add', ()=>{ if(poly._path)poly._path.setAttribute('fill','url(#lockHatch)'); });
+      lockedLayer.addLayer(poly);
+    }
+  }
+}
+
+function refresh(){ renderMap(); }
+
+// ── Légende ───────────────────────────────────────────────
+function renderLegend(){
+  const el=document.getElementById('li');el.innerHTML='';
+  const active=APP.cats.filter(c=>c.active);
+  if(!active.length){el.innerHTML='<span style="color:#aaa;font-size:10px">Aucune catégorie active</span>';return;}
+  for(const c of active){const co=col(c.couleur)||NAMED.bleu;el.innerHTML+=`<div class="lr"><div class="ld" style="background:${co}"></div>${c.nom}</div>`;}
+  if(active.length>1&&APP.useCumul)el.innerHTML+=`<div class="lr"><div class="ld" style="background:${APP.cumulColor};border-style:dashed"></div><i>Cumul</i></div>`;
+}
+
+// ── Calage : mode interactif ──────────────────────────────
+function toggleCalib(){
+  calibMode=!calibMode;
+  document.getElementById('calib-toggle').classList.toggle('on',calibMode);
+  document.getElementById('calib-bar').classList.toggle('show',calibMode);
+  map.dragging[calibMode?'disable':'enable']();
+  if(calibMode)refreshCalibControls();
+}
+function refreshCalibControls(){
+  const c=CALIB[currentSite.key];
+  document.getElementById('calib-site-name').textContent=currentSite.label;
+  document.getElementById('c-scale').value=c.scale;
+  document.getElementById('c-rot').value=c.rot;
+}
+function setCalib(field,val){
+  const c=CALIB[currentSite.key];
+  if(field==='scale')c.scale=parseFloat(val);
+  if(field==='rot')c.rot=parseFloat(val);
+  renderMap();
+}
+function nudge(dx,dy){
+  const c=CALIB[currentSite.key];
+  const metersPerPx=map.getMetersPerPixel?map.getMetersPerPixel():1;
+  const stepMeters=2; // nudge fixe ~2m
+  const dLat=(-dy*stepMeters)/111320;
+  const dLng=(dx*stepMeters)/(111320*Math.cos(c.lat*Math.PI/180));
+  c.lat+=dLat; c.lng+=dLng;
+  renderMap();
+}
+function resetCalib(){
+  const s=SITES.find(s=>s.key===currentSite.key);
+  CALIB[currentSite.key]={lat:s.lat,lng:s.lng,scale:s.scale,rot:s.rot};
+  refreshCalibControls();
+  renderMap();
+}
+async function saveCalib(){
+  try{
+    await grist.setOptions({calib:CALIB});
+    const bar=document.getElementById('calib-bar');
+    const msg=document.createElement('div');
+    msg.style.cssText='color:#1b5e20;font-size:10px;margin-top:4px';
+    msg.textContent='✅ Calage enregistré';
+    bar.appendChild(msg); setTimeout(()=>msg.remove(),1800);
+  }catch(e){ alert('Erreur d\'enregistrement : '+e.message); }
+}
+
+// Glisser-déposer le dessin directement sur la carte (mode calage)
+function onMapMouseDown(e){
+  if(!calibMode)return;
+  calibDrag={startLatLng:e.latlng, startCalib:{lat:CALIB[currentSite.key].lat,lng:CALIB[currentSite.key].lng}};
+  map.on('mousemove', onMapMouseMove);
+  map.once('mouseup', onMapMouseUp);
+}
+function onMapMouseMove(e){
+  if(!calibDrag)return;
+  const dLat=e.latlng.lat-calibDrag.startLatLng.lat;
+  const dLng=e.latlng.lng-calibDrag.startLatLng.lng;
+  const c=CALIB[currentSite.key];
+  c.lat=calibDrag.startCalib.lat+dLat;
+  c.lng=calibDrag.startCalib.lng+dLng;
+  renderMap();
+}
+function onMapMouseUp(){
+  map.off('mousemove', onMapMouseMove);
+  calibDrag=null;
+}
+
+// ── Catégories : rendu + édition ──────────────────────────
+function colorChips(selectedHex){
+  return NAMED_COLORS.map(({k,v})=>`<div class="col-chip${selectedHex===v?' sel':''}" style="background:${v}" title="${k}" onclick="pickColor('${v}','${k}')"></div>`).join('');
+}
+function pickColor(hex,name){
+  document.querySelectorAll('.col-chip').forEach(c=>c.classList.toggle('sel',c.style.background===hex||c.style.backgroundColor===hex));
+  const hx=document.getElementById('edit-hex');if(hx){hx.value=hex;}
+}
+
+function renderCats(){
+  const el=document.getElementById('cl');
+  document.getElementById('cbadge').textContent=APP.cats.length?`(${APP.cats.length})`:'';
+  if(!APP.cats.length){el.innerHTML='<div class="nc">Aucune catégorie dans Grist.</div>';return;}
+  el.innerHTML='';
+  for(const cat of APP.cats){
+    const co=col(cat.couleur);
+    const coD=co||'#bbb';
+    if(editingCatId===cat._id){
+      const div=document.createElement('div');
+      div.className='cat-edit-row';
+      div.innerHTML=`
+        <input type="text" id="edit-cat-name" value="${cat.nom.replace(/"/g,'&quot;')}" placeholder="Nom de la catégorie">
+        <div class="col-row">${colorChips(co||'')}</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:#666">
+          HEX : <input type="text" class="col-hex" id="edit-hex" value="${co||cat.couleur||''}" placeholder="#3498db" oninput="document.querySelectorAll('.col-chip').forEach(c=>c.classList.remove('sel'))">
+        </div>
+        <div class="cat-edit-btns">
+          <button class="btn-sm" onclick="cancelEdit()">Annuler</button>
+          <button class="btn-sm ok" onclick="saveCatEdit(${cat._id})">✓ Enregistrer</button>
+        </div>`;
+      el.appendChild(div);
+    }else{
+      const row=document.createElement('div');
+      row.className='cr'+(cat.active?' on':'');
+      row.innerHTML=`
+        <input type="checkbox" class="cchk" ${cat.active?'checked':''} onchange="toggleCat(${cat._id},this.checked)">
+        <div class="csw" style="background:${coD}" title="${cat.couleur||''}${!co?' (couleur non reconnue)':''}"></div>
+        <span class="cn" title="${cat.nom}">${cat.nom}</span>
+        ${!co?`<span style="font-size:9px;color:#e74c3c" title="Couleur non reconnue: ${cat.couleur}. Cliquez ✏️ pour corriger.">⚠️</span>`:''}
+        <button class="cedit" onclick="startEditCat(${cat._id})" title="Éditer nom/couleur">✏️</button>`;
+      el.appendChild(row);
+    }
+  }
+}
+
+function startEditCat(catId){editingCatId=catId;renderCats();}
+function cancelEdit(){editingCatId=null;renderCats();}
+
+async function saveCatEdit(catId){
+  const name=document.getElementById('edit-cat-name').value.trim();
+  const hexInput=document.getElementById('edit-hex').value.trim();
+  const selChip=document.querySelector('.col-chip.sel');
+  const chosenHex=selChip?selChip.style.backgroundColor:(hexInput||null);
+  function rgbToHex(rgb){const m=rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);if(!m)return rgb;return'#'+[m[1],m[2],m[3]].map(x=>parseInt(x).toString(16).padStart(2,'0')).join('');}
+  const finalColor=chosenHex?(chosenHex.startsWith('rgb')?rgbToHex(chosenHex):chosenHex):null;
+  const colName=Object.entries(NAMED).find(([,v])=>v===finalColor)?.[0]||finalColor||'';
+  if(!name){alert('Le nom ne peut pas être vide.');return;}
+  const updates={};
+  if(name)updates.nom=name;
+  if(colName)updates.couleur=colName;
+  try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.cats,catId,updates]]);}
+  catch(e){console.warn('saveCatEdit:',e.message);}
+  editingCatId=null;
+  await fetchAllTables();
+}
+
+async function addCat(){
+  const name=document.getElementById('new-cat-name').value.trim();
+  if(!name)return;
+  try{await grist.docApi.applyUserActions([['AddRecord',CFG.cats,null,{nom:name,couleur:'bleu',active:false}]]);}
+  catch(e){console.warn('addCat:',e.message);}
+  document.getElementById('new-cat-name').value='';
+  await fetchAllTables();
+}
+
+// ── Liste des bâtiments (site courant) ────────────────────
+function setF(f,btn){buildingFilter=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderBuildings();}
+
+function getFilteredList(){
+  const search=document.getElementById('bsearch').value.toLowerCase();
+  let list=Object.values(APP.buildings).filter(b=>b.site===currentSite.key);
+  list.sort((a,b)=>a.bat.localeCompare(b.bat));
+  if(search)list=list.filter(b=>b.bat.toLowerCase().includes(search));
+  if(buildingFilter==='sel')list=list.filter(b=>b.catIds.length>0);
+  if(buildingFilter==='vis')list=list.filter(b=>b.visible);
+  if(buildingFilter==='hid')list=list.filter(b=>!b.visible);
+  return list;
+}
+
+function renderBuildings(){
+  const wrap=document.getElementById('bw');
+  const list=getFilteredList();
+  const total=Object.values(APP.buildings).filter(b=>b.site===currentSite.key).length;
+  document.getElementById('bbadge').textContent=`(${list.length}/${total})`;
+  const activeCats=APP.cats.filter(c=>c.active);
+  wrap.innerHTML='';
+  for(const b of list){
+    const hasShape=!!(SITE_SHAPES[currentSite.key]&&SITE_SHAPES[currentSite.key].b[b.code]);
+    const row=document.createElement('div');
+    row.className='dr'+(b.visible?'':' gray')+(hasShape?'':' nogeo');
+    const dots=activeCats.map(cat=>{
+      const on=b.catIds.includes(cat._id);
+      const co=col(cat.couleur)||NAMED.bleu;
+      return `<div class="cdot" title="${cat.nom}" style="background:${on?co:'#ddd'};border-color:${on?co:'#bbb'}" onclick="toggleBuildingCat('${b.key}',${cat._id})"></div>`;
+    }).join('');
+    row.innerHTML=`<input type="checkbox" class="dvis" ${b.visible?'checked':''} title="Visible/grisé" onchange="toggleVis('${b.key}',this.checked)"><span class="dn" title="${b.bat}${hasShape?'':' (pas de forme sur le plan)'}">${b.bat}${hasShape?'':' ⚠︎'}</span><div class="dcs">${dots||'<span style="font-size:10px;color:#bbb">—</span>'}</div>`;
+    wrap.appendChild(row);
+  }
+}
+
+function toggleVis(key,val){
+  const b=APP.buildings[key];if(!b)return;
+  b.visible=val;
+  if(b.rowId!=null){
+    grist.docApi.applyUserActions([['UpdateRecord',CFG.bat,b.rowId,{visible:val}]]).catch(e=>console.warn(e.message));
+  }
+  renderMap();renderBuildings();
+}
+function bulkVis(val){
+  for(const b of getFilteredList()){
+    b.visible=val;
+    if(b.rowId!=null)grist.docApi.applyUserActions([['UpdateRecord',CFG.bat,b.rowId,{visible:val}]]).catch(e=>console.warn(e.message));
+  }
+  renderMap();renderBuildings();
+}
+function toggleCat(id,val){
+  const c=APP.cats.find(c=>c._id===id);
+  if(c){c.active=val;renderCats();renderBuildings();refresh();}
+}
+async function toggleBuildingCat(key,catId){
+  const b=APP.buildings[key];if(!b)return;
+  const idx=b.catIds.indexOf(catId);
+  const has=idx!==-1;
+  if(has)b.catIds.splice(idx,1);else b.catIds.push(catId);
+  renderBuildings();refresh();
+  try{
+    if(has){
+      const row=Object.values(APP.dcRows).find(r=>r.batiment===b.rowId&&r.categorie===catId);
+      if(row)await grist.docApi.applyUserActions([['RemoveRecord',CFG.dc,row._id]]);
+    }else{
+      await grist.docApi.applyUserActions([['AddRecord',CFG.dc,null,{[CFG.colDept]:b.rowId,[CFG.colCat]:catId}]]);
+    }
+    await fetchAllTables();
+  }catch(e){console.warn('toggleBuildingCat:',e.message);}
+}
+
+function tog(h){const b=h.nextElementSibling;const closed=b.classList.toggle('closed');h.querySelector('.arr').textContent=closed?'▸':'▾';}
+function showGuide(){document.getElementById('guide-modal').classList.remove('gone');}
+function closeModal(id){document.getElementById(id).classList.add('gone');}
+
+// ── Config modal ──────────────────────────────────────────
+let ALL_TABLES=[], TABLE_COLS={};
+function makeOpts(sel,list,current){
+  sel.innerHTML='<option value="">— choisir —</option>';
+  for(const{id,label}of list){const o=document.createElement('option');o.value=id;o.textContent=label;if(id===current)o.selected=true;sel.appendChild(o);}
+}
+async function loadTableCols(tableId){
+  if(!tableId||TABLE_COLS[tableId])return;
+  try{const t=await grist.docApi.fetchTable(tableId);TABLE_COLS[tableId]=Object.keys(t).filter(k=>k!=='id'&&k!=='manualSort');}
+  catch(_){TABLE_COLS[tableId]=[];}
+}
+async function onCfgTableChange(){
+  const dcId=document.getElementById('cfg-dc').value;
+  if(dcId){
+    await loadTableCols(dcId);
+    const cols=(TABLE_COLS[dcId]||[]).map(c=>({id:c,label:c}));
+    makeOpts(document.getElementById('cfg-col-dept'),cols,CFG.colDept);
+    makeOpts(document.getElementById('cfg-col-cat'),cols,CFG.colCat);
+    document.getElementById('cfg-cols').style.display='block';
+  }else document.getElementById('cfg-cols').style.display='none';
+}
+async function onCfgBatChange(){
+  const batId=document.getElementById('cfg-bat').value;
+  if(batId){
+    await loadTableCols(batId);
+    const cols=(TABLE_COLS[batId]||[]).map(c=>({id:c,label:c}));
+    makeOpts(document.getElementById('cfg-col-site'),cols,CFG.colSite);
+    makeOpts(document.getElementById('cfg-col-bat'),cols,CFG.colBat);
+    document.getElementById('cfg-bat-cols').style.display='block';
+  }else document.getElementById('cfg-bat-cols').style.display='none';
+}
+async function showConfig(){
+  document.getElementById('cfg-modal').classList.remove('gone');
+  document.getElementById('cfg-loading').style.display='block';
+  document.getElementById('cfg-form').style.display='none';
+  const msg=document.getElementById('cfg-msg');msg.className='';msg.style.display='none';
+  try{
+    const meta=await grist.docApi.fetchTable('_grist_Tables');
+    ALL_TABLES=(meta.tableId||[]).filter(id=>!String(id).startsWith('_')).map(id=>({id:String(id),label:String(id)}));
+    if(!ALL_TABLES.length)throw new Error('Aucune table trouvée');
+    makeOpts(document.getElementById('cfg-bat'),ALL_TABLES,CFG.bat);
+    document.getElementById('cfg-bat').onchange=onCfgBatChange;
+    makeOpts(document.getElementById('cfg-cats'),ALL_TABLES,CFG.cats);
+    makeOpts(document.getElementById('cfg-dc'),ALL_TABLES,CFG.dc);
+    if(CFG.bat){await loadTableCols(CFG.bat);const cols=(TABLE_COLS[CFG.bat]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-site'),cols,CFG.colSite);makeOpts(document.getElementById('cfg-col-bat'),cols,CFG.colBat);document.getElementById('cfg-bat-cols').style.display='block';}
+    if(CFG.dc){await loadTableCols(CFG.dc);const cols=(TABLE_COLS[CFG.dc]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-dept'),cols,CFG.colDept);makeOpts(document.getElementById('cfg-col-cat'),cols,CFG.colCat);document.getElementById('cfg-cols').style.display='block';}
+    document.getElementById('cfg-loading').style.display='none';
+    document.getElementById('cfg-form').style.display='block';
+  }catch(e){
+    document.getElementById('cfg-loading').style.display='none';
+    const msg=document.getElementById('cfg-msg');msg.className='err';msg.style.display='block';
+    msg.innerHTML='❌ Impossible de lire les tables : <b>'+e.message+'</b><br>👉 Paramètres du widget → <b>Accès complet au document</b>';
+  }
+}
+async function saveConfig(){
+  const c={
+    bat:document.getElementById('cfg-bat').value,
+    colSite:document.getElementById('cfg-col-site').value||CFG.colSite,
+    colBat:document.getElementById('cfg-col-bat').value||CFG.colBat,
+    cats:document.getElementById('cfg-cats').value,
+    dc:document.getElementById('cfg-dc').value,
+    colDept:document.getElementById('cfg-col-dept').value||CFG.colDept,
+    colCat:document.getElementById('cfg-col-cat').value||CFG.colCat,
+  };
+  const msg=document.getElementById('cfg-msg');
+  if(!c.bat||!c.cats){msg.className='err';msg.style.display='block';msg.textContent='⚠️ Sélectionnez au minimum les tables Bâtiments et Catégories.';return;}
+  Object.assign(CFG,c);
+  try{await grist.setOptions({tableBat:CFG.bat,colSite:CFG.colSite,colBat:CFG.colBat,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat});msg.className='ok';msg.style.display='block';msg.textContent='✅ Configuration sauvegardée !';setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},700);}
+  catch(e){msg.className='err';msg.style.display='block';msg.textContent='❌ Erreur : '+e.message;}
+}
+
+// ── Chargement des données Grist ──────────────────────────
+function loadConfig(opts){
+  if(opts?.tableBat) CFG.bat=opts.tableBat;
+  if(opts?.colSite)  CFG.colSite=opts.colSite;
+  if(opts?.colBat)   CFG.colBat=opts.colBat;
+  if(opts?.tableCats)CFG.cats=opts.tableCats;
+  if(opts?.tableDc)  CFG.dc=opts.tableDc;
+  if(opts?.colDept)  CFG.colDept=opts.colDept;
+  if(opts?.colCat)   CFG.colCat=opts.colCat;
+  if(opts?.calib){
+    for(const k of Object.keys(opts.calib)){
+      if(CALIB[k])Object.assign(CALIB[k],opts.calib[k]);
+    }
+  }
+  if(opts?.baseLayer && BASE_LAYERS.some(b=>b.id===opts.baseLayer)){
+    activeBaseId=opts.baseLayer;
+    if(map)setBaseLayer(activeBaseId);
+  }
+}
+
+async function fetchAllTables(){
+  document.getElementById('cfg-banner').classList.remove('show');
+  try{
+    const batT=await grist.docApi.fetchTable(CFG.bat);
+    const rowIds=batT.id||[];
+    const sites=batT[CFG.colSite]||[];
+    const bats=batT[CFG.colBat]||[];
+    const visibles=batT.visible;
+    APP.buildings={};
+    for(let i=0;i<rowIds.length;i++){
+      const site=String(sites[i]||''), bat=String(bats[i]||'');
+      if(!site||!bat)continue;
+      const code=shapeCode(site,bat);
+      const key=site+'|'+(code||bat);
+      APP.buildings[key]={key, rowId:rowIds[i], site, bat, code, nomComplet:site+' — '+bat,
+        visible: visibles?visibles[i]!==false:true, catIds:[]};
+      APP.batRowId[rowIds[i]]=key;
+    }
+  }catch(e){
+    document.getElementById('cfg-banner').classList.add('show');
+    document.getElementById('cfg-banner-msg').textContent='Table Bâtiments introuvable ("'+CFG.bat+'"). ';
+  }
+
+  try{
+    const catT=await grist.docApi.fetchTable(CFG.cats);
+    const ids=catT.id||[];
+    APP.cats=ids.map((id,i)=>({
+      _id:id,
+      nom:String(catT.nom?.[i]??('Catégorie '+id)),
+      couleur:catT.couleur?.[i]??'bleu',
+      active: catT.active? !!catT.active[i] : (catT.selection?!!catT.selection[i]:false),
+    }));
+  }catch(e){
+    document.getElementById('cfg-banner').classList.add('show');
+    document.getElementById('cfg-banner-msg').textContent='Table Catégories introuvable ("'+CFG.cats+'"). ';
+  }
+
+  APP.dcRows={};
+  if(CFG.dc){
+    try{
+      const dcT=await grist.docApi.fetchTable(CFG.dc);
+      const ids=dcT.id||[];
+      for(let i=0;i<ids.length;i++){
+        const batRowId=dcT[CFG.colDept]?.[i], catId=dcT[CFG.colCat]?.[i];
+        APP.dcRows[ids[i]]={_id:ids[i],batiment:batRowId,categorie:catId};
+        const key=APP.batRowId[batRowId];
+        if(key&&APP.buildings[key]&&!APP.buildings[key].catIds.includes(catId))APP.buildings[key].catIds.push(catId);
+      }
+    }catch(e){/* table liaison optionnelle / pas encore créée */}
+  }
+
+  renderCats();
+  renderBuildings();
+  renderMap();
+}
+
+// ── Bootstrap ──────────────────────────────────────────────
+async function boot(){
+  populateSiteSelect();
+  initMap();
+  populateBaseSelect();
+  document.getElementById('sat-op').value=100;
+  document.getElementById('site-sel').value=currentSite.key;
+
+  if(window.grist){
+    grist.ready({requiredAccess:'full', columns:[]});
+    grist.onOptions((opts)=>{ loadConfig(opts||{}); fetchAllTables(); });
+    grist.onRecords(()=>{ fetchAllTables(); });
+  }
+
+  setTimeout(()=>{ map.invalidateSize(); document.getElementById('ldg').classList.add('gone'); }, 300);
+}
+
+const ro=new ResizeObserver(()=>{ if(map)map.invalidateSize(); });
+window.addEventListener('DOMContentLoaded', ()=>{ ro.observe(document.getElementById('mp')); boot(); });
+</script>
+</body>
+</html>
