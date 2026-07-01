@@ -11,11 +11,15 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 |---------|-----------|-------------|
 | `Site` | Text | Nom du site (voir liste exacte ci-dessous) |
 | `Bâtiment` | Text | Nom du bâtiment (voir liste exacte ci-dessous) |
+| `note` (ou le nom que vous voulez) | Text | **Optionnel.** Nom de la catégorie active pour ce bâtiment (doit correspondre exactement au `nom` d'une ligne de la table `Categories`, ex : `Très bon`). Laisser vide = bâtiment non coloré. |
 | `visible` | Bool | `true` = couleur normale · `false` = bâtiment grisé |
 
 > **Important** : les valeurs de `Site` et `Bâtiment` doivent reprendre **exactement** les
 > intitulés ci-dessous (accents compris) pour que le widget retrouve la bonne forme sur le plan.
 > C'est directement la liste de votre fichier `Site et bâtiment.xlsx` — vous pouvez l'importer telle quelle.
+
+> La colonne `note` doit être de type **Texte** (pas Référence) pour que le widget puisse y écrire
+> directement le nom de la catégorie quand vous cliquez une pastille de couleur.
 
 <details>
 <summary>Liste complète des 51 lignes (cliquer pour déplier)</summary>
@@ -93,6 +97,12 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 - **Correction interne** : plusieurs bâtiments avec une cour intérieure/fenêtre (`L`, `S`, `K`,
   `H`, `Bâtiment ATRIUM`) s'affichaient à tort comme des blocs pleins — leurs découpes internes
   s'affichent maintenant correctement. Aucun changement de votre côté dans Grist.
+- **`Projet d'extension`** (Béziers) retracé selon votre dernier plan — c'est maintenant un
+  rectangle détaché de `Du Guesclin` (au lieu de la forme en croix précédente).
+- **Configuration simplifiée** : le widget accepte maintenant directement une table Bâtiments
+  avec une colonne "note/catégorie" (une seule catégorie par bâtiment), sans avoir besoin de la
+  table `Batiment_categories`. Voir "Configuration du widget" ci-dessous pour le détail des
+  menus déroulants.
 - **Boutonnet (A / H / I / J)** : confirmé sur votre dernier plan (labels visibles) — `A` est le
   grand bâtiment en M, `H`/`I`/`J` les 3 petits blocs séparés. Les 2 hangars adjacents sont
   verrouillés (voir point ci-dessus).
@@ -122,7 +132,11 @@ Bâtiment provisoire (pas de rénov)| gris   | true
 
 ---
 
-## Table 3 : `Batiment_categories`
+## Table 3 (optionnelle) : `Batiment_categories`
+
+**N'existe que si vous voulez qu'un même bâtiment puisse cumuler plusieurs catégories à la fois.**
+Si vous utilisez la colonne `note` de la table `Batiments` (une seule catégorie par bâtiment,
+cas le plus courant), vous n'avez **pas besoin** de cette table — ignorez cette section.
 
 | Colonne | Type Grist | Description |
 |---------|-----------|-------------|
@@ -130,16 +144,34 @@ Bâtiment provisoire (pas de rénov)| gris   | true
 | `categorie` | Ref → Categories | Référence vers la ligne Categories |
 
 Cette table peut être laissée **vide** : le widget la remplit automatiquement quand vous
-cliquez sur les pastilles de couleur dans le panneau "Bâtiments".
+cliquez sur les pastilles de couleur dans le panneau "Bâtiments" (uniquement si "Colonne
+Catégorie / Note" n'est pas configurée).
 
 ---
 
-## Configuration du widget dans Grist
+## Configuration du widget dans Grist — pas à pas
 
-1. Dans la vue, ajouter un **Custom Widget**
-2. URL : `https://bigorneau15652.github.io/map/carte-batiments/`
-3. Accès requis : **Accès complet au document** (obligatoire pour lire/écrire les 3 tables)
-4. Ouvrir ⚙️ dans le widget et choisir vos 3 tables (Bâtiments / Catégories / Affiliations)
+1. Dans la vue, ajouter un **Custom Widget**.
+2. URL : `https://bigorneau15652.github.io/map/carte-batiments/`.
+3. Accès requis : **Accès complet au document** (sinon le widget ne peut ni lire ni écrire vos tables).
+4. Ouvrir ⚙️ dans le widget. Voici **exactement** ce que chaque menu déroulant attend, pour
+   votre cas (2 tables : Bâtiments avec note/actif, Categories avec nom/couleur) :
+
+| Menu déroulant | Que choisir |
+|---|---|
+| **Table des Bâtiments** | votre table qui liste les bâtiments (celle avec `Site`, `Bâtiment`, la note, l'actif) |
+| **Colonne "Site" dans la table Bâtiments** | la colonne de cette table qui contient le nom du site (`Route de Mende`, `Béziers`…) |
+| **Colonne "Bâtiment" dans la table Bâtiments** | la colonne qui contient le nom du bâtiment (`Bâtiment A`, `Amphis 1 2 3`…) |
+| **Colonne "Catégorie / Note" (optionnel)** | la colonne qui contient **la note/catégorie actuelle de chaque bâtiment** — c'est celle-ci qu'il vous manquait probablement. Sa valeur doit être le nom exact d'une ligne de votre table Catégories (ex : `Très bon`) |
+| **Table des Catégories** | votre table catégorie ↔ couleur |
+| **Table des Affiliations** | **laissez sur "— choisir —" / vide** dans votre cas (vous n'avez pas cette 3<sup>e</sup> table, et vous n'en avez pas besoin) |
+| **Colonne "bâtiment" / "catégorie" dans Affiliations** | n'apparaissent que si vous avez rempli "Table des Affiliations" — ignorez-les sinon |
+
+5. Cliquez **💾 Enregistrer**.
+
+Après l'enregistrement, chaque bâtiment doit se colorer selon la valeur de votre colonne `note`.
+Cliquer une pastille de couleur dans le panneau "Bâtiments" **écrit directement** le nom de la
+catégorie dans cette colonne `note` (et un second clic sur la même pastille l'efface).
 
 ## Fonds de carte
 

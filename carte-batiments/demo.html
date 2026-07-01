@@ -299,6 +299,9 @@
           <select id="cfg-col-site"></select>
           <label style="margin-top:8px">Colonne "Bâtiment" dans la table Bâtiments</label>
           <select id="cfg-col-bat"></select>
+          <label style="margin-top:8px">Colonne "Catégorie / Note" dans Bâtiments (optionnel)</label>
+          <small>Choisissez ceci si votre table Bâtiments a déjà une colonne avec la catégorie/note de chaque bâtiment (une seule catégorie par bâtiment). Dans ce cas, laissez "Table des Affiliations" vide ci-dessous — elle ne sera pas utilisée.</small>
+          <select id="cfg-col-note"></select>
         </div>
         <div class="cfg-group">
           <label>Table des Catégories</label>
@@ -307,7 +310,7 @@
         </div>
         <div class="cfg-group">
           <label>Table des Affiliations (liaison bâtiment ↔ catégorie)</label>
-          <small>Laisser vide : le widget la remplit automatiquement</small>
+          <small>Uniquement si vous voulez plusieurs catégories par bâtiment. Sinon, utilisez plutôt "Colonne Catégorie / Note" ci-dessus et laissez ce champ vide.</small>
           <select id="cfg-dc" onchange="onCfgTableChange()"></select>
         </div>
         <div id="cfg-cols" style="display:none">
@@ -336,14 +339,18 @@
     <div class="mhd"><h2>❓ Guide – Carte des Bâtiments</h2><button onclick="closeModal('guide-modal')">✕</button></div>
     <div class="mbody" style="padding:12px">
       <div class="guide-section">
-        <h3>📋 3 tables à créer dans Grist</h3>
+        <h3>📋 2 tables à créer dans Grist (cas le plus simple)</h3>
         <table>
           <tr><th>Table</th><th>Colonnes clés</th></tr>
-          <tr><td><code>Batiments</code></td><td><code>Site</code>, <code>Bâtiment</code>, <code>visible</code> (Bascule)</td></tr>
+          <tr><td><code>Batiments</code></td><td><code>Site</code>, <code>Bâtiment</code>, <code>note</code> (texte = nom d'une catégorie), <code>visible</code> (Bascule)</td></tr>
           <tr><td><code>Categories</code></td><td><code>nom</code>, <code>couleur</code>, <code>active</code> (Bascule)</td></tr>
-          <tr><td><code>Batiment_categories</code></td><td><code>batiment</code> (Réf→Batiments), <code>categorie</code> (Réf→Categories)</td></tr>
         </table>
-        <p style="margin-top:5px">Les valeurs de <code>Site</code> et <code>Bâtiment</code> doivent reprendre exactement les noms de votre fichier d'origine (ex : <code>Route de Mende</code> / <code>Bâtiment A</code>, <code>Amphis 1 2 3</code>, <code>Kiosque</code>…). Voir <code>grist-schema.md</code> pour la liste complète.</p>
+        <p style="margin-top:5px">Dans ⚙️ : sélectionnez ces 2 tables, puis dans "Colonne Catégorie / Note" choisissez votre colonne <code>note</code>. Laissez "Table des Affiliations" <b>vide</b>.</p>
+        <p style="margin-top:5px">Les valeurs de <code>Site</code> et <code>Bâtiment</code> doivent reprendre exactement les noms de votre fichier d'origine (ex : <code>Route de Mende</code> / <code>Bâtiment A</code>, <code>Amphis 1 2 3</code>, <code>Kiosque</code>…). Voir <code>grist-schema.md</code> pour la liste complète. La valeur de <code>note</code> doit correspondre au <code>nom</code> d'une ligne de la table <code>Categories</code> (ex : <code>Très bon</code>).</p>
+      </div>
+      <div class="guide-section">
+        <h3>📋 Variante à 3 tables (plusieurs catégories par bâtiment)</h3>
+        <p>Si un même bâtiment doit pouvoir cumuler plusieurs catégories à la fois, ajoutez une 3<sup>e</sup> table <code>Batiment_categories</code> (<code>batiment</code> Réf→Batiments, <code>categorie</code> Réf→Categories), sélectionnez-la dans "Table des Affiliations", et laissez "Colonne Catégorie / Note" vide.</p>
       </div>
       <div class="guide-section">
         <h3>🔌 Ajouter le widget</h3>
@@ -426,7 +433,7 @@ function shapeCode(site,bat){
 }
 
 // ── Config ────────────────────────────────────────────────
-let CFG={bat:'Batiments',cats:'Categories',dc:'Batiment_categories',colSite:'Site',colBat:'Bâtiment',colDept:'batiment',colCat:'categorie'};
+let CFG={bat:'Batiments',cats:'Categories',dc:'Batiment_categories',colSite:'Site',colBat:'Bâtiment',colNote:'',colDept:'batiment',colCat:'categorie'};
 
 // ── Calage (calibration) ──────────────────────────────────
 let CALIB={}; // key -> {lat,lng,scale,rot}
@@ -792,6 +799,19 @@ async function toggleBuildingCat(key,catId){
   const b=APP.buildings[key];if(!b)return;
   const idx=b.catIds.indexOf(catId);
   const has=idx!==-1;
+
+  if(CFG.colNote){
+    // Mode "colonne directe" : une seule catégorie par bâtiment, écrite sur la table Bâtiments.
+    b.catIds=has?[]:[catId];
+    renderBuildings();refresh();
+    try{
+      const cat=APP.cats.find(c=>c._id===catId);
+      await grist.docApi.applyUserActions([['UpdateRecord',CFG.bat,b.rowId,{[CFG.colNote]:has?null:(cat?cat.nom:catId)}]]);
+      await fetchAllTables();
+    }catch(e){console.warn('toggleBuildingCat:',e.message);}
+    return;
+  }
+
   if(has)b.catIds.splice(idx,1);else b.catIds.push(catId);
   renderBuildings();refresh();
   try{
@@ -837,6 +857,7 @@ async function onCfgBatChange(){
     const cols=(TABLE_COLS[batId]||[]).map(c=>({id:c,label:c}));
     makeOpts(document.getElementById('cfg-col-site'),cols,CFG.colSite);
     makeOpts(document.getElementById('cfg-col-bat'),cols,CFG.colBat);
+    makeOpts(document.getElementById('cfg-col-note'),cols,CFG.colNote);
     document.getElementById('cfg-bat-cols').style.display='block';
   }else document.getElementById('cfg-bat-cols').style.display='none';
 }
@@ -853,7 +874,7 @@ async function showConfig(){
     document.getElementById('cfg-bat').onchange=onCfgBatChange;
     makeOpts(document.getElementById('cfg-cats'),ALL_TABLES,CFG.cats);
     makeOpts(document.getElementById('cfg-dc'),ALL_TABLES,CFG.dc);
-    if(CFG.bat){await loadTableCols(CFG.bat);const cols=(TABLE_COLS[CFG.bat]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-site'),cols,CFG.colSite);makeOpts(document.getElementById('cfg-col-bat'),cols,CFG.colBat);document.getElementById('cfg-bat-cols').style.display='block';}
+    if(CFG.bat){await loadTableCols(CFG.bat);const cols=(TABLE_COLS[CFG.bat]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-site'),cols,CFG.colSite);makeOpts(document.getElementById('cfg-col-bat'),cols,CFG.colBat);makeOpts(document.getElementById('cfg-col-note'),cols,CFG.colNote);document.getElementById('cfg-bat-cols').style.display='block';}
     if(CFG.dc){await loadTableCols(CFG.dc);const cols=(TABLE_COLS[CFG.dc]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-dept'),cols,CFG.colDept);makeOpts(document.getElementById('cfg-col-cat'),cols,CFG.colCat);document.getElementById('cfg-cols').style.display='block';}
     document.getElementById('cfg-loading').style.display='none';
     document.getElementById('cfg-form').style.display='block';
@@ -868,6 +889,7 @@ async function saveConfig(){
     bat:document.getElementById('cfg-bat').value,
     colSite:document.getElementById('cfg-col-site').value||CFG.colSite,
     colBat:document.getElementById('cfg-col-bat').value||CFG.colBat,
+    colNote:document.getElementById('cfg-col-note').value||'',
     cats:document.getElementById('cfg-cats').value,
     dc:document.getElementById('cfg-dc').value,
     colDept:document.getElementById('cfg-col-dept').value||CFG.colDept,
@@ -876,7 +898,7 @@ async function saveConfig(){
   const msg=document.getElementById('cfg-msg');
   if(!c.bat||!c.cats){msg.className='err';msg.style.display='block';msg.textContent='⚠️ Sélectionnez au minimum les tables Bâtiments et Catégories.';return;}
   Object.assign(CFG,c);
-  try{await grist.setOptions({tableBat:CFG.bat,colSite:CFG.colSite,colBat:CFG.colBat,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat});msg.className='ok';msg.style.display='block';msg.textContent='✅ Configuration sauvegardée !';setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},700);}
+  try{await grist.setOptions({tableBat:CFG.bat,colSite:CFG.colSite,colBat:CFG.colBat,colNote:CFG.colNote,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat});msg.className='ok';msg.style.display='block';msg.textContent='✅ Configuration sauvegardée !';setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},700);}
   catch(e){msg.className='err';msg.style.display='block';msg.textContent='❌ Erreur : '+e.message;}
 }
 
@@ -885,6 +907,7 @@ function loadConfig(opts){
   if(opts?.tableBat) CFG.bat=opts.tableBat;
   if(opts?.colSite)  CFG.colSite=opts.colSite;
   if(opts?.colBat)   CFG.colBat=opts.colBat;
+  if(opts?.colNote!==undefined) CFG.colNote=opts.colNote;
   if(opts?.tableCats)CFG.cats=opts.tableCats;
   if(opts?.tableDc)  CFG.dc=opts.tableDc;
   if(opts?.colDept)  CFG.colDept=opts.colDept;
@@ -900,28 +923,10 @@ function loadConfig(opts){
   }
 }
 
+function normName(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
+
 async function fetchAllTables(){
   document.getElementById('cfg-banner').classList.remove('show');
-  try{
-    const batT=await grist.docApi.fetchTable(CFG.bat);
-    const rowIds=batT.id||[];
-    const sites=batT[CFG.colSite]||[];
-    const bats=batT[CFG.colBat]||[];
-    const visibles=batT.visible;
-    APP.buildings={};
-    for(let i=0;i<rowIds.length;i++){
-      const site=String(sites[i]||''), bat=String(bats[i]||'');
-      if(!site||!bat)continue;
-      const code=shapeCode(site,bat);
-      const key=site+'|'+(code||bat);
-      APP.buildings[key]={key, rowId:rowIds[i], site, bat, code, nomComplet:site+' — '+bat,
-        visible: visibles?visibles[i]!==false:true, catIds:[]};
-      APP.batRowId[rowIds[i]]=key;
-    }
-  }catch(e){
-    document.getElementById('cfg-banner').classList.add('show');
-    document.getElementById('cfg-banner-msg').textContent='Table Bâtiments introuvable ("'+CFG.bat+'"). ';
-  }
 
   try{
     const catT=await grist.docApi.fetchTable(CFG.cats);
@@ -936,9 +941,39 @@ async function fetchAllTables(){
     document.getElementById('cfg-banner').classList.add('show');
     document.getElementById('cfg-banner-msg').textContent='Table Catégories introuvable ("'+CFG.cats+'"). ';
   }
+  const catByName={}; for(const c of APP.cats)catByName[normName(c.nom)]=c._id;
+  const catById={}; for(const c of APP.cats)catById[c._id]=c;
+
+  try{
+    const batT=await grist.docApi.fetchTable(CFG.bat);
+    const rowIds=batT.id||[];
+    const sites=batT[CFG.colSite]||[];
+    const bats=batT[CFG.colBat]||[];
+    const visibles=batT.visible;
+    const notes=CFG.colNote?batT[CFG.colNote]:null;
+    APP.buildings={};
+    for(let i=0;i<rowIds.length;i++){
+      const site=String(sites[i]||''), bat=String(bats[i]||'');
+      if(!site||!bat)continue;
+      const code=shapeCode(site,bat);
+      const key=site+'|'+(code||bat);
+      let catIds=[];
+      if(notes){
+        const raw=notes[i];
+        if(typeof raw==='number'&&catById[raw])catIds=[raw];
+        else if(raw){const id=catByName[normName(raw)];if(id!=null)catIds=[id];}
+      }
+      APP.buildings[key]={key, rowId:rowIds[i], site, bat, code, nomComplet:site+' — '+bat,
+        visible: visibles?visibles[i]!==false:true, catIds};
+      APP.batRowId[rowIds[i]]=key;
+    }
+  }catch(e){
+    document.getElementById('cfg-banner').classList.add('show');
+    document.getElementById('cfg-banner-msg').textContent='Table Bâtiments introuvable ("'+CFG.bat+'"). ';
+  }
 
   APP.dcRows={};
-  if(CFG.dc){
+  if(!CFG.colNote && CFG.dc){
     try{
       const dcT=await grist.docApi.fetchTable(CFG.dc);
       const ids=dcT.id||[];
