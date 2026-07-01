@@ -12,7 +12,10 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 | `Site` | Text | Nom du site (voir liste exacte ci-dessous) |
 | `Bâtiment` | Text | Nom du bâtiment (voir liste exacte ci-dessous) |
 | `note` (ou le nom que vous voulez) | Text | **Optionnel.** Nom de la catégorie active pour ce bâtiment (doit correspondre exactement au `nom` d'une ligne de la table `Categories`, ex : `Très bon`). Laisser vide = bâtiment non coloré. |
-| `visible` | Bool | `true` = couleur normale · `false` = bâtiment grisé |
+| `visible` (ou le nom que vous voulez) | Bool | **Optionnel.** `true`/coché = couleur normale · `false`/décoché = bâtiment grisé. Laisser ce menu vide dans ⚙️ → tous les bâtiments sont toujours visibles. |
+
+> Comme pour la table Catégories, les noms `note`/`visible` sont juste indicatifs : dans ⚙️, vous
+> choisissez la colonne exacte de **votre** table (ex : `Categories_energie`, `Active`…).
 
 > **Important** : les valeurs de `Site` et `Bâtiment` doivent reprendre **exactement** les
 > intitulés ci-dessous (accents compris) pour que le widget retrouve la bonne forme sur le plan.
@@ -117,7 +120,12 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 |---------|-----------|-------------|
 | `nom` | Text | Nom de la catégorie (ex : `Très bon`) |
 | `couleur` | Text | Couleur : nom FR (`rouge`, `bleu`…) ou HEX (`#e74c3c`) |
-| `active` | Bool | `true` = catégorie affichée sur la carte |
+| `active` | Bool | **Optionnel.** `true` = catégorie affichée sur la carte. Si votre table n'a pas cette colonne (ou si vous ne la configurez pas dans ⚙️), **toutes les catégories sont considérées actives** par défaut. |
+
+> Les noms de colonnes ci-dessus (`nom`, `couleur`, `active`) sont juste les noms **par défaut**.
+> Dans ⚙️, vous pouvez faire correspondre ces 3 rôles à **n'importe quel nom de colonne** de votre
+> table Catégories (ex : `Catégorie`, `Couleur`, `Niveau`…) via les menus "Colonne 'nom'/'couleur'/'active'
+> dans la table Catégories".
 
 **Exemple reprenant l'échelle du plan d'origine (libre à vous de la modifier/étendre) :**
 ```
@@ -154,24 +162,40 @@ Catégorie / Note" n'est pas configurée).
 1. Dans la vue, ajouter un **Custom Widget**.
 2. URL : `https://bigorneau15652.github.io/map/carte-batiments/`.
 3. Accès requis : **Accès complet au document** (sinon le widget ne peut ni lire ni écrire vos tables).
-4. Ouvrir ⚙️ dans le widget. Voici **exactement** ce que chaque menu déroulant attend, pour
-   votre cas (2 tables : Bâtiments avec note/actif, Categories avec nom/couleur) :
+4. Ouvrir ⚙️ dans le widget. Voici **exactement** ce que chaque menu déroulant attend. Exemple
+   avec une table `INFOENERGIE` (Site, Bâtiment, une colonne catégorie, une colonne active) et
+   une table `Table_Categories_Infoenergie` (nom, couleur, éventuellement un niveau) :
 
 | Menu déroulant | Que choisir |
 |---|---|
-| **Table des Bâtiments** | votre table qui liste les bâtiments (celle avec `Site`, `Bâtiment`, la note, l'actif) |
-| **Colonne "Site" dans la table Bâtiments** | la colonne de cette table qui contient le nom du site (`Route de Mende`, `Béziers`…) |
+| **Table des Bâtiments** | votre table qui liste les bâtiments (ex : `INFOENERGIE`) |
+| **Colonne "Site" dans la table Bâtiments** | la colonne qui contient le nom du site (`Route de Mende`, `Béziers`…) |
 | **Colonne "Bâtiment" dans la table Bâtiments** | la colonne qui contient le nom du bâtiment (`Bâtiment A`, `Amphis 1 2 3`…) |
-| **Colonne "Catégorie / Note" (optionnel)** | la colonne qui contient **la note/catégorie actuelle de chaque bâtiment** — c'est celle-ci qu'il vous manquait probablement. Sa valeur doit être le nom exact d'une ligne de votre table Catégories (ex : `Très bon`) |
-| **Table des Catégories** | votre table catégorie ↔ couleur |
-| **Table des Affiliations** | **laissez sur "— choisir —" / vide** dans votre cas (vous n'avez pas cette 3<sup>e</sup> table, et vous n'en avez pas besoin) |
+| **Colonne "Catégorie / Note" (optionnel)** | la colonne qui contient **la catégorie actuelle de chaque bâtiment**. Sa valeur doit être le nom exact d'une ligne de votre table Catégories (ex : `Très bon`) |
+| **Colonne "Visible / Active" (optionnel)** | la colonne booléenne qui grise un bâtiment (laisser vide si vous n'en avez pas → tout reste visible) |
+| **Table des Catégories** | votre table catégorie ↔ couleur (ex : `Table_Categories_Infoenergie`) |
+| **Colonne "nom" dans la table Catégories** | la colonne avec le nom de chaque catégorie (ex : `Catégorie`, `Niveau`…) |
+| **Colonne "couleur" dans la table Catégories** | la colonne avec la couleur (ex : `Couleur`) |
+| **Colonne "active" dans Catégories (optionnel)** | laissez vide si votre table n'a pas de colonne "active"/"sélection" — dans ce cas **toutes les catégories sont affichées par défaut** |
+| **Table des Affiliations** | **laissez sur "— choisir —" / vide** si vous utilisez la colonne "Catégorie / Note" ci-dessus (cas le plus courant) |
 | **Colonne "bâtiment" / "catégorie" dans Affiliations** | n'apparaissent que si vous avez rempli "Table des Affiliations" — ignorez-les sinon |
 
 5. Cliquez **💾 Enregistrer**.
 
-Après l'enregistrement, chaque bâtiment doit se colorer selon la valeur de votre colonne `note`.
-Cliquer une pastille de couleur dans le panneau "Bâtiments" **écrit directement** le nom de la
-catégorie dans cette colonne `note` (et un second clic sur la même pastille l'efface).
+Après l'enregistrement, chaque bâtiment doit se colorer selon la valeur de votre colonne
+"Catégorie / Note". Cliquer une pastille de couleur dans le panneau "Bâtiments" **écrit
+directement** le nom de la catégorie dans cette colonne (et un second clic sur la même pastille
+l'efface).
+
+> **Le calage (position/échelle/rotation du plan sur le satellite) et le fond de carte ne sont
+> jamais perdus** en changeant/ré-enregistrant cette configuration : chaque sauvegarde ne modifie
+> que les réglages qu'elle concerne, le reste est conservé.
+
+> ⚠️ Si après avoir enregistré, la liste "Bâtiments" reste vide (`0/0`) ou qu'un message
+> d'avertissement orange apparaît en haut du widget, vérifiez que vos colonnes "Site" et
+> "Bâtiment" sont bien de type **Texte** dans Grist (pas *Référence*). Une colonne Référence
+> renvoie un identifiant numérique et non le texte affiché, ce que le widget ne sait pas
+> interpréter pour retrouver la forme du bâtiment sur le plan.
 
 ## Fonds de carte
 
