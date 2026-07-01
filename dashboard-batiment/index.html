@@ -349,9 +349,14 @@ function renderDashboard() {
 
   const bat = batiments.find(b => b.id === batId);
   const batEtages = etages.filter(e => e.Batiment === batId);
-  const batSalles = salles.filter(s => s.Batiment === batId);
+  const allBatSalles = salles.filter(s => s.Batiment === batId);
+  // A room's own Site must agree with the building's Site: some rooms in this document
+  // are linked to the right Bâtiment but carry a stale/wrong Site value, which silently
+  // triples surface totals if left unfiltered (same root cause as the Etage anomaly).
+  const batSalles = allBatSalles.filter(s => !bat.Site || !s.Site || s.Site === bat.Site);
+  const mismatchedSalles = allBatSalles.length - batSalles.length;
 
-  renderWarnings(bat, batSalles, batEtages);
+  renderWarnings(bat, batSalles, batEtages, mismatchedSalles);
   renderHeader(bat);
   renderFloors(batEtages);
   const kpiInputs = renderKpis(bat, batEtages, batSalles);
@@ -359,13 +364,19 @@ function renderDashboard() {
   renderCategories(batSalles);
 }
 
-function renderWarnings(bat, batSalles, batEtages) {
+function renderWarnings(bat, batSalles, batEtages, mismatchedSalles) {
   const warnings = [];
   const noType = batSalles.filter(s => !s.Type_d_usage).length;
   const noOcc = batSalles.filter(s => !s.Occupation).length;
   if (noType > 0) { warnings.push(`${noType} local(-aux) sans "Type d'usage" renseigné (exclu des sommes SUN/SUB/SPC/SHOB).`); }
   if (noOcc > 0) { warnings.push(`${noOcc} local(-aux) sans "Occupation" renseignée (regroupé sous "Non classé").`); }
   if (bat && bat.Site && !siteById[bat.Site]) { warnings.push(`Le site lié à ce bâtiment est introuvable.`); }
+  if (mismatchedSalles > 0) {
+    warnings.push(
+      `${mismatchedSalles} local(-aux) rattaché(s) à ce bâtiment ont un "Site" différent du site du bâtiment ` +
+      `— ils ont été exclus des sommes ci-dessous pour éviter de gonfler les surfaces (vérifiez leur champ Site dans BDD_Salles).`
+    );
+  }
 
   const floorLabelCounts = {};
   for (const e of batEtages) {

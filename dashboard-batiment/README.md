@@ -78,18 +78,54 @@ SUB/SPC > 85 %) sont indicatives (codes couleur vert/orange/rouge) et reprennent
 les mêmes seuils que le document de référence ; ajustez les seuils dans le script
 (`renderKpis`) si vos cibles internes diffèrent.
 
-## Point de vigilance repéré dans le fichier `.grist` fourni
+## Points de vigilance repérés dans le fichier `.grist` fourni
 
-En analysant le fichier `Bac à sable SIPI.grist` transmis pour la maquette, une
-incohérence a été repérée dans `BDD_Etages` : plusieurs lignes d'étages ont leur
-colonne `Bâtiment` pointant vers le bâtiment "Bâtiment A" (id 1), alors que leurs
-champs calculés `Nom_complet` / `Numéro bâtiment` affichent encore "Bâtiment
-Enseignement" / 601. Cela peut indiquer une ligne d'étage réaffectée par erreur au
-mauvais bâtiment, ou un cache de formule pas encore recalculé. Il est recommandé
-de vérifier ces lignes dans `BDD_Etages` avant de faire confiance aux totaux par
-bâtiment, sans quoi certains étages d'un bâtiment "voisin" pourraient se retrouver
-comptés dans un autre. Ce point n'a pas été corrigé automatiquement : il s'agit
-d'une donnée métier que seul vous pouvez trancher.
+### 1. Salles au `Site` incohérent avec leur `Bâtiment` (corrigé dans le widget)
+
+En comparant les surfaces recalculées avec celles du PDF de référence (bâtiment A,
+103, route de Mende) étage par étage, on constate que **SUB / SPC / SHON / SHOB
+collent au PDF à ±5 %** dès qu'on ne garde que les salles dont le `Site` correspond
+au site du bâtiment. Sans ce filtre, les surfaces sont **3 à 11 fois plus élevées**
+que le PDF — exactement le seuil d'erreur que vous avez identifié. La cause : dans
+le fichier fourni, environ 345 salles rattachées au bâtiment 103 ont un champ
+`Site` qui indique un autre site (Boutonnet), alors que leur `Bâtiment`/`Étage`
+pointent bien vers le 103.
+
+Le widget filtre donc désormais `BDD_Salles` à la fois par `Bâtiment` **et** par
+`Site` (celui du bâtiment sélectionné), et affiche un avertissement chiffré quand
+des salles sont exclues pour cette raison, afin que vous puissiez aller corriger
+le champ `Site` de ces lignes dans `BDD_Salles`.
+
+Cette même incohérence affecte la colonne formule **`Surface utile / étage en m²`**
+de `BDD_Etages`, qui n'a pas ce garde-fou (contrairement à `Surface SUN/SUB/SP/SHOB`
+qui filtrent déjà sur `Site=$Site`). Pour la corriger dans Grist, alignez sa formule
+sur les autres :
+
+```python
+salles = BDD_Salles.lookupRecords(Batiment=$Batiment, Etage=rec, Site=$Site)
+return sum(salle.Surface_utile_m2_ for salle in salles if salle.Surface_utile_m2_ is not None)
+```
+
+### 2. SUN toujours élevée après filtrage : à vérifier dans `Table_locaux_types_et_correspondance`
+
+Même en filtrant correctement par `Site`, la surface **SUN** reste nettement
+au-dessus du PDF sur certains étages (jusqu'à ×3,3 sur le R+3), alors que SUB/SPC/
+SHON/SHOB collent parfaitement sur ces mêmes étages — ce qui écarte un problème de
+filtrage. La cause probable : plusieurs types de locaux « Circulation » (Circulation
+interne, Circulation primaire, Accueil/Attente, Palier d'étage, Vérandas, Galerie
+non technique) ont le indicateur `SUN` coché à vrai dans `Table_locaux_types_et_correspondance`,
+alors que la Surface Utile Nette exclut normalement les circulations par définition.
+Ce point n'a pas été modifié : c'est un choix de paramétrage métier qui vous
+revient — si vous confirmez que les circulations ne doivent pas compter dans SUN,
+décochez `SUN` sur ces lignes.
+
+### 3. Étages en double (à surveiller au cas par cas)
+
+Le widget affiche un avertissement si un même bâtiment a plusieurs lignes d'étage
+portant le même libellé (ex. deux "RDC"). Ce n'est pas nécessairement une erreur en
+soi (un bâtiment peut légitimement avoir un étage dupliqué dans de rares cas), mais
+combiné au point 1 ci-dessus, cela vaut la peine de vérifier que les deux lignes
+appartiennent bien au bâtiment affiché avant de faire confiance au total.
 
 ## Développement / modification
 
