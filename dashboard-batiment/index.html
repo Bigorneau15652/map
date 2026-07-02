@@ -6,6 +6,7 @@
 <title>Tableau de bord Bâtiment</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <style>
   :root {
     --accent: #2b6cb0;
@@ -56,10 +57,24 @@
     font-size: 12px;
   }
   button:hover { background: var(--accent-light); border-color: var(--accent); }
-  #status { font-size: 11px; color: var(--text-muted); margin-left: auto; align-self: center; }
+  #status { font-size: 11px; color: var(--text-muted); align-self: center; }
+  #expandBtn {
+    margin-left: auto;
+    font-size: 16px;
+    line-height: 1;
+    padding: 6px 10px;
+  }
 
   #content { padding: 14px; max-width: 1100px; margin: 0 auto; }
   #emptyState { padding: 60px 20px; text-align: center; color: var(--text-muted); }
+
+  /* Fullscreen ("agrandir") mode: widen content and bump text size for readability
+     when the widget is expanded out of its (often small) Grist panel. */
+  html:fullscreen, html:-webkit-full-screen { background: #f4f6f8; }
+  html:fullscreen body, html:-webkit-full-screen body { overflow: auto; }
+  :fullscreen #content, :-webkit-full-screen #content { max-width: 1400px; }
+  :fullscreen .kpi .value, :-webkit-full-screen .kpi .value { font-size: 24px; }
+  :fullscreen body, :-webkit-full-screen body { font-size: 15px; }
 
   /* --------------------------------------------------------------------
      Warning banners. Deliberately high-contrast, generously sized, and
@@ -147,7 +162,15 @@
   @media print {
     @page { size: A4; margin: 12mm 10mm; }
     #toolbar, #warnings, #status { display: none !important; }
+    /* Only the donut chart is part of the reference PDF (page 2, "Surfaces
+       fonctionnelles") — other charts (floor bars) were added on top for the
+       on-screen view and are hidden at print time to keep the 2-page layout. */
     .chartWrap { display: none !important; }
+    .chartWrap.keep-print { display: block !important; height: 150px; }
+    /* A4 print width falls under the 860px stacking breakpoint above; force the
+       side-by-side layout back on so the donut doesn't get pushed below the
+       table (which made it overflow into the next section). */
+    .twoCol { grid-template-columns: 1fr 1fr !important; }
     body { background: #fff; font-size: 9.5px; }
     #content { max-width: none; padding: 0; }
     .card { border: none; box-shadow: none; padding: 6px 0; margin-bottom: 6px; break-inside: avoid; }
@@ -172,7 +195,9 @@
   </div>
   <button id="refreshBtn" title="Recharger les données du document">⟳ Actualiser</button>
   <button id="printBtn" title="Imprimer / exporter en PDF">🖶 Imprimer</button>
+  <button id="titleBtn" title="Changer le titre affiché à l'impression / dans l'onglet">✎ Titre</button>
   <div id="status"></div>
+  <button id="expandBtn" title="Agrandir le widget en plein écran">⤢</button>
 </div>
 
 <div id="content">
@@ -242,7 +267,10 @@
               <tfoot></tfoot>
             </table>
           </div>
-          <div class="chartWrap"><canvas id="funcChart"></canvas></div>
+          <div>
+            <div class="subhead" style="margin-bottom:2px">Surface SUB en m² par occupation fonctionnelle</div>
+            <div class="chartWrap keep-print"><canvas id="funcChart"></canvas></div>
+          </div>
         </div>
       </div>
 
@@ -319,11 +347,15 @@ const els = {
   batSelect: document.getElementById('batSelect'),
   refreshBtn: document.getElementById('refreshBtn'),
   printBtn: document.getElementById('printBtn'),
+  titleBtn: document.getElementById('titleBtn'),
+  expandBtn: document.getElementById('expandBtn'),
   status: document.getElementById('status'),
   emptyState: document.getElementById('emptyState'),
   dashboard: document.getElementById('dashboard'),
   warnings: document.getElementById('warnings'),
 };
+
+const DEFAULT_TITLE = 'Tableau de bord Bâtiment';
 
 function setStatus(msg) { els.status.textContent = msg || ''; }
 
@@ -434,16 +466,29 @@ function renderWarnings(bat, batSalles, batEtages, excludedSalles, excludedEtage
   if (noOcc > 0) { warnings.push(`${noOcc} local(-aux) sans « Occupation » renseignée (regroupé sous « Non classé »).`); }
   if (bat && bat.Site && !siteById[bat.Site]) { warnings.push(`Le site lié à ce bâtiment est introuvable.`); }
 
+  // If another building shares the same Appellation (e.g. two "Bâtiment A" on
+  // different sites), name it explicitly — it's the most likely destination
+  // for rows that were mislinked via an ambiguous same-named dropdown pick.
+  const sameNameBat = bat.Appellation
+    ? batiments.find(b => b.id !== bat.id && b.Appellation && b.Appellation.trim().toLowerCase() === bat.Appellation.trim().toLowerCase())
+    : null;
+  const sameNameHint = sameNameBat
+    ? ` Un autre bâtiment porte le même nom « ${escapeHtml(bat.Appellation)} » (n°${escapeHtml(sameNameBat.Numero)}` +
+      `${siteById[sameNameBat.Site] ? ', site ' + escapeHtml(siteById[sameNameBat.Site].Nom) : ''}) : ` +
+      `ces lignes lui appartiennent probablement, et ont été rattachées ici par erreur ` +
+      `(ex. en le sélectionnant par son nom dans un menu déroulant proposant les deux).`
+    : '';
+
   if (excludedSalles.length > 0) {
     const siteNom = siteById[bat.Site] ? siteById[bat.Site].Nom : '?';
     const examples = excludedSalles.slice(0, 8).map(s => s.Numero || ('#' + s.id)).join(', ');
     const more = excludedSalles.length > 8 ? `, et ${excludedSalles.length - 8} autre(s)` : '';
     warnings.push(
-      `<b>${excludedSalles.length} local(-aux)</b> sont bien rattachés à ce bâtiment ` +
-      `(Bâtiment n°${escapeHtml(bat.Numero)} — ils appartiennent à ce bâtiment, pas à un autre), ` +
-      `mais leur champ « Site » indique un site différent de « ${escapeHtml(siteNom)} ». ` +
+      `<b>${excludedSalles.length} local(-aux)</b> ont leur champ « Bâtiment » réglé sur celui affiché ici ` +
+      `(n°${escapeHtml(bat.Numero)}), mais leur champ « Site » indique un site différent de « ${escapeHtml(siteNom)} ». ` +
+      `Ils sont donc probablement mal rattachés, pas réellement dans ce bâtiment.${sameNameHint} ` +
       `Ils ont été exclus des sommes ci-dessous. Numéros de local à vérifier dans <b>BDD_Salles</b> ` +
-      `(colonne Site) : ${escapeHtml(examples)}${escapeHtml(more)}.`
+      `(colonne Bâtiment) : ${escapeHtml(examples)}${escapeHtml(more)}.`
     );
   }
 
@@ -451,10 +496,11 @@ function renderWarnings(bat, batSalles, batEtages, excludedSalles, excludedEtage
     const siteNom = siteById[bat.Site] ? siteById[bat.Site].Nom : '?';
     const details = excludedEtages.map(e => `« ${e.Etage || '?'} » (id_etage ${e.id_etage ?? e.id})`).join(', ');
     warnings.push(
-      `<b>${excludedEtages.length} ligne(s) d'étage</b> sont bien rattachées à ce bâtiment ` +
-      `(Bâtiment n°${escapeHtml(bat.Numero)}), mais leur champ « Site » indique un site différent de « ${escapeHtml(siteNom)} » : ` +
-      `${escapeHtml(details)}. Elles ont été exclues du tableau « Surfaces totales et par niveau » ci-dessous ` +
-      `pour éviter de compter un étage en trop. Vérifiez leur colonne Site dans <b>BDD_Etages</b>.`
+      `<b>${excludedEtages.length} ligne(s) d'étage</b> ont leur champ « Bâtiment » réglé sur celui affiché ici ` +
+      `(n°${escapeHtml(bat.Numero)}), mais leur champ « Site » indique un site différent de « ${escapeHtml(siteNom)} » : ` +
+      `${escapeHtml(details)}. Elles sont donc probablement mal rattachées.${sameNameHint} ` +
+      `Elles ont été exclues du tableau « Surfaces totales et par niveau » ci-dessous ` +
+      `pour éviter de compter un étage en trop. Vérifiez leur colonne Bâtiment dans <b>BDD_Etages</b>.`
     );
   }
 
@@ -622,7 +668,7 @@ function renderFunctional(bat, kpi, batSalles) {
   const totalCount = rows.reduce((a, [, g]) => a + g.count, 0);
   tfoot.innerHTML = `<tr><td>Total</td><td>${fmtNum(totalSurface, 2)}</td><td>${totalCount}</td></tr>`;
 
-  drawPieChart('funcChart', {
+  drawDonutChart('funcChart', {
     labels: rows.map(([label]) => label),
     data: rows.map(([, g]) => g.surface),
   });
@@ -678,17 +724,20 @@ function drawBarChart(canvasId, data) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: data.datasets.length > 1 } },
+      plugins: { legend: { display: data.datasets.length > 1 }, datalabels: { display: false } },
       scales: { y: { beginAtZero: true } },
     },
   });
 }
 
-function drawPieChart(canvasId, { labels, data }) {
+// Donut with % labels on each slice, mirroring the "Surface SUB en m² par
+// occupation fonctionnelle" chart from the reference PDF.
+function drawDonutChart(canvasId, { labels, data }) {
   destroyChart(canvasId);
   const ctx = document.getElementById(canvasId).getContext('2d');
+  const total = data.reduce((a, v) => a + v, 0);
   charts[canvasId] = new Chart(ctx, {
-    type: 'pie',
+    type: 'doughnut',
     data: {
       labels,
       datasets: [{ data, backgroundColor: labels.map((_, i) => palette(i)) }],
@@ -696,8 +745,17 @@ function drawPieChart(canvasId, { labels, data }) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10.5 } } } },
+      plugins: {
+        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10.5 } } },
+        datalabels: {
+          color: '#fff',
+          font: { size: 11, weight: 'bold' },
+          display: 'auto', // auto-hides labels that would overlap on small slices
+          formatter: (value) => total > 0 ? (value / total * 100).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %' : '',
+        },
+      },
     },
+    plugins: [window.ChartDataLabels],
   });
 }
 
@@ -716,11 +774,61 @@ els.refreshBtn.addEventListener('click', async () => {
   setStatus('Actualisé.');
 });
 els.printBtn.addEventListener('click', () => window.print());
+// The donut canvas keeps the pixel size it had on screen unless told to
+// resize — without this it can overflow the smaller print layout.
+window.addEventListener('beforeprint', () => { Object.values(charts).forEach(c => c.resize()); });
+
+// ---------------------------------------------------------------------------
+// Titre affiché à l'impression / dans l'onglet du navigateur.
+// Grist ne donne pas aux widgets custom accès au nom de la page/vue qui les
+// contient, donc on propose un titre éditable et persistant (grist.setOption)
+// à la place — par défaut "Tableau de bord Bâtiment".
+// ---------------------------------------------------------------------------
+function applyTitle(title) {
+  document.title = title || DEFAULT_TITLE;
+}
+els.titleBtn.addEventListener('click', async () => {
+  const current = document.title;
+  const next = window.prompt('Titre à afficher (onglet du navigateur / impression) :', current);
+  if (next === null) { return; }
+  const title = next.trim() || DEFAULT_TITLE;
+  applyTitle(title);
+  await grist.setOption('title', title);
+});
+
+// ---------------------------------------------------------------------------
+// Plein écran ("agrandir le widget")
+// ---------------------------------------------------------------------------
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+async function toggleFullscreen() {
+  try {
+    if (!isFullscreen()) {
+      const el = document.documentElement;
+      if (el.requestFullscreen) { await el.requestFullscreen(); }
+      else if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); }
+    } else {
+      if (document.exitFullscreen) { await document.exitFullscreen(); }
+      else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
+    }
+  } catch (e) {
+    setStatus("Plein écran indisponible dans ce contexte (bloqué par le navigateur ou l'iframe).");
+  }
+}
+function onFullscreenChange() {
+  els.expandBtn.textContent = isFullscreen() ? '⤡' : '⤢';
+  els.expandBtn.title = isFullscreen() ? 'Quitter le plein écran' : 'Agrandir le widget en plein écran';
+}
+els.expandBtn.addEventListener('click', toggleFullscreen);
+document.addEventListener('fullscreenchange', onFullscreenChange);
+document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 
 // ---------------------------------------------------------------------------
 // Grist init
 // ---------------------------------------------------------------------------
 grist.ready({ requiredAccess: 'full' });
+grist.onOptions((options) => { applyTitle(options && options.title); });
 loadAll().catch(err => setStatus('Erreur de chargement : ' + err.message));
 
 })();

@@ -3,9 +3,11 @@
 Widget Grist autonome (un seul fichier `index.html`, pas de build) qui reproduit,
 pour n'importe quel bâtiment du SI Patrimoine, la fiche de synthèse utilisée pour
 le bâtiment A du site route du Guesclin (`103_Bâtiment_A_13_11_20.pdf`) : mêmes
-intitulés, mêmes sections, dans le même ordre — plus des graphiques à l'écran
-(absents du PDF d'origine) qui disparaissent à l'impression pour que la fiche
-imprimée tienne sur 2 pages A4 (recto-verso), comme le document de référence.
+intitulés, mêmes sections, dans le même ordre, y compris le graphique en anneau
+« Surface SUB en m² par occupation fonctionnelle » (avec étiquettes en %) présent
+sur la page 2 du PDF. Un second graphique (surfaces par niveau) a été ajouté à
+l'écran en plus du PDF ; il disparaît à l'impression pour que la fiche imprimée
+tienne sur 2 pages A4 (recto-verso), comme le document de référence.
 
 ## Fonctionnement
 
@@ -45,7 +47,16 @@ voir ci-dessous).
 6. Bouton **⟳ Actualiser** : recharge les données du document (utile après une
    modification de la base pendant que le widget est ouvert).
 7. Bouton **🖶 Imprimer** : ouvre l'impression du navigateur avec une mise en page
-   compacte (menus, avertissements et graphiques masqués), calée sur 2 pages A4.
+   compacte (menus, avertissements et graphique des surfaces par niveau masqués),
+   calée sur 2 pages A4.
+8. Bouton **✎ Titre** : change le titre affiché dans l'onglet du navigateur et
+   repris par Chrome/Firefox comme nom de fichier suggéré et en-tête à
+   l'impression. Grist ne donne pas accès aux widgets custom au nom de la page/vue
+   qui les contient, ce bouton est donc le contournement : le titre choisi est
+   mémorisé avec le widget (`grist.setOption`), donc persistant.
+9. Icône **⤢** en haut à droite : agrandit le widget en plein écran (API
+   Fullscreen du navigateur) — pratique quand le panneau Grist est étroit.
+   Cliquer à nouveau ou appuyer sur Échap pour revenir à la taille normale.
 
 ## Structure de la page (stable d'une version à l'autre)
 
@@ -98,11 +109,22 @@ PDF à ±5 % dès qu'on ne garde que les lignes dont le `Site` correspond au sit
 bâtiment sélectionné. Sans ce filtre, les surfaces se retrouvent 3 à 11 fois plus
 élevées que le PDF.
 
+**Cause probable identifiée** : plusieurs bâtiments du document partagent le même
+nom d'`Appellation` (ex. deux bâtiments s'appellent « Bâtiment A », l'un route de
+Mende n°103, l'autre à Boutonnet n°601). Quand un champ `Bâtiment` est renseigné en
+choisissant un nom dans une liste qui propose les deux, il est facile de sélectionner
+le mauvais — la ligne se retrouve alors rattachée au bon *nom* mais au mauvais
+*bâtiment*. C'est ce qui explique pourquoi des centaines de salles peuvent avoir
+`Bâtiment = Bâtiment A (n°103)` alors qu'elles appartiennent en réalité à
+`Bâtiment A (n°601)` : leur `Site` (resté correct) ne correspond alors plus au
+`Site` du bâtiment n°103.
+
 Le widget filtre donc désormais **à la fois** `BDD_Salles` et `BDD_Etages` par
 `Bâtiment` **et** par `Site` (celui du bâtiment sélectionné), et affiche un
-avertissement listant des exemples de numéros de local / id_etage à vérifier
-pour chaque cas — pas seulement un décompte, pour que vous puissiez retrouver les
-lignes en cause dans Grist.
+avertissement qui : liste des exemples de numéros de local / id_etage à vérifier
+(pas seulement un décompte), et **nomme explicitement l'autre bâtiment homonyme**
+quand il existe, pour vous orienter directement vers la correction à faire dans
+`BDD_Salles` / `BDD_Etages` (colonne `Bâtiment`, pas `Site`).
 
 Si le formulaire Grist lui-même doit rester correct indépendamment du widget,
 alignez la colonne formule `Surface utile / étage en m²` de `BDD_Etages` sur ses
