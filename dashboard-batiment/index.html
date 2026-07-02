@@ -24,6 +24,10 @@
     background: #f4f6f8;
     font-size: 13px;
   }
+
+  /* Toolbar: intentionally NOT position:sticky — sticky headers have been observed
+     to leave content unrendered/invisible until hover in some Grist widget-panel
+     embeddings. Keep it static. */
   #toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -32,9 +36,6 @@
     padding: 10px 14px;
     background: #fff;
     border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 10;
   }
   .field { display: flex; flex-direction: column; gap: 3px; }
   .field label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
@@ -57,8 +58,30 @@
   button:hover { background: var(--accent-light); border-color: var(--accent); }
   #status { font-size: 11px; color: var(--text-muted); margin-left: auto; align-self: center; }
 
-  #content { padding: 14px; max-width: 1200px; margin: 0 auto; }
+  #content { padding: 14px; max-width: 1100px; margin: 0 auto; }
   #emptyState { padding: 60px 20px; text-align: center; color: var(--text-muted); }
+
+  /* --------------------------------------------------------------------
+     Warning banners. Deliberately high-contrast, generously sized, and
+     never truncated: no overflow:hidden / text-overflow / white-space:nowrap
+     / fixed height / opacity tricks — a past version of this widget used
+     styling that left the text unreadable until hovered.
+  -------------------------------------------------------------------- */
+  #warnings { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  #warnings .w {
+    display: block;
+    background: #fef3c7;
+    border: 1px solid #f0b429;
+    color: #7a4a00;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.5;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  #warnings .w b { font-weight: 700; }
 
   .card {
     background: #fff;
@@ -76,19 +99,18 @@
     border-bottom: 1px solid var(--border);
     padding-bottom: 6px;
   }
-
-  #headerCard { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
-  #headerCard .identity h1 { margin: 0 0 4px; font-size: 20px; }
-  #headerCard .identity .sub { color: var(--text-muted); }
-  #headerCard .infoGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 6px 18px;
-    flex: 1;
-    min-width: 260px;
+  .card .subhead {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: -4px 0 10px;
   }
-  #headerCard .infoGrid .item .k { color: var(--text-muted); font-size: 11px; }
-  #headerCard .infoGrid .item .v { font-weight: 600; }
+
+  table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.data th, table.data td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: right; }
+  table.data th:first-child, table.data td:first-child { text-align: left; }
+  table.data th:nth-child(2), table.data td:nth-child(2) { text-align: left; }
+  table.data thead th { color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  table.data tfoot td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; }
 
   .kpiGrid {
     display: grid;
@@ -101,36 +123,39 @@
     padding: 10px 12px;
     background: #fafbfc;
   }
-  .kpi .label { font-size: 11px; color: var(--text-muted); }
-  .kpi .value { font-size: 20px; font-weight: 700; margin-top: 2px; }
-  .kpi .target { font-size: 10.5px; margin-top: 3px; }
+  .kpi .label { font-size: 11px; color: var(--text-muted); line-height: 1.3; }
+  .kpi .value { font-size: 20px; font-weight: 700; margin-top: 4px; }
   .kpi.ok .value { color: var(--ok); }
   .kpi.warn .value { color: var(--warn); }
   .kpi.bad .value { color: var(--bad); }
 
+  .infoGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px 18px;
+  }
+  .infoGrid .item .k { color: var(--text-muted); font-size: 11px; }
+  .infoGrid .item .v { font-weight: 600; }
+
   .twoCol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 860px) { .twoCol { grid-template-columns: 1fr; } }
 
-  table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  table.data th, table.data td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: right; }
-  table.data th:first-child, table.data td:first-child { text-align: left; }
-  table.data thead th { color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
-  table.data tfoot td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; }
+  .chartWrap { position: relative; height: 220px; }
 
-  .chartWrap { position: relative; height: 260px; }
-  .chartWrap.tall { height: 320px; }
-
-  #warnings { margin-bottom: 14px; }
-  #warnings .w {
-    background: #fffbea; border: 1px solid #f6e05e; color: #7b5b00;
-    padding: 6px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 6px;
-  }
+  .page-break { break-before: page; }
 
   @media print {
-    #toolbar button, #toolbar .field { display: none; }
-    #status { display: none; }
-    body { background: #fff; }
-    .card { break-inside: avoid; border: none; box-shadow: none; }
+    @page { size: A4; margin: 12mm 10mm; }
+    #toolbar, #warnings, #status { display: none !important; }
+    .chartWrap { display: none !important; }
+    body { background: #fff; font-size: 9.5px; }
+    #content { max-width: none; padding: 0; }
+    .card { border: none; box-shadow: none; padding: 6px 0; margin-bottom: 6px; break-inside: avoid; }
+    .card h2 { font-size: 11px; padding-bottom: 3px; margin-bottom: 6px; }
+    .kpi { padding: 6px 8px; }
+    .kpi .value { font-size: 14px; }
+    table.data th, table.data td { padding: 2px 5px; }
+    .page-break { break-before: page; }
   }
 </style>
 </head>
@@ -156,59 +181,80 @@
 
     <div id="warnings"></div>
 
-    <div class="card" id="headerCard">
-      <div class="identity">
-        <h1 id="hNom">—</h1>
-        <div class="sub" id="hAppellation">—</div>
+    <!-- ============================= PAGE 1 ============================= -->
+    <div id="page1">
+
+      <div class="card" id="sec-batiment">
+        <h2>Bâtiment</h2>
+        <table class="data">
+          <thead><tr><th>Numéro</th><th>Appellation</th><th>Nom du bâtiment</th><th>Année de construction</th><th>Commentaires</th></tr></thead>
+          <tbody><tr id="rowBatiment"></tr></tbody>
+        </table>
       </div>
-      <div class="infoGrid" id="hInfoGrid"></div>
-    </div>
 
-    <div class="card">
-      <h2>Indicateurs clés</h2>
-      <div class="kpiGrid" id="kpiGrid"></div>
-    </div>
+      <div class="card" id="sec-kpi">
+        <div class="kpiGrid" id="kpiGrid"></div>
+      </div>
 
-    <div class="card">
-      <h2>Surfaces par niveau (m²)</h2>
-      <div class="twoCol">
-        <div>
-          <table class="data" id="floorTable">
-            <thead><tr><th>Niveau</th><th>SUN</th><th>SUB</th><th>SPC</th><th>SHON</th><th>SHOB</th></tr></thead>
-            <tbody></tbody>
-            <tfoot></tfoot>
-          </table>
+      <div class="card" id="sec-reglementaire">
+        <h2>Informations réglementaires</h2>
+        <table class="data">
+          <thead><tr><th>Type établissement principal</th><th>Type d'établissement secondaire (1)</th><th>Type d'établissement secondaire (2)</th><th>Type d'établissement secondaire (3)</th><th>Catégorie d'établissement</th></tr></thead>
+          <tbody><tr id="rowErp"></tr></tbody>
+        </table>
+        <table class="data" style="margin-top:10px">
+          <thead><tr><th>Date visite commission</th><th>Avis commission</th><th>Date du dernier avis commission</th><th>Capacité d'accueil</th></tr></thead>
+          <tbody><tr id="rowCommission"></tr></tbody>
+        </table>
+      </div>
+
+      <div class="card" id="sec-surfaces-totales">
+        <h2>Surfaces totales et par niveau</h2>
+        <div class="subhead" id="empriseAuSol"></div>
+        <div class="twoCol">
+          <div>
+            <table class="data" id="floorTable">
+              <thead><tr><th></th><th>SUN</th><th>SUB</th><th>SPC</th><th>SHON</th><th>SHOB</th></tr></thead>
+              <tbody></tbody>
+              <tfoot></tfoot>
+            </table>
+          </div>
+          <div class="chartWrap"><canvas id="floorChart"></canvas></div>
         </div>
-        <div class="chartWrap tall"><canvas id="floorChart"></canvas></div>
       </div>
+
     </div>
 
-    <div class="card">
-      <h2>Surfaces fonctionnelles (SUB)</h2>
-      <div class="twoCol">
-        <div>
-          <table class="data" id="funcTable">
-            <thead><tr><th>Type de surface fonctionnelle</th><th>Surface m² SUB</th><th>Nb locaux</th></tr></thead>
-            <tbody></tbody>
-            <tfoot></tfoot>
-          </table>
-        </div>
-        <div class="chartWrap"><canvas id="funcChart"></canvas></div>
-      </div>
-    </div>
+    <!-- ============================= PAGE 2 ============================= -->
+    <div id="page2" class="page-break">
 
-    <div class="card">
-      <h2>Répartition par catégorie de local</h2>
-      <div class="twoCol">
-        <div>
-          <table class="data" id="catTable">
-            <thead><tr><th>Catégorie de surface</th><th>Surface m²</th><th>Nb locaux</th></tr></thead>
-            <tbody></tbody>
-            <tfoot></tfoot>
-          </table>
+      <div class="card" id="sec-surfaces-fonctionnelles">
+        <h2>Surfaces fonctionnelles Bâtiment</h2>
+        <table class="data">
+          <thead><tr><th>Numéro</th><th>Appelation</th><th>Nom du bâtiment</th><th>SUN</th><th>SUB</th><th>SPC</th></tr></thead>
+          <tbody><tr id="rowSurfIdentity"></tr></tbody>
+        </table>
+        <div class="twoCol" style="margin-top:10px">
+          <div>
+            <table class="data" id="funcTable">
+              <thead><tr><th>Type de surface fonctionnelle</th><th>Surface m² SUB</th><th>Nbre de locaux</th></tr></thead>
+              <tbody></tbody>
+              <tfoot></tfoot>
+            </table>
+          </div>
+          <div class="chartWrap"><canvas id="funcChart"></canvas></div>
         </div>
-        <div class="chartWrap"><canvas id="catChart"></canvas></div>
       </div>
+
+      <div class="card" id="sec-repartition-bureau">
+        <h2>Répartition des surfaces de bureau et salles de cours</h2>
+        <table class="data" id="officeTable">
+          <thead><tr><th></th><th></th><th>Surface m² SUB</th><th>Nombre</th></tr></thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+
     </div>
 
   </div>
@@ -243,6 +289,13 @@ function sum(arr, fn) {
   return arr.reduce((acc, x) => acc + (fn(x) || 0), 0);
 }
 
+// Grist encodes List/RefList cell values either as a plain array of row ids,
+// or as ['L', id1, id2, ...]. Normalize to a plain array of ids either way.
+function toIdList(v) {
+  if (!Array.isArray(v)) { return []; }
+  return (v[0] === 'L') ? v.slice(1) : v;
+}
+
 async function fetchRecords(tableId) {
   const table = await grist.docApi.fetchTable(tableId);
   const { id, ...cols } = table;
@@ -257,8 +310,8 @@ async function fetchRecords(tableId) {
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
-let sites = [], batiments = [], etages = [], salles = [], typesLocaux = [], occupations = [];
-let typeById = {}, occById = {}, siteById = {};
+let sites = [], batiments = [], etages = [], salles = [], typesLocaux = [], occupations = [], typesErp = [];
+let typeById = {}, occById = {}, siteById = {}, typeErpById = {};
 let charts = {};
 
 const els = {
@@ -279,19 +332,21 @@ function setStatus(msg) { els.status.textContent = msg || ''; }
 // ---------------------------------------------------------------------------
 async function loadAll() {
   setStatus('Chargement des données…');
-  const [s, b, e, r, t, o] = await Promise.all([
+  const [s, b, e, r, t, o, erp] = await Promise.all([
     fetchRecords('BDD_Sites'),
     fetchRecords('BDD_Batiments'),
     fetchRecords('BDD_Etages'),
     fetchRecords('BDD_Salles'),
     fetchRecords('Table_locaux_types_et_correspondance'),
     fetchRecords('Table_d_occupation_fonctionnelle'),
+    fetchRecords('Table_Type_d_ERP'),
   ]);
-  sites = s; batiments = b; etages = e; salles = r; typesLocaux = t; occupations = o;
+  sites = s; batiments = b; etages = e; salles = r; typesLocaux = t; occupations = o; typesErp = erp;
 
   typeById = Object.fromEntries(typesLocaux.map(x => [x.id, x]));
   occById = Object.fromEntries(occupations.map(x => [x.id, x]));
   siteById = Object.fromEntries(sites.map(x => [x.id, x]));
+  typeErpById = Object.fromEntries(typesErp.map(x => [x.id, x]));
 
   setStatus(`${sites.length} sites, ${batiments.length} bâtiments chargés`);
   populateSiteSelect();
@@ -348,72 +403,84 @@ function renderDashboard() {
   els.dashboard.style.display = '';
 
   const bat = batiments.find(b => b.id === batId);
-  const batEtages = etages.filter(e => e.Batiment === batId);
+  const allBatEtages = etages.filter(e => e.Batiment === batId);
   const allBatSalles = salles.filter(s => s.Batiment === batId);
-  // A room's own Site must agree with the building's Site: some rooms in this document
+  // A row's own Site must agree with the building's Site: some rows in this document
   // are linked to the right Bâtiment but carry a stale/wrong Site value, which silently
-  // triples surface totals if left unfiltered (same root cause as the Etage anomaly).
-  const batSalles = allBatSalles.filter(s => !bat.Site || !s.Site || s.Site === bat.Site);
-  const mismatchedSalles = allBatSalles.length - batSalles.length;
+  // multiplies surface totals if left unfiltered (see README for how this was diagnosed).
+  // This applies both to BDD_Salles (used directly below) and to BDD_Etages — its
+  // Surface_SUN/SUB/SP/SHOB formulas already filter by Site internally, so a "phantom"
+  // étage row with the wrong Site produces its own non-zero (wrong-building) totals that
+  // would otherwise get added on top of the real floor when summed for this bâtiment.
+  const excludedSalles = allBatSalles.filter(s => bat.Site && s.Site && s.Site !== bat.Site);
+  const batSalles = allBatSalles.filter(s => !excludedSalles.includes(s));
+  const excludedEtages = allBatEtages.filter(e => bat.Site && e.Site && e.Site !== bat.Site);
+  const batEtages = allBatEtages.filter(e => !excludedEtages.includes(e));
 
-  renderWarnings(bat, batSalles, batEtages, mismatchedSalles);
-  renderHeader(bat);
+  renderWarnings(bat, batSalles, batEtages, excludedSalles, excludedEtages);
+  renderBatiment(bat);
+  const kpi = renderKpis(bat, batEtages, batSalles);
+  renderReglementaire(bat);
   renderFloors(batEtages);
-  const kpiInputs = renderKpis(bat, batEtages, batSalles);
-  renderFunctional(batSalles);
-  renderCategories(batSalles);
+  renderFunctional(bat, kpi, batSalles);
+  renderOfficeBreakdown(batSalles);
 }
 
-function renderWarnings(bat, batSalles, batEtages, mismatchedSalles) {
+function renderWarnings(bat, batSalles, batEtages, excludedSalles, excludedEtages) {
   const warnings = [];
   const noType = batSalles.filter(s => !s.Type_d_usage).length;
   const noOcc = batSalles.filter(s => !s.Occupation).length;
-  if (noType > 0) { warnings.push(`${noType} local(-aux) sans "Type d'usage" renseigné (exclu des sommes SUN/SUB/SPC/SHOB).`); }
-  if (noOcc > 0) { warnings.push(`${noOcc} local(-aux) sans "Occupation" renseignée (regroupé sous "Non classé").`); }
+  if (noType > 0) { warnings.push(`${noType} local(-aux) sans « Type d'usage » renseigné (exclu des sommes SUN/SUB/SPC/SHOB).`); }
+  if (noOcc > 0) { warnings.push(`${noOcc} local(-aux) sans « Occupation » renseignée (regroupé sous « Non classé »).`); }
   if (bat && bat.Site && !siteById[bat.Site]) { warnings.push(`Le site lié à ce bâtiment est introuvable.`); }
-  if (mismatchedSalles > 0) {
+
+  if (excludedSalles.length > 0) {
+    const siteNom = siteById[bat.Site] ? siteById[bat.Site].Nom : '?';
+    const examples = excludedSalles.slice(0, 8).map(s => s.Numero || ('#' + s.id)).join(', ');
+    const more = excludedSalles.length > 8 ? `, et ${excludedSalles.length - 8} autre(s)` : '';
     warnings.push(
-      `${mismatchedSalles} local(-aux) rattaché(s) à ce bâtiment ont un "Site" différent du site du bâtiment ` +
-      `— ils ont été exclus des sommes ci-dessous pour éviter de gonfler les surfaces (vérifiez leur champ Site dans BDD_Salles).`
+      `<b>${excludedSalles.length} local(-aux)</b> sont bien rattachés à ce bâtiment ` +
+      `(Bâtiment n°${escapeHtml(bat.Numero)} — ils appartiennent à ce bâtiment, pas à un autre), ` +
+      `mais leur champ « Site » indique un site différent de « ${escapeHtml(siteNom)} ». ` +
+      `Ils ont été exclus des sommes ci-dessous. Numéros de local à vérifier dans <b>BDD_Salles</b> ` +
+      `(colonne Site) : ${escapeHtml(examples)}${escapeHtml(more)}.`
     );
   }
 
-  const floorLabelCounts = {};
+  if (excludedEtages.length > 0) {
+    const siteNom = siteById[bat.Site] ? siteById[bat.Site].Nom : '?';
+    const details = excludedEtages.map(e => `« ${e.Etage || '?'} » (id_etage ${e.id_etage ?? e.id})`).join(', ');
+    warnings.push(
+      `<b>${excludedEtages.length} ligne(s) d'étage</b> sont bien rattachées à ce bâtiment ` +
+      `(Bâtiment n°${escapeHtml(bat.Numero)}), mais leur champ « Site » indique un site différent de « ${escapeHtml(siteNom)} » : ` +
+      `${escapeHtml(details)}. Elles ont été exclues du tableau « Surfaces totales et par niveau » ci-dessous ` +
+      `pour éviter de compter un étage en trop. Vérifiez leur colonne Site dans <b>BDD_Etages</b>.`
+    );
+  }
+
+  const floorGroups = {};
   for (const e of batEtages) {
     const label = e.Etage || '(sans nom)';
-    floorLabelCounts[label] = (floorLabelCounts[label] || 0) + 1;
+    (floorGroups[label] = floorGroups[label] || []).push(e.id_etage ?? e.id);
   }
-  const duplicated = Object.entries(floorLabelCounts).filter(([, n]) => n > 1).map(([label]) => label);
+  const duplicated = Object.entries(floorGroups).filter(([, ids]) => ids.length > 1);
   if (duplicated.length > 0) {
+    const detail = duplicated.map(([label, ids]) => `« ${label} » (id_etage ${ids.join(' et ')})`).join(', ');
     warnings.push(
-      `Ce bâtiment a plusieurs lignes "${duplicated.join('", "')}" dans BDD_Etages : ` +
-      `vérifiez qu'aucun étage d'un autre bâtiment n'a été rattaché par erreur à celui-ci ` +
-      `(le total des surfaces ci-dessous les additionne toutes).`
+      `Ce bâtiment a <b>plusieurs lignes portant le même nom d'étage, sur le même site</b>, dans BDD_Etages : ${escapeHtml(detail)}. ` +
+      `Un bâtiment avec plusieurs étages différents (RDC, R+1, R+2…) est normal et ne déclenche pas cet avertissement ; ` +
+      `celui-ci n'apparaît que lorsque le <i>même</i> nom d'étage est répété deux fois pour ce bâtiment sur le même site — ` +
+      `vérifiez laquelle des deux lignes est la bonne (l'autre est peut-être un doublon à supprimer, ou appartient à un autre bâtiment).`
     );
   }
 
-  els.warnings.innerHTML = warnings.map(w => `<div class="w">⚠️ ${escapeHtml(w)}</div>`).join('');
+  els.warnings.innerHTML = warnings.map(w => `<div class="w">⚠️ ${w}</div>`).join('');
 }
 
-function renderHeader(bat) {
-  document.getElementById('hNom').textContent = bat.Nom || ('Bâtiment #' + bat.id);
-  document.getElementById('hAppellation').textContent =
-    [bat.Numero, bat.Appellation].filter(Boolean).join(' — ');
-
-  const site = siteById[bat.Site];
-  const items = [
-    ['Site', site ? site.Nom : '—'],
-    ['Année de construction', bat.AnneeConstruction || '—'],
-    ['Catégorie ERP', bat.Categorie_d_ERP || '—'],
-    ['Emprise au sol (m²)', fmtNum(bat.Surface_emprise_au_sol_m2_)],
-    ['Date visite commission', formatDate(bat.Date_de_visite_de_commission)],
-    ['Avis commission', bat.AvisCommission || '—'],
-    ['Date dernier avis', formatDate(bat.Date_du_dernier_avis)],
-    ['Commentaire', bat.Commentaire || '—'],
-  ];
-  document.getElementById('hInfoGrid').innerHTML = items.map(([k, v]) =>
-    `<div class="item"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(v)}</div></div>`
-  ).join('');
+function renderBatiment(bat) {
+  document.getElementById('rowBatiment').innerHTML = [
+    bat.Numero, bat.Appellation, bat.Nom, bat.AnneeConstruction, bat.Commentaire,
+  ].map(v => `<td>${escapeHtml(v ?? '—')}</td>`).join('');
 }
 
 function formatDate(v) {
@@ -421,6 +488,21 @@ function formatDate(v) {
   const d = new Date(v * 1000);
   if (Number.isNaN(d.getTime())) { return '—'; }
   return d.toLocaleDateString('fr-FR');
+}
+
+function renderReglementaire(bat) {
+  const erpIds = toIdList(bat.Type_d_ERP2);
+  const codes = erpIds.map(id => (typeErpById[id] ? typeErpById[id].Code : null));
+  document.getElementById('rowErp').innerHTML = [
+    codes[0], codes[1], codes[2], codes[3], bat.Categorie_d_ERP,
+  ].map(v => `<td>${escapeHtml(v ?? '—')}</td>`).join('');
+
+  document.getElementById('rowCommission').innerHTML = [
+    formatDate(bat.Date_de_visite_de_commission),
+    bat.AvisCommission || '—',
+    formatDate(bat.Date_du_dernier_avis),
+    fmtNum(bat.Effectif),
+  ].map(v => `<td>${v}</td>`).join('');
 }
 
 function renderFloors(batEtages) {
@@ -453,7 +535,7 @@ function renderFloors(batEtages) {
   ).join('');
 
   const totals = cols.map(([, key]) => sum(rows, r => r[key]));
-  tfoot.innerHTML = `<tr><td>Total</td>${totals.map(t => `<td>${fmtNum(t)}</td>`).join('')}</tr>`;
+  tfoot.innerHTML = `<tr><td>Total bâtiment en m²</td>${totals.map(t => `<td>${fmtNum(t)}</td>`).join('')}</tr>`;
 
   drawBarChart('floorChart', {
     labels: rows.map(rowLabel),
@@ -464,7 +546,7 @@ function renderFloors(batEtages) {
     })),
   });
 
-  return { totals, cols };
+  return { SUN: totals[0], SUB: totals[1], SPC: totals[2], SHON: totals[3], SHOB: totals[4] };
 }
 
 function renderKpis(bat, batEtages, batSalles) {
@@ -481,21 +563,24 @@ function renderKpis(bat, batEtages, batSalles) {
   const ratioSubShon = SHON > 0 ? (SUB / SHON) * 100 : null;
 
   const kpis = [
-    { label: 'Nb postes de travail', value: fmtNum(nbPostes), cls: '' },
-    { label: 'Capacité d\'accueil', value: fmtNum(capacite), cls: '' },
+    { label: 'Nombre de postes de travail', value: fmtNum(nbPostes), cls: '' },
+    { label: "Effectif personnel (administratif, technique, enseignants,…)", value: '—', cls: '' },
     {
-      label: 'SUN / poste (cible ≥ 12 m²)', value: ratioSunPoste === null ? '—' : fmtNum(ratioSunPoste, 1) + ' m²',
+      label: "Ratio d'occupation SUN/Poste de travail (cible 12m²)",
+      value: ratioSunPoste === null ? '—' : fmtNum(ratioSunPoste, 1),
       cls: ratioSunPoste === null ? '' : (ratioSunPoste <= 15 ? 'ok' : ratioSunPoste <= 20 ? 'warn' : 'bad'),
     },
     {
-      label: 'SUN / SUB (cible > 67 %)', value: fmtPct(ratioSunSub),
+      label: "Ratio d'optimisation de la capacité d'accueil SUN/SUB (cible > 67%)",
+      value: fmtPct(ratioSunSub),
       cls: ratioSunSub === null ? '' : (ratioSunSub >= 67 ? 'ok' : ratioSunSub >= 55 ? 'warn' : 'bad'),
     },
     {
-      label: 'SUB / SPC (cible > 85 %)', value: fmtPct(ratioSubSpc),
+      label: "Ratio d'optimisation de la conception (SPC) SUB/SPC (cible > 85%)",
+      value: fmtPct(ratioSubSpc),
       cls: ratioSubSpc === null ? '' : (ratioSubSpc >= 85 ? 'ok' : ratioSubSpc >= 70 ? 'warn' : 'bad'),
     },
-    { label: 'SUB / SHON', value: fmtPct(ratioSubShon), cls: '' },
+    { label: "Ratio d'optimisation de la conception (SHON) SUB/SHON", value: fmtPct(ratioSubShon), cls: '' },
   ];
 
   document.getElementById('kpiGrid').innerHTML = kpis.map(k =>
@@ -505,10 +590,17 @@ function renderKpis(bat, batEtages, batSalles) {
      </div>`
   ).join('');
 
+  document.getElementById('empriseAuSol').textContent =
+    `Emprise au sol : ${fmtNum(bat.Surface_emprise_au_sol_m2_)} m²`;
+
   return { SUN, SUB, SPC, SHON, nbPostes, capacite };
 }
 
-function renderFunctional(batSalles) {
+function renderFunctional(bat, kpi, batSalles) {
+  document.getElementById('rowSurfIdentity').innerHTML = [
+    bat.Numero, bat.Appellation, bat.Nom, fmtNum(kpi.SUN), fmtNum(kpi.SUB), fmtNum(kpi.SPC),
+  ].map(v => `<td>${escapeHtml(String(v ?? '—'))}</td>`).join('');
+
   const groups = {};
   for (const s of batSalles) {
     const type = s.Type_d_usage ? typeById[s.Type_d_usage] : null;
@@ -524,11 +616,11 @@ function renderFunctional(batSalles) {
   const tbody = document.querySelector('#funcTable tbody');
   const tfoot = document.querySelector('#funcTable tfoot');
   tbody.innerHTML = rows.map(([label, g]) =>
-    `<tr><td>${escapeHtml(label)}</td><td>${fmtNum(g.surface, 1)}</td><td>${g.count}</td></tr>`
+    `<tr><td>${escapeHtml(label)}</td><td>${fmtNum(g.surface, 2)}</td><td>${g.count}</td></tr>`
   ).join('');
   const totalSurface = rows.reduce((a, [, g]) => a + g.surface, 0);
   const totalCount = rows.reduce((a, [, g]) => a + g.count, 0);
-  tfoot.innerHTML = `<tr><td>Total</td><td>${fmtNum(totalSurface, 1)}</td><td>${totalCount}</td></tr>`;
+  tfoot.innerHTML = `<tr><td>Total</td><td>${fmtNum(totalSurface, 2)}</td><td>${totalCount}</td></tr>`;
 
   drawPieChart('funcChart', {
     labels: rows.map(([label]) => label),
@@ -536,30 +628,32 @@ function renderFunctional(batSalles) {
   });
 }
 
-function renderCategories(batSalles) {
+// "Répartition des surfaces de bureau et salles de cours" — cross-tab of room type
+// (Bureau / Salle de cours) × Occupation, restricted to SUB-counted rooms, mirroring
+// the same table in the reference PDF.
+function renderOfficeBreakdown(batSalles) {
+  const LABELS = { 'Bureau': 'Surface de bureau', 'Salle de cours': 'Salle de cours (salle destinée à des personnels tiers à l\'Administration)' };
   const groups = {};
   for (const s of batSalles) {
     const type = s.Type_d_usage ? typeById[s.Type_d_usage] : null;
-    const label = type && type.CategorieSurface ? type.CategorieSurface : 'Non classé';
-    if (!groups[label]) { groups[label] = { surface: 0, count: 0 }; }
-    groups[label].surface += s.Surface_utile_m2_ || 0;
-    groups[label].count += 1;
+    if (!type || !type.SUB || !LABELS[type.Libelle]) { continue; }
+    const occ = s.Occupation ? occById[s.Occupation] : null;
+    const occLabel = occ ? occ.Libelle : 'Non classé';
+    const key = type.Libelle + '||' + occLabel;
+    if (!groups[key]) { groups[key] = { typeLabel: type.Libelle, occLabel, surface: 0, count: 0 }; }
+    groups[key].surface += s.Surface_utile_m2_ || 0;
+    groups[key].count += 1;
   }
-  const rows = Object.entries(groups).sort((a, b) => b[1].surface - a[1].surface);
+  const rows = Object.values(groups).sort((a, b) => b.surface - a.surface);
 
-  const tbody = document.querySelector('#catTable tbody');
-  const tfoot = document.querySelector('#catTable tfoot');
-  tbody.innerHTML = rows.map(([label, g]) =>
-    `<tr><td>${escapeHtml(label)}</td><td>${fmtNum(g.surface, 1)}</td><td>${g.count}</td></tr>`
+  const tbody = document.querySelector('#officeTable tbody');
+  const tfoot = document.querySelector('#officeTable tfoot');
+  tbody.innerHTML = rows.map(g =>
+    `<tr><td>${escapeHtml(LABELS[g.typeLabel])}</td><td>${escapeHtml(g.occLabel)}</td><td>${fmtNum(g.surface, 2)}</td><td>${g.count}</td></tr>`
   ).join('');
-  const totalSurface = rows.reduce((a, [, g]) => a + g.surface, 0);
-  const totalCount = rows.reduce((a, [, g]) => a + g.count, 0);
-  tfoot.innerHTML = `<tr><td>Total</td><td>${fmtNum(totalSurface, 1)}</td><td>${totalCount}</td></tr>`;
-
-  drawBarChart('catChart', {
-    labels: rows.map(([label]) => label),
-    datasets: [{ label: 'Surface (m²)', data: rows.map(([, g]) => g.surface), backgroundColor: palette(0) }],
-  }, true);
+  const totalSurface = rows.reduce((a, g) => a + g.surface, 0);
+  const totalCount = rows.reduce((a, g) => a + g.count, 0);
+  tfoot.innerHTML = `<tr><td colspan="2">Total</td><td>${fmtNum(totalSurface, 2)}</td><td>${totalCount}</td></tr>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -575,7 +669,7 @@ function destroyChart(id) {
   if (charts[id]) { charts[id].destroy(); delete charts[id]; }
 }
 
-function drawBarChart(canvasId, data, horizontal) {
+function drawBarChart(canvasId, data) {
   destroyChart(canvasId);
   const ctx = document.getElementById(canvasId).getContext('2d');
   charts[canvasId] = new Chart(ctx, {
@@ -584,9 +678,8 @@ function drawBarChart(canvasId, data, horizontal) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      indexAxis: horizontal ? 'y' : 'x',
       plugins: { legend: { display: data.datasets.length > 1 } },
-      scales: { x: { stacked: false }, y: { beginAtZero: true } },
+      scales: { y: { beginAtZero: true } },
     },
   });
 }
