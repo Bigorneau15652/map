@@ -25,6 +25,35 @@ fix that resolved it was:
   are frequently much narrower than a full page. A layout that looks fine at
   1280px can still hide content at panel widths users actually use.
 
+## Form controls (select/button/input) need an explicit `color`, not just `background`
+
+A widget's toolbar `<select>` and `<button>` elements had an explicit white
+`background` but no explicit `color`. In a browser/OS running in dark mode,
+this rendered as invisible white-on-white text — the background stayed
+white (author-specified) while the text used the browser's dark-mode UA
+default (light), because `color` was left unspecified. Regular elements
+(divs, headings) aren't affected the same way since author-specified
+background+color together always win over UA dark-mode styling — it's
+specifically form controls where an unstyled sub-part can pick up the OS
+theme's default independently. Two things fix this, do both:
+- Add `color-scheme: light;` on `:root` (or `html`) to opt the whole page
+  out of UA dark-mode form-control styling.
+- Still set an explicit `color` on every `select`/`button`/`input` alongside
+  its `background`, never one without the other.
+
+Test by emulating a dark color scheme (Playwright: `newPage({ colorScheme:
+'dark' })`) before shipping — this bug is invisible when testing in a
+normally-light dev browser/tool.
+
+## Don't build features the host already provides
+
+Before adding UI chrome like a fullscreen/expand button, check whether Grist
+itself already exposes it — Grist's own widget panel header has a native
+expand icon. A widget-drawn equivalent is redundant, and worse, may not even
+work: the Fullscreen API can be blocked inside Grist's iframe embedding,
+producing a button that visibly fails. Prefer leaving host-chrome
+responsibilities (fullscreen, drag-resize, etc.) to the host.
+
 ## Data-quality banners must be actionable, not just a count
 
 When a widget flags a data-quality issue (e.g. "N rows excluded"), always:

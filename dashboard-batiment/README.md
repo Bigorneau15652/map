@@ -48,15 +48,18 @@ voir ci-dessous).
    modification de la base pendant que le widget est ouvert).
 7. Bouton **🖶 Imprimer** : ouvre l'impression du navigateur avec une mise en page
    compacte (menus, avertissements et graphique des surfaces par niveau masqués),
-   calée sur 2 pages A4.
+   en **format A4 paysage**, calée sur 2 pages.
 8. Bouton **✎ Titre** : change le titre affiché dans l'onglet du navigateur et
    repris par Chrome/Firefox comme nom de fichier suggéré et en-tête à
    l'impression. Grist ne donne pas accès aux widgets custom au nom de la page/vue
    qui les contient, ce bouton est donc le contournement : le titre choisi est
    mémorisé avec le widget (`grist.setOption`), donc persistant.
-9. Icône **⤢** en haut à droite : agrandit le widget en plein écran (API
-   Fullscreen du navigateur) — pratique quand le panneau Grist est étroit.
-   Cliquer à nouveau ou appuyer sur Échap pour revenir à la taille normale.
+
+Le widget n'a pas de bouton plein écran : Grist en fournit déjà un nativement
+dans l'en-tête de chaque panneau de widget (icône en haut à droite du panneau).
+Une première tentative d'ajouter un bouton équivalent dans le widget a été
+retirée : redondante avec celle de Grist, et l'API Fullscreen du navigateur est
+de toute façon bloquée à l'intérieur de l'iframe dans ce contexte.
 
 ## Structure de la page (stable d'une version à l'autre)
 
@@ -125,6 +128,13 @@ avertissement qui : liste des exemples de numéros de local / id_etage à vérif
 (pas seulement un décompte), et **nomme explicitement l'autre bâtiment homonyme**
 quand il existe, pour vous orienter directement vers la correction à faire dans
 `BDD_Salles` / `BDD_Etages` (colonne `Bâtiment`, pas `Site`).
+
+**Cet avertissement restera affiché tant que les lignes en cause n'auront pas été
+recorrigées dans Grist** (leur colonne `Bâtiment` réassignée au bon bâtiment) — ce
+n'est pas un bug du widget qui persiste, c'est un rappel fidèle d'un problème de
+données encore présent. Signe que le filtre fonctionne : les totaux affichés dans
+les tableaux en dessous du bandeau, eux, sont corrects dès à présent (les lignes
+fautives sont déjà exclues des sommes).
 
 Si le formulaire Grist lui-même doit rester correct indépendamment du widget,
 alignez la colonne formule `Surface utile / étage en m²` de `BDD_Etages` sur ses
