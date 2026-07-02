@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tableau de bord Bâtiment</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --accent: #2b6cb0;
+    --accent-light: #ebf4ff;
+    --ok: #2f855a;
+    --warn: #c05621;
+    --bad: #c53030;
+    --border: #dde3ea;
+    --text-muted: #6b7280;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1a202c;
+    background: #f4f6f8;
+    font-size: 13px;
+  }
+  #toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+    padding: 10px 14px;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+  select {
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 13px;
+    min-width: 220px;
+    background: #fff;
+  }
+  button {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  button:hover { background: var(--accent-light); border-color: var(--accent); }
+  #status { font-size: 11px; color: var(--text-muted); margin-left: auto; align-self: center; }
+
+  #content { padding: 14px; max-width: 1200px; margin: 0 auto; }
+  #emptyState { padding: 60px 20px; text-align: center; color: var(--text-muted); }
+
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--accent);
+    margin: 0 0 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+
+  #headerCard { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  #headerCard .identity h1 { margin: 0 0 4px; font-size: 20px; }
+  #headerCard .identity .sub { color: var(--text-muted); }
+  #headerCard .infoGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 6px 18px;
+    flex: 1;
+    min-width: 260px;
+  }
+  #headerCard .infoGrid .item .k { color: var(--text-muted); font-size: 11px; }
+  #headerCard .infoGrid .item .v { font-weight: 600; }
+
+  .kpiGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .kpi {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fafbfc;
+  }
+  .kpi .label { font-size: 11px; color: var(--text-muted); }
+  .kpi .value { font-size: 20px; font-weight: 700; margin-top: 2px; }
+  .kpi .target { font-size: 10.5px; margin-top: 3px; }
+  .kpi.ok .value { color: var(--ok); }
+  .kpi.warn .value { color: var(--warn); }
+  .kpi.bad .value { color: var(--bad); }
+
+  .twoCol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 860px) { .twoCol { grid-template-columns: 1fr; } }
+
+  table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.data th, table.data td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: right; }
+  table.data th:first-child, table.data td:first-child { text-align: left; }
+  table.data thead th { color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  table.data tfoot td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; }
+
+  .chartWrap { position: relative; height: 260px; }
+  .chartWrap.tall { height: 320px; }
+
+  #warnings { margin-bottom: 14px; }
+  #warnings .w {
+    background: #fffbea; border: 1px solid #f6e05e; color: #7b5b00;
+    padding: 6px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 6px;
+  }
+
+  @media print {
+    #toolbar button, #toolbar .field { display: none; }
+    #status { display: none; }
+    body { background: #fff; }
+    .card { break-inside: avoid; border: none; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <div class="field">
+    <label for="siteSelect">Site</label>
+    <select id="siteSelect"><option value="">— choisir —</option></select>
+  </div>
+  <div class="field">
+    <label for="batSelect">Bâtiment</label>
+    <select id="batSelect"><option value="">— choisir —</option></select>
+  </div>
+  <button id="refreshBtn" title="Recharger les données du document">⟳ Actualiser</button>
+  <button id="printBtn" title="Imprimer / exporter en PDF">🖶 Imprimer</button>
+  <div id="status"></div>
+</div>
+
+<div id="content">
+  <div id="emptyState">Sélectionnez un site, puis un bâtiment, pour afficher le tableau de bord.</div>
+  <div id="dashboard" style="display:none">
+
+    <div id="warnings"></div>
+
+    <div class="card" id="headerCard">
+      <div class="identity">
+        <h1 id="hNom">—</h1>
+        <div class="sub" id="hAppellation">—</div>
+      </div>
+      <div class="infoGrid" id="hInfoGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>Indicateurs clés</h2>
+      <div class="kpiGrid" id="kpiGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>Surfaces par niveau (m²)</h2>
+      <div class="twoCol">
+        <div>
+          <table class="data" id="floorTable">
+            <thead><tr><th>Niveau</th><th>SUN</th><th>SUB</th><th>SPC</th><th>SHON</th><th>SHOB</th></tr></thead>
+            <tbody></tbody>
+            <tfoot></tfoot>
+          </table>
+        </div>
+        <div class="chartWrap tall"><canvas id="floorChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Surfaces fonctionnelles (SUB)</h2>
+      <div class="twoCol">
+        <div>
+          <table class="data" id="funcTable">
+            <thead><tr><th>Type de surface fonctionnelle</th><th>Surface m² SUB</th><th>Nb locaux</th></tr></thead>
+            <tbody></tbody>
+            <tfoot></tfoot>
+          </table>
+        </div>
+        <div class="chartWrap"><canvas id="funcChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Répartition par catégorie de local</h2>
+      <div class="twoCol">
+        <div>
+          <table class="data" id="catTable">
+            <thead><tr><th>Catégorie de surface</th><th>Surface m²</th><th>Nb locaux</th></tr></thead>
+            <tbody></tbody>
+            <tfoot></tfoot>
+          </table>
+        </div>
+        <div class="chartWrap"><canvas id="catChart"></canvas></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+
+// ---------------------------------------------------------------------------
+// Constants / helpers
+// ---------------------------------------------------------------------------
+const FLOOR_ORDER = [
+  'Sous-sol', 'Rdc Bas', 'RDC', 'Rdc Haut', 'R+1', 'R+1H', 'R+2', 'R+3', 'R+4', 'R+5', 'TT'
+];
+
+function floorSortKey(label) {
+  const idx = FLOOR_ORDER.indexOf(label);
+  return idx === -1 ? [1, label || ''] : [0, idx];
+}
+
+function fmtNum(n, digits) {
+  if (n === null || n === undefined || Number.isNaN(n)) { return '—'; }
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: digits ?? 0, maximumFractionDigits: digits ?? 0 });
+}
+
+function fmtPct(n) {
+  if (n === null || n === undefined || Number.isNaN(n) || !Number.isFinite(n)) { return '—'; }
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %';
+}
+
+function sum(arr, fn) {
+  return arr.reduce((acc, x) => acc + (fn(x) || 0), 0);
+}
+
+async function fetchRecords(tableId) {
+  const table = await grist.docApi.fetchTable(tableId);
+  const { id, ...cols } = table;
+  const colNames = Object.keys(cols);
+  return id.map((rowId, i) => {
+    const rec = { id: rowId };
+    for (const c of colNames) { rec[c] = cols[c][i]; }
+    return rec;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let sites = [], batiments = [], etages = [], salles = [], typesLocaux = [], occupations = [];
+let typeById = {}, occById = {}, siteById = {};
+let charts = {};
+
+const els = {
+  siteSelect: document.getElementById('siteSelect'),
+  batSelect: document.getElementById('batSelect'),
+  refreshBtn: document.getElementById('refreshBtn'),
+  printBtn: document.getElementById('printBtn'),
+  status: document.getElementById('status'),
+  emptyState: document.getElementById('emptyState'),
+  dashboard: document.getElementById('dashboard'),
+  warnings: document.getElementById('warnings'),
+};
+
+function setStatus(msg) { els.status.textContent = msg || ''; }
+
+// ---------------------------------------------------------------------------
+// Data loading
+// ---------------------------------------------------------------------------
+async function loadAll() {
+  setStatus('Chargement des données…');
+  const [s, b, e, r, t, o] = await Promise.all([
+    fetchRecords('BDD_Sites'),
+    fetchRecords('BDD_Batiments'),
+    fetchRecords('BDD_Etages'),
+    fetchRecords('BDD_Salles'),
+    fetchRecords('Table_locaux_types_et_correspondance'),
+    fetchRecords('Table_d_occupation_fonctionnelle'),
+  ]);
+  sites = s; batiments = b; etages = e; salles = r; typesLocaux = t; occupations = o;
+
+  typeById = Object.fromEntries(typesLocaux.map(x => [x.id, x]));
+  occById = Object.fromEntries(occupations.map(x => [x.id, x]));
+  siteById = Object.fromEntries(sites.map(x => [x.id, x]));
+
+  setStatus(`${sites.length} sites, ${batiments.length} bâtiments chargés`);
+  populateSiteSelect();
+}
+
+function populateSiteSelect() {
+  const currentValue = els.siteSelect.value;
+  const sorted = [...sites].sort((a, b) => (a.Nom || '').localeCompare(b.Nom || '', 'fr'));
+  els.siteSelect.innerHTML = '<option value="">— choisir —</option>' +
+    sorted.map(s => `<option value="${s.id}">${escapeHtml(s.Nom || ('Site #' + s.id))}</option>`).join('');
+  if (currentValue && sites.some(s => String(s.id) === currentValue)) {
+    els.siteSelect.value = currentValue;
+    populateBatSelect();
+  }
+}
+
+function populateBatSelect() {
+  const siteId = Number(els.siteSelect.value) || null;
+  const currentValue = els.batSelect.value;
+  const filtered = batiments.filter(b => !siteId || b.Site === siteId);
+  const sorted = [...filtered].sort((a, b) => (a.Numero || 0) - (b.Numero || 0));
+  els.batSelect.innerHTML = '<option value="">— choisir —</option>' +
+    sorted.map(b => `<option value="${b.id}">${escapeHtml(formatBatLabel(b))}</option>`).join('');
+  if (currentValue && filtered.some(b => String(b.id) === currentValue)) {
+    els.batSelect.value = currentValue;
+  }
+}
+
+function formatBatLabel(b) {
+  const parts = [];
+  if (b.Numero) { parts.push(b.Numero); }
+  if (b.Appellation) { parts.push(b.Appellation); }
+  if (b.Nom) { parts.push('— ' + b.Nom); }
+  return parts.join(' ') || ('Bâtiment #' + b.id);
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+function renderDashboard() {
+  const batId = Number(els.batSelect.value) || null;
+  if (!batId) {
+    els.emptyState.style.display = '';
+    els.dashboard.style.display = 'none';
+    return;
+  }
+  els.emptyState.style.display = 'none';
+  els.dashboard.style.display = '';
+
+  const bat = batiments.find(b => b.id === batId);
+  const batEtages = etages.filter(e => e.Batiment === batId);
+  const allBatSalles = salles.filter(s => s.Batiment === batId);
+  // A room's own Site must agree with the building's Site: some rooms in this document
+  // are linked to the right Bâtiment but carry a stale/wrong Site value, which silently
+  // triples surface totals if left unfiltered (same root cause as the Etage anomaly).
+  const batSalles = allBatSalles.filter(s => !bat.Site || !s.Site || s.Site === bat.Site);
+  const mismatchedSalles = allBatSalles.length - batSalles.length;
+
+  renderWarnings(bat, batSalles, batEtages, mismatchedSalles);
+  renderHeader(bat);
+  renderFloors(batEtages);
+  const kpiInputs = renderKpis(bat, batEtages, batSalles);
+  renderFunctional(batSalles);
+  renderCategories(batSalles);
+}
+
+function renderWarnings(bat, batSalles, batEtages, mismatchedSalles) {
+  const warnings = [];
+  const noType = batSalles.filter(s => !s.Type_d_usage).length;
+  const noOcc = batSalles.filter(s => !s.Occupation).length;
+  if (noType > 0) { warnings.push(`${noType} local(-aux) sans "Type d'usage" renseigné (exclu des sommes SUN/SUB/SPC/SHOB).`); }
+  if (noOcc > 0) { warnings.push(`${noOcc} local(-aux) sans "Occupation" renseignée (regroupé sous "Non classé").`); }
+  if (bat && bat.Site && !siteById[bat.Site]) { warnings.push(`Le site lié à ce bâtiment est introuvable.`); }
+  if (mismatchedSalles > 0) {
+    warnings.push(
+      `${mismatchedSalles} local(-aux) rattaché(s) à ce bâtiment ont un "Site" différent du site du bâtiment ` +
+      `— ils ont été exclus des sommes ci-dessous pour éviter de gonfler les surfaces (vérifiez leur champ Site dans BDD_Salles).`
+    );
+  }
+
+  const floorLabelCounts = {};
+  for (const e of batEtages) {
+    const label = e.Etage || '(sans nom)';
+    floorLabelCounts[label] = (floorLabelCounts[label] || 0) + 1;
+  }
+  const duplicated = Object.entries(floorLabelCounts).filter(([, n]) => n > 1).map(([label]) => label);
+  if (duplicated.length > 0) {
+    warnings.push(
+      `Ce bâtiment a plusieurs lignes "${duplicated.join('", "')}" dans BDD_Etages : ` +
+      `vérifiez qu'aucun étage d'un autre bâtiment n'a été rattaché par erreur à celui-ci ` +
+      `(le total des surfaces ci-dessous les additionne toutes).`
+    );
+  }
+
+  els.warnings.innerHTML = warnings.map(w => `<div class="w">⚠️ ${escapeHtml(w)}</div>`).join('');
+}
+
+function renderHeader(bat) {
+  document.getElementById('hNom').textContent = bat.Nom || ('Bâtiment #' + bat.id);
+  document.getElementById('hAppellation').textContent =
+    [bat.Numero, bat.Appellation].filter(Boolean).join(' — ');
+
+  const site = siteById[bat.Site];
+  const items = [
+    ['Site', site ? site.Nom : '—'],
+    ['Année de construction', bat.AnneeConstruction || '—'],
+    ['Catégorie ERP', bat.Categorie_d_ERP || '—'],
+    ['Emprise au sol (m²)', fmtNum(bat.Surface_emprise_au_sol_m2_)],
+    ['Date visite commission', formatDate(bat.Date_de_visite_de_commission)],
+    ['Avis commission', bat.AvisCommission || '—'],
+    ['Date dernier avis', formatDate(bat.Date_du_dernier_avis)],
+    ['Commentaire', bat.Commentaire || '—'],
+  ];
+  document.getElementById('hInfoGrid').innerHTML = items.map(([k, v]) =>
+    `<div class="item"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(v)}</div></div>`
+  ).join('');
+}
+
+function formatDate(v) {
+  if (!v) { return '—'; }
+  const d = new Date(v * 1000);
+  if (Number.isNaN(d.getTime())) { return '—'; }
+  return d.toLocaleDateString('fr-FR');
+}
+
+function renderFloors(batEtages) {
+  const rows = [...batEtages].sort((a, b) => {
+    const ka = floorSortKey(a.Etage), kb = floorSortKey(b.Etage);
+    return ka[0] - kb[0] || (ka[1] > kb[1] ? 1 : ka[1] < kb[1] ? -1 : 0);
+  });
+
+  const tbody = document.querySelector('#floorTable tbody');
+  const tfoot = document.querySelector('#floorTable tfoot');
+  const cols = [
+    ['SUN', 'Surface_SUN_m2_'],
+    ['SUB', 'Surface_SUB_m2_'],
+    ['SPC', 'Surface_SP_m2_'],
+    ['SHON', 'Surface_SHON_m2_'],
+    ['SHOB', 'Surface_SHOB_m2_2'],
+  ];
+
+  const labelCounts = {};
+  for (const r of rows) { const l = r.Etage || '—'; labelCounts[l] = (labelCounts[l] || 0) + 1; }
+  const rowLabel = r => {
+    const l = r.Etage || '—';
+    return labelCounts[l] > 1 ? `${l} (id ${r.id_etage ?? r.id})` : l;
+  };
+
+  tbody.innerHTML = rows.map(r =>
+    `<tr><td>${escapeHtml(rowLabel(r))}</td>` +
+    cols.map(([, key]) => `<td>${fmtNum(r[key])}</td>`).join('') +
+    `</tr>`
+  ).join('');
+
+  const totals = cols.map(([, key]) => sum(rows, r => r[key]));
+  tfoot.innerHTML = `<tr><td>Total</td>${totals.map(t => `<td>${fmtNum(t)}</td>`).join('')}</tr>`;
+
+  drawBarChart('floorChart', {
+    labels: rows.map(rowLabel),
+    datasets: cols.map(([label, key], i) => ({
+      label,
+      data: rows.map(r => r[key] || 0),
+      backgroundColor: palette(i),
+    })),
+  });
+
+  return { totals, cols };
+}
+
+function renderKpis(bat, batEtages, batSalles) {
+  const SUN = sum(batEtages, e => e.Surface_SUN_m2_);
+  const SUB = sum(batEtages, e => e.Surface_SUB_m2_);
+  const SPC = sum(batEtages, e => e.Surface_SP_m2_);
+  const SHON = sum(batEtages, e => e.Surface_SHON_m2_);
+  const nbPostes = sum(batSalles, s => s.Nb_de_postes_de_travail);
+  const capacite = bat.Effectif;
+
+  const ratioSunPoste = nbPostes > 0 ? SUN / nbPostes : null;
+  const ratioSunSub = SUB > 0 ? (SUN / SUB) * 100 : null;
+  const ratioSubSpc = SPC > 0 ? (SUB / SPC) * 100 : null;
+  const ratioSubShon = SHON > 0 ? (SUB / SHON) * 100 : null;
+
+  const kpis = [
+    { label: 'Nb postes de travail', value: fmtNum(nbPostes), cls: '' },
+    { label: 'Capacité d\'accueil', value: fmtNum(capacite), cls: '' },
+    {
+      label: 'SUN / poste (cible ≥ 12 m²)', value: ratioSunPoste === null ? '—' : fmtNum(ratioSunPoste, 1) + ' m²',
+      cls: ratioSunPoste === null ? '' : (ratioSunPoste <= 15 ? 'ok' : ratioSunPoste <= 20 ? 'warn' : 'bad'),
+    },
+    {
+      label: 'SUN / SUB (cible > 67 %)', value: fmtPct(ratioSunSub),
+      cls: ratioSunSub === null ? '' : (ratioSunSub >= 67 ? 'ok' : ratioSunSub >= 55 ? 'warn' : 'bad'),
+    },
+    {
+      label: 'SUB / SPC (cible > 85 %)', value: fmtPct(ratioSubSpc),
+      cls: ratioSubSpc === null ? '' : (ratioSubSpc >= 85 ? 'ok' : ratioSubSpc >= 70 ? 'warn' : 'bad'),
+    },
+    { label: 'SUB / SHON', value: fmtPct(ratioSubShon), cls: '' },
+  ];
+
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k =>
+    `<div class="kpi ${k.cls}">
+       <div class="label">${escapeHtml(k.label)}</div>
+       <div class="value">${k.value}</div>
+     </div>`
+  ).join('');
+
+  return { SUN, SUB, SPC, SHON, nbPostes, capacite };
+}
+
+function renderFunctional(batSalles) {
+  const groups = {};
+  for (const s of batSalles) {
+    const type = s.Type_d_usage ? typeById[s.Type_d_usage] : null;
+    if (!type || !type.SUB) { continue; } // only surfaces counted in SUB, as in the source document
+    const occ = s.Occupation ? occById[s.Occupation] : null;
+    const label = occ ? occ.Libelle : 'Non classé';
+    if (!groups[label]) { groups[label] = { surface: 0, count: 0 }; }
+    groups[label].surface += s.Surface_utile_m2_ || 0;
+    groups[label].count += 1;
+  }
+  const rows = Object.entries(groups).sort((a, b) => b[1].surface - a[1].surface);
+
+  const tbody = document.querySelector('#funcTable tbody');
+  const tfoot = document.querySelector('#funcTable tfoot');
+  tbody.innerHTML = rows.map(([label, g]) =>
+    `<tr><td>${escapeHtml(label)}</td><td>${fmtNum(g.surface, 1)}</td><td>${g.count}</td></tr>`
+  ).join('');
+  const totalSurface = rows.reduce((a, [, g]) => a + g.surface, 0);
+  const totalCount = rows.reduce((a, [, g]) => a + g.count, 0);
+  tfoot.innerHTML = `<tr><td>Total</td><td>${fmtNum(totalSurface, 1)}</td><td>${totalCount}</td></tr>`;
+
+  drawPieChart('funcChart', {
+    labels: rows.map(([label]) => label),
+    data: rows.map(([, g]) => g.surface),
+  });
+}
+
+function renderCategories(batSalles) {
+  const groups = {};
+  for (const s of batSalles) {
+    const type = s.Type_d_usage ? typeById[s.Type_d_usage] : null;
+    const label = type && type.CategorieSurface ? type.CategorieSurface : 'Non classé';
+    if (!groups[label]) { groups[label] = { surface: 0, count: 0 }; }
+    groups[label].surface += s.Surface_utile_m2_ || 0;
+    groups[label].count += 1;
+  }
+  const rows = Object.entries(groups).sort((a, b) => b[1].surface - a[1].surface);
+
+  const tbody = document.querySelector('#catTable tbody');
+  const tfoot = document.querySelector('#catTable tfoot');
+  tbody.innerHTML = rows.map(([label, g]) =>
+    `<tr><td>${escapeHtml(label)}</td><td>${fmtNum(g.surface, 1)}</td><td>${g.count}</td></tr>`
+  ).join('');
+  const totalSurface = rows.reduce((a, [, g]) => a + g.surface, 0);
+  const totalCount = rows.reduce((a, [, g]) => a + g.count, 0);
+  tfoot.innerHTML = `<tr><td>Total</td><td>${fmtNum(totalSurface, 1)}</td><td>${totalCount}</td></tr>`;
+
+  drawBarChart('catChart', {
+    labels: rows.map(([label]) => label),
+    datasets: [{ label: 'Surface (m²)', data: rows.map(([, g]) => g.surface), backgroundColor: palette(0) }],
+  }, true);
+}
+
+// ---------------------------------------------------------------------------
+// Charts
+// ---------------------------------------------------------------------------
+const PALETTE = [
+  '#2b6cb0', '#38a169', '#d69e2e', '#e53e3e', '#805ad5', '#00a3c4', '#dd6b20', '#718096',
+  '#1a365d', '#276749', '#975a16', '#9b2c2c', '#553c9a', '#086f83', '#9c4221', '#4a5568',
+];
+function palette(i) { return PALETTE[i % PALETTE.length]; }
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function drawBarChart(canvasId, data, horizontal) {
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: horizontal ? 'y' : 'x',
+      plugins: { legend: { display: data.datasets.length > 1 } },
+      scales: { x: { stacked: false }, y: { beginAtZero: true } },
+    },
+  });
+}
+
+function drawPieChart(canvasId, { labels, data }) {
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  charts[canvasId] = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: labels.map((_, i) => palette(i)) }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10.5 } } } },
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+els.siteSelect.addEventListener('change', () => { populateBatSelect(); renderDashboard(); });
+els.batSelect.addEventListener('change', renderDashboard);
+els.refreshBtn.addEventListener('click', async () => {
+  const site = els.siteSelect.value, bat = els.batSelect.value;
+  await loadAll();
+  if (site) { els.siteSelect.value = site; }
+  populateBatSelect();
+  if (bat) { els.batSelect.value = bat; }
+  renderDashboard();
+  setStatus('Actualisé.');
+});
+els.printBtn.addEventListener('click', () => window.print());
+
+// ---------------------------------------------------------------------------
+// Grist init
+// ---------------------------------------------------------------------------
+grist.ready({ requiredAccess: 'full' });
+loadAll().catch(err => setStatus('Erreur de chargement : ' + err.message));
+
+})();
+</script>
+</body>
+</html>
