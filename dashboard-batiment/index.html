@@ -121,6 +121,12 @@
   table.data thead th { color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
   table.data tfoot td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; }
 
+  /* Mini-tables mirroring the PDF's "Type de surface fonctionnelle" blocks:
+     category names as column headers (transposed vs. the other data tables),
+     so all non-label columns should stay right-aligned like plain numbers. */
+  #funcBlocks { display: flex; flex-direction: column; gap: 10px; }
+  table.miniFunc th:nth-child(2), table.miniFunc td:nth-child(2) { text-align: right; }
+
   .kpiGrid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -255,13 +261,7 @@
           <tbody><tr id="rowSurfIdentity"></tr></tbody>
         </table>
         <div class="twoCol" style="margin-top:10px">
-          <div>
-            <table class="data" id="funcTable">
-              <thead><tr><th>Type de surface fonctionnelle</th><th>Surface m² SUB</th><th>Nbre de locaux</th></tr></thead>
-              <tbody></tbody>
-              <tfoot></tfoot>
-            </table>
-          </div>
+          <div id="funcBlocks"></div>
           <div>
             <div class="subhead" style="margin-bottom:2px">Surface SUB en m² par occupation fonctionnelle</div>
             <div class="chartWrap keep-print"><canvas id="funcChart"></canvas></div>
@@ -653,14 +653,33 @@ function renderFunctional(bat, kpi, batSalles) {
   }
   const rows = Object.entries(groups).sort((a, b) => b[1].surface - a[1].surface);
 
-  const tbody = document.querySelector('#funcTable tbody');
-  const tfoot = document.querySelector('#funcTable tfoot');
-  tbody.innerHTML = rows.map(([label, g]) =>
-    `<tr><td>${escapeHtml(label)}</td><td>${fmtNum(g.surface, 2)}</td><td>${g.count}</td></tr>`
-  ).join('');
-  const totalSurface = rows.reduce((a, [, g]) => a + g.surface, 0);
-  const totalCount = rows.reduce((a, [, g]) => a + g.count, 0);
-  tfoot.innerHTML = `<tr><td>Total</td><td>${fmtNum(totalSurface, 2)}</td><td>${totalCount}</td></tr>`;
+  // Mini-tables grouped exactly as in the reference PDF's "Type de surface
+  // fonctionnelle" blocks (category names as column headers). Any category
+  // present in the data but not part of the PDF's three named groups (e.g. a
+  // building with an extra "Vie Sociale" occupation) still gets shown, just
+  // folded into extra blocks of up to 3 columns rather than silently dropped.
+  const PDF_GROUPS = [
+    ['Administration', 'Enseignement', 'Salles banalisées'],
+    ['Documentation', 'Logistique et locaux techniques'],
+    ['Circulations', 'Sanitaires'],
+  ];
+  const used = new Set(PDF_GROUPS.flat());
+  const remaining = rows.map(([label]) => label).filter(l => !used.has(l));
+  const extraGroups = [];
+  for (let i = 0; i < remaining.length; i += 3) { extraGroups.push(remaining.slice(i, i + 3)); }
+
+  const blocksHtml = [...PDF_GROUPS, ...extraGroups].map(catList => {
+    const present = catList.filter(c => groups[c]);
+    if (present.length === 0) { return ''; }
+    return `<table class="data miniFunc">
+      <thead><tr><th>Type de surface fonctionnelle</th>${present.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
+      <tbody>
+        <tr><td>Surface m² SUB</td>${present.map(c => `<td>${fmtNum(groups[c].surface, 2)}</td>`).join('')}</tr>
+        <tr><td>Nbre de locaux</td>${present.map(c => `<td>${groups[c].count}</td>`).join('')}</tr>
+      </tbody>
+    </table>`;
+  }).join('');
+  document.getElementById('funcBlocks').innerHTML = blocksHtml;
 
   drawDonutChart('funcChart', {
     labels: rows.map(([label]) => label),
