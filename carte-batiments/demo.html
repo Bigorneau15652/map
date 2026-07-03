@@ -69,7 +69,21 @@
   @keyframes sp{to{transform:rotate(360deg)}}
 
   /* Panneau droit */
-  #side{width:310px;background:#fff;border-left:1px solid #dde;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;color:#222}
+  #side{width:310px;background:#fff;border-left:1px solid #dde;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;color:#222;transition:width .15s ease}
+  #side.collapsed{width:104px}
+  #side.collapsed #cfg-banner{display:none}
+  #side.collapsed #bs{display:none}
+  #side.collapsed #add-cat-row{display:none}
+  #side.collapsed .cumr{display:none}
+  #side.collapsed .sh{padding:7px 4px;justify-content:center}
+  #side.collapsed .sh .sh-label{display:none}
+  #side.collapsed .sh .arr{display:none}
+  #side.collapsed .sb{padding:6px 4px}
+  #side.collapsed .cr{padding:4px 3px;gap:3px}
+  #side.collapsed .cedit{display:none}
+  #side.collapsed .cn{font-size:10px}
+  #side-toggle{width:14px;flex-shrink:0;background:#f0f1f3;border-left:1px solid #dde;border-right:1px solid #dde;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:#888;user-select:none}
+  #side-toggle:hover{background:#e4e6ea;color:#333}
 
   /* Config banner */
   #cfg-banner{background:#fff3e0;border-bottom:1px solid #ffcc80;padding:7px 11px;font-size:11px;color:#5d4037;display:none;cursor:pointer}
@@ -235,6 +249,7 @@
       <div id="ldg"><div class="spin"></div><span id="ldg-msg">Chargement…</span></div>
     </div>
 
+    <div id="side-toggle" onclick="toggleSide()" title="Afficher / masquer le panneau">▸</div>
     <div id="side">
       <div id="cfg-banner" onclick="showConfig()">
         ⚠️ <span id="cfg-banner-msg">Tables non configurées.</span> Cliquez → ⚙️
@@ -242,7 +257,7 @@
 
       <!-- Catégories -->
       <div class="sec">
-        <div class="sh" onclick="tog(this)">🏷 Catégories <span id="cbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span><span class="arr">▾</span></div>
+        <div class="sh" onclick="tog(this)">🏷 <span class="sh-label">Catégories <span id="cbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span></span><span class="arr">▾</span></div>
         <div class="sb">
           <div id="cl"><div class="nc">Configurez les tables Grist via ⚙️</div></div>
           <div id="add-cat-row">
@@ -483,7 +498,7 @@ let editingCatId=null;
 
 // ── Fonds de carte ────────────────────────────────────────
 const BASE_LAYERS=[
-  {id:'osm-standard', label:'OpenStreetMap Standard (précis)', url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution:'&copy; OpenStreetMap contributors', maxZoom:19},
+  {id:'osm-standard', label:'OpenStreetMap Standard', url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution:'&copy; OpenStreetMap contributors', maxZoom:19},
   {id:'esri-satellite', label:'Esri Satellite (végétation)', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution:'Tiles &copy; Esri', maxZoom:20},
   {id:'esri-street', label:'Esri Street Map', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', attribution:'Tiles &copy; Esri', maxZoom:19},
   {id:'esri-topo', label:'Esri World Topo Map', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', attribution:'Tiles &copy; Esri', maxZoom:19},
@@ -854,6 +869,17 @@ async function toggleBuildingCat(key,catId){
 }
 
 function tog(h){const b=h.nextElementSibling;const closed=b.classList.toggle('closed');h.querySelector('.arr').textContent=closed?'▸':'▾';}
+
+let sideCollapsed=localStorage.getItem('cbSideCollapsed')==='1';
+function applySideCollapsed(){
+  document.getElementById('side').classList.toggle('collapsed',sideCollapsed);
+  document.getElementById('side-toggle').textContent=sideCollapsed?'◂':'▸';
+}
+function toggleSide(){
+  sideCollapsed=!sideCollapsed;
+  localStorage.setItem('cbSideCollapsed',sideCollapsed?'1':'0');
+  applySideCollapsed();
+}
 function showGuide(){document.getElementById('guide-modal').classList.remove('gone');}
 function closeModal(id){document.getElementById(id).classList.add('gone');}
 
@@ -978,6 +1004,39 @@ function loadConfig(opts){
 
 function normName(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
 
+// ── Résolution des colonnes de type Référence (Site/Bâtiment) ──────
+let REF_CACHE={};
+async function resolveRefText(tableId,colId,rawValues){
+  const key=tableId+'|'+colId;
+  if(!(key in REF_CACHE)){
+    REF_CACHE[key]=await (async()=>{
+      try{
+        const colsMeta=await grist.docApi.fetchTable('_grist_Tables_column');
+        const cIds=colsMeta.id||[], parentIds=colsMeta.parentId||[], colIdsArr=colsMeta.colId||[], types=colsMeta.type||[], visibleCols=colsMeta.visibleCol||[];
+        const tablesMeta=await grist.docApi.fetchTable('_grist_Tables');
+        const tRowId=(tablesMeta.id||[])[(tablesMeta.tableId||[]).indexOf(tableId)];
+        let idx=-1;
+        for(let i=0;i<cIds.length;i++){if(parentIds[i]===tRowId&&colIdsArr[i]===colId){idx=i;break;}}
+        if(idx===-1)return null;
+        const m=/^Ref(?:List)?:(.+)$/.exec(types[idx]||'');
+        if(!m)return null;
+        const refTable=m[1];
+        let displayColId=null;
+        const vcol=visibleCols[idx];
+        if(vcol){const vIdx=cIds.indexOf(vcol);if(vIdx!==-1)displayColId=colIdsArr[vIdx];}
+        if(!displayColId)return null;
+        const refT=await grist.docApi.fetchTable(refTable);
+        const refIds=refT.id||[], refVals=refT[displayColId]||[];
+        const map={};for(let i=0;i<refIds.length;i++)map[refIds[i]]=refVals[i];
+        return map;
+      }catch(_){return null;}
+    })();
+  }
+  const map=REF_CACHE[key];
+  if(!map)return null;
+  return rawValues.map(v=>typeof v==='number'?(map[v]??v):v);
+}
+
 async function fetchAllTables(){
   document.getElementById('cfg-banner').classList.remove('show');
 
@@ -1002,14 +1061,23 @@ async function fetchAllTables(){
   try{
     const batT=await grist.docApi.fetchTable(CFG.bat);
     const rowIds=batT.id||[];
-    const sites=batT[CFG.colSite]||[];
-    const bats=batT[CFG.colBat]||[];
+    let sites=batT[CFG.colSite]||[];
+    let bats=batT[CFG.colBat]||[];
     const visibles=CFG.colVisible?batT[CFG.colVisible]:batT.visible;
     const notes=CFG.colNote?batT[CFG.colNote]:null;
-    if(sites.length&&typeof sites[0]==='number' || bats.length&&typeof bats[0]==='number'){
+    let unresolvedRef=false;
+    if(sites.length&&typeof sites[0]==='number'){
+      const resolved=await resolveRefText(CFG.bat,CFG.colSite,sites);
+      if(resolved)sites=resolved; else unresolvedRef=true;
+    }
+    if(bats.length&&typeof bats[0]==='number'){
+      const resolved=await resolveRefText(CFG.bat,CFG.colBat,bats);
+      if(resolved)bats=resolved; else unresolvedRef=true;
+    }
+    if(unresolvedRef){
       document.getElementById('cfg-banner').classList.add('show');
       document.getElementById('cfg-banner-msg').textContent=
-        'Les colonnes "Site" et/ou "Bâtiment" semblent être de type Référence (elles renvoient un identifiant numérique, pas le texte affiché). Le widget a besoin de colonnes Texte contenant exactement le nom du site/bâtiment. ';
+        'Les colonnes "Site" et/ou "Bâtiment" semblent être de type Référence, et le widget n\'a pas pu retrouver automatiquement le texte affiché (aucune "colonne d\'affichage" définie sur cette référence dans Grist). Choisissez une colonne Texte contenant exactement le nom du site/bâtiment, ou définissez une colonne d\'affichage sur la référence dans Grist. ';
     }
     APP.buildings={};
     for(let i=0;i<rowIds.length;i++){
@@ -1056,6 +1124,7 @@ async function boot(){
   populateSiteSelect();
   initMap();
   populateBaseSelect();
+  applySideCollapsed();
   document.getElementById('sat-op').value=100;
   document.getElementById('site-sel').value=currentSite.key;
 
