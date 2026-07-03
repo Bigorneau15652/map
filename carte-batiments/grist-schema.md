@@ -17,9 +17,18 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 > Comme pour la table Catégories, les noms `note`/`visible` sont juste indicatifs : dans ⚙️, vous
 > choisissez la colonne exacte de **votre** table (ex : `Categories_energie`, `Active`…).
 
-> **Important** : les valeurs de `Site` et `Bâtiment` doivent reprendre **exactement** les
+> **Important** : les valeurs de `Site` et `Bâtiment` doivent correspondre **exactement** aux
 > intitulés ci-dessous (accents compris) pour que le widget retrouve la bonne forme sur le plan.
 > C'est directement la liste de votre fichier `Site et bâtiment.xlsx` — vous pouvez l'importer telle quelle.
+
+> **Colonnes de type Référence** : si `Site` et/ou `Bâtiment` sont des colonnes **Référence**
+> (par exemple `Site` qui pointe vers une table `Sites` séparée, comme c'est utile si un même nom
+> de bâtiment existe sur 2 sites), le widget suit maintenant automatiquement la référence pour
+> retrouver le texte affiché (via la "colonne d'affichage" configurée sur cette référence dans
+> Grist). Vous n'avez rien à faire de spécial — choisissez simplement cette colonne Référence
+> normalement dans ⚙️. Si un bandeau d'avertissement apparaît quand même, c'est que la référence
+> n'a pas de "colonne d'affichage" définie côté Grist (clic droit sur la colonne → *Modifier la
+> colonne* → *Afficher la colonne* pour la table référencée).
 
 > La colonne `note` doit être de type **Texte** (pas Référence) pour que le widget puisse y écrire
 > directement le nom de la catégorie quand vous cliquez une pastille de couleur.

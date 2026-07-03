@@ -978,6 +978,39 @@ function loadConfig(opts){
 
 function normName(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
 
+// ── Résolution des colonnes de type Référence (Site/Bâtiment) ──────
+let REF_CACHE={};
+async function resolveRefText(tableId,colId,rawValues){
+  const key=tableId+'|'+colId;
+  if(!(key in REF_CACHE)){
+    REF_CACHE[key]=await (async()=>{
+      try{
+        const colsMeta=await grist.docApi.fetchTable('_grist_Tables_column');
+        const cIds=colsMeta.id||[], parentIds=colsMeta.parentId||[], colIdsArr=colsMeta.colId||[], types=colsMeta.type||[], visibleCols=colsMeta.visibleCol||[];
+        const tablesMeta=await grist.docApi.fetchTable('_grist_Tables');
+        const tRowId=(tablesMeta.id||[])[(tablesMeta.tableId||[]).indexOf(tableId)];
+        let idx=-1;
+        for(let i=0;i<cIds.length;i++){if(parentIds[i]===tRowId&&colIdsArr[i]===colId){idx=i;break;}}
+        if(idx===-1)return null;
+        const m=/^Ref(?:List)?:(.+)$/.exec(types[idx]||'');
+        if(!m)return null;
+        const refTable=m[1];
+        let displayColId=null;
+        const vcol=visibleCols[idx];
+        if(vcol){const vIdx=cIds.indexOf(vcol);if(vIdx!==-1)displayColId=colIdsArr[vIdx];}
+        if(!displayColId)return null;
+        const refT=await grist.docApi.fetchTable(refTable);
+        const refIds=refT.id||[], refVals=refT[displayColId]||[];
+        const map={};for(let i=0;i<refIds.length;i++)map[refIds[i]]=refVals[i];
+        return map;
+      }catch(_){return null;}
+    })();
+  }
+  const map=REF_CACHE[key];
+  if(!map)return null;
+  return rawValues.map(v=>typeof v==='number'?(map[v]??v):v);
+}
+
 async function fetchAllTables(){
   document.getElementById('cfg-banner').classList.remove('show');
 
@@ -1002,14 +1035,23 @@ async function fetchAllTables(){
   try{
     const batT=await grist.docApi.fetchTable(CFG.bat);
     const rowIds=batT.id||[];
-    const sites=batT[CFG.colSite]||[];
-    const bats=batT[CFG.colBat]||[];
+    let sites=batT[CFG.colSite]||[];
+    let bats=batT[CFG.colBat]||[];
     const visibles=CFG.colVisible?batT[CFG.colVisible]:batT.visible;
     const notes=CFG.colNote?batT[CFG.colNote]:null;
-    if(sites.length&&typeof sites[0]==='number' || bats.length&&typeof bats[0]==='number'){
+    let unresolvedRef=false;
+    if(sites.length&&typeof sites[0]==='number'){
+      const resolved=await resolveRefText(CFG.bat,CFG.colSite,sites);
+      if(resolved)sites=resolved; else unresolvedRef=true;
+    }
+    if(bats.length&&typeof bats[0]==='number'){
+      const resolved=await resolveRefText(CFG.bat,CFG.colBat,bats);
+      if(resolved)bats=resolved; else unresolvedRef=true;
+    }
+    if(unresolvedRef){
       document.getElementById('cfg-banner').classList.add('show');
       document.getElementById('cfg-banner-msg').textContent=
-        'Les colonnes "Site" et/ou "Bâtiment" semblent être de type Référence (elles renvoient un identifiant numérique, pas le texte affiché). Le widget a besoin de colonnes Texte contenant exactement le nom du site/bâtiment. ';
+        'Les colonnes "Site" et/ou "Bâtiment" semblent être de type Référence, et le widget n\'a pas pu retrouver automatiquement le texte affiché (aucune "colonne d\'affichage" définie sur cette référence dans Grist). Choisissez une colonne Texte contenant exactement le nom du site/bâtiment, ou définissez une colonne d\'affichage sur la référence dans Grist. ';
     }
     APP.buildings={};
     for(let i=0;i<rowIds.length;i++){
