@@ -155,6 +155,15 @@
   .twoCol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 860px) { .twoCol { grid-template-columns: 1fr; } }
 
+  .pageHeaderFlex { display: flex; gap: 14px; align-items: flex-start; }
+  .pageHeaderText { flex: 1; min-width: 0; }
+  .pageHeaderPhoto { flex: 0 0 33%; max-width: 33%; }
+  .pageHeaderPhoto img {
+    width: 100%; height: auto; max-height: 260px; display: block;
+    border-radius: 8px; border: 1px solid var(--border); object-fit: contain;
+  }
+  @media (max-width: 700px) { .pageHeaderFlex { flex-direction: column; } .pageHeaderPhoto { max-width: 100%; } }
+
   .chartWrap { position: relative; height: 220px; }
 
   .page-break { break-before: page; }
@@ -173,6 +182,10 @@
        below its table where it could overflow into the next section. */
     .twoCol { grid-template-columns: 1fr 1fr !important; }
     .kpiGrid { grid-template-columns: repeat(6, 1fr) !important; }
+    /* Cap the photo tightly at print time — page 1's vertical budget is much
+       tighter in landscape than the on-screen view, and a tall/portrait photo
+       must not push "Informations réglementaires" onto an extra page. */
+    .pageHeaderPhoto img { max-height: 110px; }
     body { background: #fff; font-size: 9.5px; }
     #content { max-width: none; padding: 0; }
     .card { border: none; box-shadow: none; padding: 6px 0; margin-bottom: 6px; break-inside: avoid; }
@@ -210,16 +223,24 @@
     <!-- ============================= PAGE 1 ============================= -->
     <div id="page1">
 
-      <div class="card" id="sec-batiment">
-        <h2>Bâtiment</h2>
-        <table class="data">
-          <thead><tr><th>Numéro</th><th>Appellation</th><th>Nom du bâtiment</th><th>Année de construction</th><th>Commentaires</th></tr></thead>
-          <tbody><tr id="rowBatiment"></tr></tbody>
-        </table>
-      </div>
+      <div class="pageHeaderFlex">
+        <div class="pageHeaderText">
+          <div class="card" id="sec-batiment">
+            <h2>Bâtiment</h2>
+            <table class="data">
+              <thead><tr><th>Numéro</th><th>Appellation</th><th>Nom du bâtiment</th><th>Année de construction</th><th>Commentaires</th></tr></thead>
+              <tbody><tr id="rowBatiment"></tr></tbody>
+            </table>
+          </div>
 
-      <div class="card" id="sec-kpi">
-        <div class="kpiGrid" id="kpiGrid"></div>
+          <div class="card" id="sec-kpi">
+            <div class="kpiGrid" id="kpiGrid"></div>
+          </div>
+        </div>
+
+        <div class="pageHeaderPhoto" id="batPhotoWrap" style="display:none">
+          <img id="batPhoto" alt="Photo du bâtiment">
+        </div>
       </div>
 
       <div class="card" id="sec-reglementaire">
@@ -445,6 +466,7 @@ function renderDashboard() {
 
   renderWarnings(bat, batSalles, batEtages, excludedSalles, excludedEtages);
   renderBatiment(bat);
+  renderPhoto(bat);
   const kpi = renderKpis(bat, batEtages, batSalles);
   renderReglementaire(bat);
   renderFloors(batEtages);
@@ -523,6 +545,34 @@ function renderBatiment(bat) {
   ].map(v => `<td>${escapeHtml(v ?? '—')}</td>`).join('');
 }
 
+// Attachments (like Photo_batiment) come back from fetchTable as a list of
+// attachment ids, not a URL — grist.docApi.getAccessToken() is needed to build
+// an authenticated download link. Cached because the token can be reused
+// across renders in the same session.
+let cachedAccessToken = null;
+async function getAttachmentUrl(attachmentId) {
+  try {
+    if (!cachedAccessToken) { cachedAccessToken = await grist.docApi.getAccessToken({ readOnly: true }); }
+    const { token, baseUrl } = cachedAccessToken;
+    return `${baseUrl}/attachments/${attachmentId}/download?auth=${token}`;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function renderPhoto(bat) {
+  const wrap = document.getElementById('batPhotoWrap');
+  const img = document.getElementById('batPhoto');
+  wrap.style.display = 'none';
+  const ids = toIdList(bat.Photo_batiment);
+  if (!ids.length) { return; }
+  const url = await getAttachmentUrl(ids[0]);
+  if (!url) { return; }
+  img.onerror = () => { wrap.style.display = 'none'; };
+  img.onload = () => { wrap.style.display = ''; };
+  img.src = url;
+}
+
 function formatDate(v) {
   if (!v) { return '—'; }
   const d = new Date(v * 1000);
@@ -577,14 +627,18 @@ function renderFloors(batEtages) {
   const totals = cols.map(([, key]) => sum(rows, r => r[key]));
   tfoot.innerHTML = `<tr><td>Total bâtiment en m²</td>${totals.map(t => `<td>${fmtNum(t)}</td>`).join('')}</tr>`;
 
+  // Grouped by surface type on the X axis (SUN/SUB/SPC/SHON/SHOB), one stacked
+  // bar per type with floors piled bottom (Sous-sol) to top (TT) — `rows` is
+  // already sorted in that order via floorSortKey above, and Chart.js stacks
+  // datasets in array order with the first one at the bottom.
   drawBarChart('floorChart', {
-    labels: rows.map(rowLabel),
-    datasets: cols.map(([label, key], i) => ({
-      label,
-      data: rows.map(r => r[key] || 0),
+    labels: cols.map(([label]) => label),
+    datasets: rows.map((r, i) => ({
+      label: rowLabel(r),
+      data: cols.map(([, key]) => r[key] || 0),
       backgroundColor: palette(i),
     })),
-  });
+  }, { stacked: true });
 
   return { SUN: totals[0], SUB: totals[1], SPC: totals[2], SHON: totals[3], SHOB: totals[4] };
 }
@@ -728,7 +782,8 @@ function destroyChart(id) {
   if (charts[id]) { charts[id].destroy(); delete charts[id]; }
 }
 
-function drawBarChart(canvasId, data) {
+function drawBarChart(canvasId, data, opts) {
+  const stacked = !!(opts && opts.stacked);
   destroyChart(canvasId);
   const ctx = document.getElementById(canvasId).getContext('2d');
   charts[canvasId] = new Chart(ctx, {
@@ -738,7 +793,7 @@ function drawBarChart(canvasId, data) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: { legend: { display: data.datasets.length > 1 }, datalabels: { display: false } },
-      scales: { y: { beginAtZero: true } },
+      scales: { x: { stacked }, y: { stacked, beginAtZero: true } },
     },
   });
 }
