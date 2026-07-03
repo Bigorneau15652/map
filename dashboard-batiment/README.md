@@ -67,14 +67,31 @@ Pour que les futures demandes de modification puissent cibler un emplacement
 précis, chaque section a un id HTML stable, dans l'ordre du PDF de référence :
 
 **Page 1** (`#page1`)
-- `#sec-batiment` — Numéro / Appellation / Nom du bâtiment / Année de construction / Commentaires
-- `#sec-kpi` — les 6 indicateurs (Nombre de postes de travail, Effectif personnel, les 4 ratios)
+- `#sec-batiment` + `#sec-kpi` — Numéro / Appellation / Nom du bâtiment / Année de construction /
+  Commentaires, et les 6 indicateurs, dans un bandeau `.pageHeaderFlex` qui laisse 1/3 de la largeur
+  à droite (`#batPhotoWrap`) pour la photo du bâtiment (`BDD_Batiments.Photo_batiment`), le texte
+  s'ajustant dans les 2/3 restants.
 - `#sec-reglementaire` — Informations réglementaires + Date visite/avis commission + Capacité d'accueil
-- `#sec-surfaces-totales` — Emprise au sol + tableau Surfaces par niveau (SUN/SUB/SPC/SHON/SHOB) + graphique (écran uniquement)
+- `#sec-surfaces-totales` — Emprise au sol + tableau Surfaces par niveau (SUN/SUB/SPC/SHON/SHOB) +
+  graphique en barres empilées (un type de surface par colonne, les niveaux empilés du Sous-sol en
+  bas au TT en haut) — écran uniquement.
 
 **Page 2** (`#page2`, saut de page forcé à l'impression)
-- `#sec-surfaces-fonctionnelles` — identité du bâtiment + tableau "Type de surface fonctionnelle" + graphique (écran uniquement)
+- `#sec-surfaces-fonctionnelles` — identité du bâtiment + blocs "Type de surface fonctionnelle"
+  (mêmes regroupements que le PDF) + le donut "Surface SUB en m² par occupation fonctionnelle"
+  (affiché à l'écran **et** à l'impression, contrairement au graphique de la page 1)
 - `#sec-repartition-bureau` — tableau "Répartition des surfaces de bureau et salles de cours"
+
+### Photo du bâtiment
+
+La photo est une pièce jointe Grist (`Photo_batiment`), pas une simple URL : `fetchTable` ne
+renvoie qu'un identifiant de pièce jointe, il faut ensuite `grist.docApi.getAccessToken()` pour
+construire une URL de téléchargement authentifiée
+(`${baseUrl}/attachments/${id}/download?auth=${token}`). Cette partie n'a pas pu être testée
+contre un vrai serveur Grist depuis l'environnement de développement — si la photo ne s'affiche
+pas alors qu'un bâtiment en a une, dites-le-moi (avec si possible le message d'erreur affiché
+dans la console du navigateur, F12), on ajustera l'URL. En cas d'échec de chargement, l'emplacement
+se masque proprement plutôt que d'afficher une image cassée.
 
 Aucun indicateur n'a été ajouté au-delà de ce que contient le PDF : la section
 "Répartition par catégorie de local" d'une version précédente (qui n'existait
