@@ -302,11 +302,23 @@
           <label style="margin-top:8px">Colonne "Catégorie / Note" dans Bâtiments (optionnel)</label>
           <small>Choisissez ceci si votre table Bâtiments a déjà une colonne avec la catégorie/note de chaque bâtiment (une seule catégorie par bâtiment). Dans ce cas, laissez "Table des Affiliations" vide ci-dessous — elle ne sera pas utilisée.</small>
           <select id="cfg-col-note"></select>
+          <label style="margin-top:8px">Colonne "Visible / Active" dans Bâtiments (optionnel)</label>
+          <small>Bascule qui grise le bâtiment sur la carte quand elle est décochée. Laisser vide → tout est toujours visible.</small>
+          <select id="cfg-col-visible"></select>
         </div>
         <div class="cfg-group">
           <label>Table des Catégories</label>
           <small>Colonnes : nom, couleur, active (ou selection)</small>
-          <select id="cfg-cats"></select>
+          <select id="cfg-cats" onchange="onCfgCatsChange()"></select>
+        </div>
+        <div class="cfg-group" id="cfg-cats-cols" style="display:none">
+          <label>Colonne "nom" dans la table Catégories</label>
+          <select id="cfg-col-catnom"></select>
+          <label style="margin-top:8px">Colonne "couleur" dans la table Catégories</label>
+          <select id="cfg-col-catcouleur"></select>
+          <label style="margin-top:8px">Colonne "active" dans Catégories (optionnel)</label>
+          <small>Si laissée vide, toutes les catégories sont considérées actives (affichées sur la carte).</small>
+          <select id="cfg-col-catactive"></select>
         </div>
         <div class="cfg-group">
           <label>Table des Affiliations (liaison bâtiment ↔ catégorie)</label>
@@ -433,7 +445,17 @@ function shapeCode(site,bat){
 }
 
 // ── Config ────────────────────────────────────────────────
-let CFG={bat:'Batiments',cats:'Categories',dc:'Batiment_categories',colSite:'Site',colBat:'Bâtiment',colNote:'',colDept:'batiment',colCat:'categorie'};
+let CFG={bat:'Batiments',cats:'Categories',dc:'Batiment_categories',colSite:'Site',colBat:'Bâtiment',colNote:'',colVisible:'',colDept:'batiment',colCat:'categorie',colCatNom:'',colCatCouleur:'',colCatActive:''};
+
+// ── Options widget : fusion défensive ─────────────────────
+// grist.setOptions() remplace tout l'objet d'options ; si chaque écran (config,
+// calage, fond de carte) n'envoie que ses propres clés, il efface les autres.
+// On garde donc toujours la dernière copie complète et on ne fait que la compléter.
+let LAST_OPTIONS={};
+async function patchOptions(partial){
+  LAST_OPTIONS=Object.assign({},LAST_OPTIONS,partial);
+  if(window.grist)await grist.setOptions(LAST_OPTIONS);
+}
 
 // ── Calage (calibration) ──────────────────────────────────
 let CALIB={}; // key -> {lat,lng,scale,rot}
@@ -503,7 +525,7 @@ function setSatOpacity(v){
 }
 function onBaseSelectChange(id){
   setBaseLayer(id);
-  if(window.grist)grist.setOptions({baseLayer:id}).catch(e=>console.warn(e.message));
+  patchOptions({baseLayer:id}).catch(e=>console.warn(e.message));
 }
 
 // ── Sélection du site ─────────────────────────────────────
@@ -636,7 +658,7 @@ function resetCalib(){
 }
 async function saveCalib(){
   try{
-    await grist.setOptions({calib:CALIB});
+    await patchOptions({calib:CALIB});
     const bar=document.getElementById('calib-bar');
     const msg=document.createElement('div');
     msg.style.cssText='color:#1b5e20;font-size:10px;margin-top:4px';
@@ -723,9 +745,10 @@ async function saveCatEdit(catId){
   const finalColor=chosenHex?(chosenHex.startsWith('rgb')?rgbToHex(chosenHex):chosenHex):null;
   const colName=Object.entries(NAMED).find(([,v])=>v===finalColor)?.[0]||finalColor||'';
   if(!name){alert('Le nom ne peut pas être vide.');return;}
+  const colCatNom=CFG.colCatNom||'nom', colCatCouleur=CFG.colCatCouleur||'couleur';
   const updates={};
-  if(name)updates.nom=name;
-  if(colName)updates.couleur=colName;
+  if(name)updates[colCatNom]=name;
+  if(colName)updates[colCatCouleur]=colName;
   try{await grist.docApi.applyUserActions([['UpdateRecord',CFG.cats,catId,updates]]);}
   catch(e){console.warn('saveCatEdit:',e.message);}
   editingCatId=null;
@@ -735,7 +758,10 @@ async function saveCatEdit(catId){
 async function addCat(){
   const name=document.getElementById('new-cat-name').value.trim();
   if(!name)return;
-  try{await grist.docApi.applyUserActions([['AddRecord',CFG.cats,null,{nom:name,couleur:'bleu',active:false}]]);}
+  const colCatNom=CFG.colCatNom||'nom', colCatCouleur=CFG.colCatCouleur||'couleur';
+  const fields={[colCatNom]:name,[colCatCouleur]:'bleu'};
+  if(CFG.colCatActive)fields[CFG.colCatActive]=false;
+  try{await grist.docApi.applyUserActions([['AddRecord',CFG.cats,null,fields]]);}
   catch(e){console.warn('addCat:',e.message);}
   document.getElementById('new-cat-name').value='';
   await fetchAllTables();
@@ -779,15 +805,17 @@ function renderBuildings(){
 function toggleVis(key,val){
   const b=APP.buildings[key];if(!b)return;
   b.visible=val;
+  const col=CFG.colVisible||'visible';
   if(b.rowId!=null){
-    grist.docApi.applyUserActions([['UpdateRecord',CFG.bat,b.rowId,{visible:val}]]).catch(e=>console.warn(e.message));
+    grist.docApi.applyUserActions([['UpdateRecord',CFG.bat,b.rowId,{[col]:val}]]).catch(e=>console.warn(e.message));
   }
   renderMap();renderBuildings();
 }
 function bulkVis(val){
+  const col=CFG.colVisible||'visible';
   for(const b of getFilteredList()){
     b.visible=val;
-    if(b.rowId!=null)grist.docApi.applyUserActions([['UpdateRecord',CFG.bat,b.rowId,{visible:val}]]).catch(e=>console.warn(e.message));
+    if(b.rowId!=null)grist.docApi.applyUserActions([['UpdateRecord',CFG.bat,b.rowId,{[col]:val}]]).catch(e=>console.warn(e.message));
   }
   renderMap();renderBuildings();
 }
@@ -858,8 +886,20 @@ async function onCfgBatChange(){
     makeOpts(document.getElementById('cfg-col-site'),cols,CFG.colSite);
     makeOpts(document.getElementById('cfg-col-bat'),cols,CFG.colBat);
     makeOpts(document.getElementById('cfg-col-note'),cols,CFG.colNote);
+    makeOpts(document.getElementById('cfg-col-visible'),cols,CFG.colVisible);
     document.getElementById('cfg-bat-cols').style.display='block';
   }else document.getElementById('cfg-bat-cols').style.display='none';
+}
+async function onCfgCatsChange(){
+  const catsId=document.getElementById('cfg-cats').value;
+  if(catsId){
+    await loadTableCols(catsId);
+    const cols=(TABLE_COLS[catsId]||[]).map(c=>({id:c,label:c}));
+    makeOpts(document.getElementById('cfg-col-catnom'),cols,CFG.colCatNom);
+    makeOpts(document.getElementById('cfg-col-catcouleur'),cols,CFG.colCatCouleur);
+    makeOpts(document.getElementById('cfg-col-catactive'),cols,CFG.colCatActive);
+    document.getElementById('cfg-cats-cols').style.display='block';
+  }else document.getElementById('cfg-cats-cols').style.display='none';
 }
 async function showConfig(){
   document.getElementById('cfg-modal').classList.remove('gone');
@@ -874,7 +914,8 @@ async function showConfig(){
     document.getElementById('cfg-bat').onchange=onCfgBatChange;
     makeOpts(document.getElementById('cfg-cats'),ALL_TABLES,CFG.cats);
     makeOpts(document.getElementById('cfg-dc'),ALL_TABLES,CFG.dc);
-    if(CFG.bat){await loadTableCols(CFG.bat);const cols=(TABLE_COLS[CFG.bat]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-site'),cols,CFG.colSite);makeOpts(document.getElementById('cfg-col-bat'),cols,CFG.colBat);makeOpts(document.getElementById('cfg-col-note'),cols,CFG.colNote);document.getElementById('cfg-bat-cols').style.display='block';}
+    if(CFG.bat){await loadTableCols(CFG.bat);const cols=(TABLE_COLS[CFG.bat]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-site'),cols,CFG.colSite);makeOpts(document.getElementById('cfg-col-bat'),cols,CFG.colBat);makeOpts(document.getElementById('cfg-col-note'),cols,CFG.colNote);makeOpts(document.getElementById('cfg-col-visible'),cols,CFG.colVisible);document.getElementById('cfg-bat-cols').style.display='block';}
+    if(CFG.cats){await loadTableCols(CFG.cats);const cols=(TABLE_COLS[CFG.cats]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-catnom'),cols,CFG.colCatNom);makeOpts(document.getElementById('cfg-col-catcouleur'),cols,CFG.colCatCouleur);makeOpts(document.getElementById('cfg-col-catactive'),cols,CFG.colCatActive);document.getElementById('cfg-cats-cols').style.display='block';}
     if(CFG.dc){await loadTableCols(CFG.dc);const cols=(TABLE_COLS[CFG.dc]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-dept'),cols,CFG.colDept);makeOpts(document.getElementById('cfg-col-cat'),cols,CFG.colCat);document.getElementById('cfg-cols').style.display='block';}
     document.getElementById('cfg-loading').style.display='none';
     document.getElementById('cfg-form').style.display='block';
@@ -890,7 +931,11 @@ async function saveConfig(){
     colSite:document.getElementById('cfg-col-site').value||CFG.colSite,
     colBat:document.getElementById('cfg-col-bat').value||CFG.colBat,
     colNote:document.getElementById('cfg-col-note').value||'',
+    colVisible:document.getElementById('cfg-col-visible').value||'',
     cats:document.getElementById('cfg-cats').value,
+    colCatNom:document.getElementById('cfg-col-catnom').value||'',
+    colCatCouleur:document.getElementById('cfg-col-catcouleur').value||'',
+    colCatActive:document.getElementById('cfg-col-catactive').value||'',
     dc:document.getElementById('cfg-dc').value,
     colDept:document.getElementById('cfg-col-dept').value||CFG.colDept,
     colCat:document.getElementById('cfg-col-cat').value||CFG.colCat,
@@ -898,8 +943,12 @@ async function saveConfig(){
   const msg=document.getElementById('cfg-msg');
   if(!c.bat||!c.cats){msg.className='err';msg.style.display='block';msg.textContent='⚠️ Sélectionnez au minimum les tables Bâtiments et Catégories.';return;}
   Object.assign(CFG,c);
-  try{await grist.setOptions({tableBat:CFG.bat,colSite:CFG.colSite,colBat:CFG.colBat,colNote:CFG.colNote,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat});msg.className='ok';msg.style.display='block';msg.textContent='✅ Configuration sauvegardée !';setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},700);}
-  catch(e){msg.className='err';msg.style.display='block';msg.textContent='❌ Erreur : '+e.message;}
+  try{
+    await patchOptions({tableBat:CFG.bat,colSite:CFG.colSite,colBat:CFG.colBat,colNote:CFG.colNote,colVisible:CFG.colVisible,
+      tableCats:CFG.cats,colCatNom:CFG.colCatNom,colCatCouleur:CFG.colCatCouleur,colCatActive:CFG.colCatActive,
+      tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat});
+    msg.className='ok';msg.style.display='block';msg.textContent='✅ Configuration sauvegardée !';setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},700);
+  }catch(e){msg.className='err';msg.style.display='block';msg.textContent='❌ Erreur : '+e.message;}
 }
 
 // ── Chargement des données Grist ──────────────────────────
@@ -908,7 +957,11 @@ function loadConfig(opts){
   if(opts?.colSite)  CFG.colSite=opts.colSite;
   if(opts?.colBat)   CFG.colBat=opts.colBat;
   if(opts?.colNote!==undefined) CFG.colNote=opts.colNote;
+  if(opts?.colVisible!==undefined) CFG.colVisible=opts.colVisible;
   if(opts?.tableCats)CFG.cats=opts.tableCats;
+  if(opts?.colCatNom!==undefined)     CFG.colCatNom=opts.colCatNom;
+  if(opts?.colCatCouleur!==undefined) CFG.colCatCouleur=opts.colCatCouleur;
+  if(opts?.colCatActive!==undefined)  CFG.colCatActive=opts.colCatActive;
   if(opts?.tableDc)  CFG.dc=opts.tableDc;
   if(opts?.colDept)  CFG.colDept=opts.colDept;
   if(opts?.colCat)   CFG.colCat=opts.colCat;
@@ -928,14 +981,16 @@ function normName(s){return String(s||'').trim().toLowerCase().normalize('NFD').
 async function fetchAllTables(){
   document.getElementById('cfg-banner').classList.remove('show');
 
+  const colCatNom=CFG.colCatNom||'nom', colCatCouleur=CFG.colCatCouleur||'couleur';
   try{
     const catT=await grist.docApi.fetchTable(CFG.cats);
     const ids=catT.id||[];
+    const activeCol=CFG.colCatActive?catT[CFG.colCatActive]:(catT.active||catT.selection);
     APP.cats=ids.map((id,i)=>({
       _id:id,
-      nom:String(catT.nom?.[i]??('Catégorie '+id)),
-      couleur:catT.couleur?.[i]??'bleu',
-      active: catT.active? !!catT.active[i] : (catT.selection?!!catT.selection[i]:false),
+      nom:String(catT[colCatNom]?.[i]??('Catégorie '+id)),
+      couleur:catT[colCatCouleur]?.[i]??'bleu',
+      active: activeCol? !!activeCol[i] : true,
     }));
   }catch(e){
     document.getElementById('cfg-banner').classList.add('show');
@@ -949,8 +1004,13 @@ async function fetchAllTables(){
     const rowIds=batT.id||[];
     const sites=batT[CFG.colSite]||[];
     const bats=batT[CFG.colBat]||[];
-    const visibles=batT.visible;
+    const visibles=CFG.colVisible?batT[CFG.colVisible]:batT.visible;
     const notes=CFG.colNote?batT[CFG.colNote]:null;
+    if(sites.length&&typeof sites[0]==='number' || bats.length&&typeof bats[0]==='number'){
+      document.getElementById('cfg-banner').classList.add('show');
+      document.getElementById('cfg-banner-msg').textContent=
+        'Les colonnes "Site" et/ou "Bâtiment" semblent être de type Référence (elles renvoient un identifiant numérique, pas le texte affiché). Le widget a besoin de colonnes Texte contenant exactement le nom du site/bâtiment. ';
+    }
     APP.buildings={};
     for(let i=0;i<rowIds.length;i++){
       const site=String(sites[i]||''), bat=String(bats[i]||'');
@@ -1001,7 +1061,7 @@ async function boot(){
 
   if(window.grist){
     grist.ready({requiredAccess:'full', columns:[]});
-    grist.onOptions((opts)=>{ loadConfig(opts||{}); fetchAllTables(); });
+    grist.onOptions((opts)=>{ LAST_OPTIONS=opts||{}; loadConfig(LAST_OPTIONS); fetchAllTables(); });
     grist.onRecords(()=>{ fetchAllTables(); });
   }
 
