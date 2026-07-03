@@ -68,7 +68,21 @@
   @keyframes sp{to{transform:rotate(360deg)}}
 
   /* Panneau droit */
-  #side{width:310px;background:#fff;border-left:1px solid #dde;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;color:#222}
+  #side{width:310px;background:#fff;border-left:1px solid #dde;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;color:#222;transition:width .15s ease}
+  #side.collapsed{width:104px}
+  #side.collapsed #cfg-banner{display:none}
+  #side.collapsed #bs{display:none}
+  #side.collapsed #add-cat-row{display:none}
+  #side.collapsed .cumr{display:none}
+  #side.collapsed .sh{padding:7px 4px;justify-content:center}
+  #side.collapsed .sh .sh-label{display:none}
+  #side.collapsed .sh .arr{display:none}
+  #side.collapsed .sb{padding:6px 4px}
+  #side.collapsed .cr{padding:4px 3px;gap:3px}
+  #side.collapsed .cedit{display:none}
+  #side.collapsed .cn{font-size:10px}
+  #side-toggle{width:14px;flex-shrink:0;background:#f0f1f3;border-left:1px solid #dde;border-right:1px solid #dde;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:#888;user-select:none}
+  #side-toggle:hover{background:#e4e6ea;color:#333}
 
   /* Config banner */
   #cfg-banner{background:#fff3e0;border-bottom:1px solid #ffcc80;padding:7px 11px;font-size:11px;color:#5d4037;display:none;cursor:pointer}
@@ -234,6 +248,7 @@
       <div id="ldg"><div class="spin"></div><span id="ldg-msg">Chargement…</span></div>
     </div>
 
+    <div id="side-toggle" onclick="toggleSide()" title="Afficher / masquer le panneau">▸</div>
     <div id="side">
       <div id="cfg-banner" onclick="showConfig()">
         ⚠️ <span id="cfg-banner-msg">Tables non configurées.</span> Cliquez → ⚙️
@@ -241,7 +256,7 @@
 
       <!-- Catégories -->
       <div class="sec">
-        <div class="sh" onclick="tog(this)">🏷 Catégories <span id="cbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span><span class="arr">▾</span></div>
+        <div class="sh" onclick="tog(this)">🏷 <span class="sh-label">Catégories <span id="cbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span></span><span class="arr">▾</span></div>
         <div class="sb">
           <div id="cl"><div class="nc">Configurez les tables Grist via ⚙️</div></div>
           <div id="add-cat-row">
@@ -853,6 +868,17 @@ async function toggleBuildingCat(key,catId){
 }
 
 function tog(h){const b=h.nextElementSibling;const closed=b.classList.toggle('closed');h.querySelector('.arr').textContent=closed?'▸':'▾';}
+
+let sideCollapsed=localStorage.getItem('cbSideCollapsed')==='1';
+function applySideCollapsed(){
+  document.getElementById('side').classList.toggle('collapsed',sideCollapsed);
+  document.getElementById('side-toggle').textContent=sideCollapsed?'◂':'▸';
+}
+function toggleSide(){
+  sideCollapsed=!sideCollapsed;
+  localStorage.setItem('cbSideCollapsed',sideCollapsed?'1':'0');
+  applySideCollapsed();
+}
 function showGuide(){document.getElementById('guide-modal').classList.remove('gone');}
 function closeModal(id){document.getElementById(id).classList.add('gone');}
 
@@ -1097,6 +1123,7 @@ async function boot(){
   populateSiteSelect();
   initMap();
   populateBaseSelect();
+  applySideCollapsed();
   document.getElementById('sat-op').value=100;
   document.getElementById('site-sel').value=currentSite.key;
 
