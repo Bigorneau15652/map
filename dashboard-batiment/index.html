@@ -7,6 +7,8 @@
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {
     --accent: #2b6cb0;
@@ -113,6 +115,15 @@
     color: var(--text-muted);
     margin: -4px 0 10px;
   }
+  .surfaceDefs {
+    font-size: 10.5px;
+    font-style: italic;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+  .surfaceDefs div { white-space: normal; }
+  .surfaceDefs b { font-style: normal; color: #1a202c; }
 
   table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   table.data th, table.data td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: right; }
@@ -157,12 +168,29 @@
 
   .pageHeaderFlex { display: flex; gap: 14px; align-items: flex-start; }
   .pageHeaderText { flex: 1; min-width: 0; }
-  .pageHeaderPhoto { flex: 0 0 33%; max-width: 33%; }
+  .pageHeaderPhoto { flex: 0 0 33%; max-width: 33%; display: flex; flex-direction: column; gap: 10px; }
   .pageHeaderPhoto img {
     width: 100%; height: auto; max-height: 260px; display: block;
     border-radius: 8px; border: 1px solid var(--border); object-fit: contain;
   }
-  @media (max-width: 700px) { .pageHeaderFlex { flex-direction: column; } .pageHeaderPhoto { max-width: 100%; } }
+  #batMap { width: 100%; height: 200px; border-radius: 8px; border: 1px solid var(--border); }
+  .clickToEnlarge { cursor: pointer; }
+  .clickToEnlarge:hover { opacity: 0.9; }
+  @media (max-width: 700px) { .pageHeaderFlex { flex-direction: column; } .pageHeaderPhoto { max-width: 100%; flex-direction: row; } }
+
+  .lightboxOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.75);
+    z-index: 1000; display: flex; align-items: center; justify-content: center;
+  }
+  .lightboxContent { width: 90vw; height: 85vh; }
+  .lightboxContent img { width: 100%; height: 100%; object-fit: contain; }
+  .lightboxContent .lightboxMapInner { width: 100%; height: 100%; border-radius: 8px; }
+  .lightboxClose {
+    position: fixed; top: 16px; right: 20px;
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.4); color: #fff;
+    font-size: 18px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+  }
+  .lightboxClose:hover { background: rgba(255,255,255,.3); }
 
   .chartWrap { position: relative; height: 220px; }
 
@@ -181,11 +209,13 @@
        narrower paper size is chosen — keeps the donut from being pushed
        below its table where it could overflow into the next section. */
     .twoCol { grid-template-columns: 1fr 1fr !important; }
-    .kpiGrid { grid-template-columns: repeat(6, 1fr) !important; }
-    /* Cap the photo tightly at print time — page 1's vertical budget is much
-       tighter in landscape than the on-screen view, and a tall/portrait photo
-       must not push "Informations réglementaires" onto an extra page. */
+    .kpiGrid { grid-template-columns: repeat(5, 1fr) !important; }
+    /* Cap the photo and map tightly at print time — page 1's vertical budget is
+       much tighter in landscape than the on-screen view, and a tall/portrait
+       photo (or a full-height map) must not push "Informations réglementaires"
+       onto an extra page. */
     .pageHeaderPhoto img { max-height: 110px; }
+    #batMap { height: 110px; }
     body { background: #fff; font-size: 9.5px; }
     #content { max-width: none; padding: 0; }
     .card { border: none; box-shadow: none; padding: 6px 0; margin-bottom: 6px; break-inside: avoid; }
@@ -238,8 +268,13 @@
           </div>
         </div>
 
-        <div class="pageHeaderPhoto" id="batPhotoWrap" style="display:none">
-          <img id="batPhoto" alt="Photo du bâtiment">
+        <div class="pageHeaderPhoto">
+          <div id="batPhotoWrap" class="clickToEnlarge" style="display:none">
+            <img id="batPhoto" alt="Photo du bâtiment">
+          </div>
+          <div id="batMapWrap" class="clickToEnlarge" style="display:none">
+            <div id="batMap"></div>
+          </div>
         </div>
       </div>
 
@@ -258,10 +293,16 @@
       <div class="card" id="sec-surfaces-totales">
         <h2>Surfaces totales et par niveau</h2>
         <div class="subhead" id="empriseAuSol"></div>
+        <div class="surfaceDefs">
+          <div><b>SUN</b> — Surface Utile Nette : surface réellement exploitable (postes de travail, espaces d'activité), hors circulations, sanitaires et locaux techniques.</div>
+          <div><b>SUB</b> — Surface Utile Brute : surface intérieure hors éléments structuraux, circulations comprises ; base de calcul du loyer en bail commercial.</div>
+          <div><b>SPC</b> — acronyme non normalisé dans le mesurage tertiaire ; vraisemblablement apparenté à la SDP (Surface de Plancher, en vigueur depuis 2012).</div>
+          <div><b>SHOB</b> — Surface Hors Œuvre Brute : ancienne surface brute murs compris, utilisée jusqu'en 2012 pour les droits à construire, remplacée depuis par la SDP.</div>
+        </div>
         <div class="twoCol">
           <div>
             <table class="data" id="floorTable">
-              <thead><tr><th></th><th>SUN</th><th>SUB</th><th>SPC</th><th>SHON</th><th>SHOB</th></tr></thead>
+              <thead><tr><th></th><th>SUN</th><th>SUB</th><th>SPC</th><th>SHOB</th></tr></thead>
               <tbody></tbody>
               <tfoot></tfoot>
             </table>
@@ -302,6 +343,11 @@
     </div>
 
   </div>
+</div>
+
+<div id="lightbox" class="lightboxOverlay" style="display:none">
+  <button id="lightboxClose" class="lightboxClose" title="Fermer">✕</button>
+  <div id="lightboxContent" class="lightboxContent"></div>
 </div>
 
 <script>
@@ -467,6 +513,7 @@ function renderDashboard() {
   renderWarnings(bat, batSalles, batEtages, excludedSalles, excludedEtages);
   renderBatiment(bat);
   renderPhoto(bat);
+  renderMap(bat);
   const kpi = renderKpis(bat, batEtages, batSalles);
   renderReglementaire(bat);
   renderFloors(batEtages);
@@ -573,6 +620,38 @@ async function renderPhoto(bat) {
   img.src = url;
 }
 
+// ---------------------------------------------------------------------------
+// Map (OpenStreetMap, via Leaflet) — small static-looking preview that opens a
+// full interactive map in the lightbox on click.
+// ---------------------------------------------------------------------------
+const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+let miniMap = null, miniMarker = null, currentLatLng = null;
+
+function renderMap(bat) {
+  const wrap = document.getElementById('batMapWrap');
+  const lat = bat.Latitude, lng = bat.Longitude;
+  if (!lat || !lng || typeof L === 'undefined') {
+    wrap.style.display = 'none';
+    currentLatLng = null;
+    return;
+  }
+  currentLatLng = [lat, lng];
+  wrap.style.display = '';
+  if (!miniMap) {
+    miniMap = L.map('batMap', {
+      zoomControl: false, dragging: false, scrollWheelZoom: false,
+      doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, tap: false,
+    });
+    L.tileLayer(OSM_TILE_URL, { attribution: OSM_ATTRIBUTION, maxZoom: 19 }).addTo(miniMap);
+    miniMarker = L.marker(currentLatLng).addTo(miniMap);
+  } else {
+    miniMarker.setLatLng(currentLatLng);
+  }
+  miniMap.setView(currentLatLng, 17);
+  setTimeout(() => miniMap.invalidateSize(), 50);
+}
+
 function formatDate(v) {
   if (!v) { return '—'; }
   const d = new Date(v * 1000);
@@ -607,7 +686,6 @@ function renderFloors(batEtages) {
     ['SUN', 'Surface_SUN_m2_'],
     ['SUB', 'Surface_SUB_m2_'],
     ['SPC', 'Surface_SP_m2_'],
-    ['SHON', 'Surface_SHON_m2_'],
     ['SHOB', 'Surface_SHOB_m2_2'],
   ];
 
@@ -627,7 +705,7 @@ function renderFloors(batEtages) {
   const totals = cols.map(([, key]) => sum(rows, r => r[key]));
   tfoot.innerHTML = `<tr><td>Total bâtiment en m²</td>${totals.map(t => `<td>${fmtNum(t)}</td>`).join('')}</tr>`;
 
-  // Grouped by surface type on the X axis (SUN/SUB/SPC/SHON/SHOB), one stacked
+  // Grouped by surface type on the X axis (SUN/SUB/SPC/SHOB), one stacked
   // bar per type with floors piled bottom (Sous-sol) to top (TT) — `rows` is
   // already sorted in that order via floorSortKey above, and Chart.js stacks
   // datasets in array order with the first one at the bottom.
@@ -640,21 +718,19 @@ function renderFloors(batEtages) {
     })),
   }, { stacked: true });
 
-  return { SUN: totals[0], SUB: totals[1], SPC: totals[2], SHON: totals[3], SHOB: totals[4] };
+  return { SUN: totals[0], SUB: totals[1], SPC: totals[2], SHOB: totals[3] };
 }
 
 function renderKpis(bat, batEtages, batSalles) {
   const SUN = sum(batEtages, e => e.Surface_SUN_m2_);
   const SUB = sum(batEtages, e => e.Surface_SUB_m2_);
   const SPC = sum(batEtages, e => e.Surface_SP_m2_);
-  const SHON = sum(batEtages, e => e.Surface_SHON_m2_);
   const nbPostes = sum(batSalles, s => s.Nb_de_postes_de_travail);
   const capacite = bat.Effectif;
 
   const ratioSunPoste = nbPostes > 0 ? SUN / nbPostes : null;
   const ratioSunSub = SUB > 0 ? (SUN / SUB) * 100 : null;
   const ratioSubSpc = SPC > 0 ? (SUB / SPC) * 100 : null;
-  const ratioSubShon = SHON > 0 ? (SUB / SHON) * 100 : null;
 
   const kpis = [
     { label: 'Nombre de postes de travail', value: fmtNum(nbPostes), cls: '' },
@@ -674,7 +750,6 @@ function renderKpis(bat, batEtages, batSalles) {
       value: fmtPct(ratioSubSpc),
       cls: ratioSubSpc === null ? '' : (ratioSubSpc >= 85 ? 'ok' : ratioSubSpc >= 70 ? 'warn' : 'bad'),
     },
-    { label: "Ratio d'optimisation de la conception (SHON) SUB/SHON", value: fmtPct(ratioSubShon), cls: '' },
   ];
 
   document.getElementById('kpiGrid').innerHTML = kpis.map(k =>
@@ -687,7 +762,7 @@ function renderKpis(bat, batEtages, batSalles) {
   document.getElementById('empriseAuSol').textContent =
     `Emprise au sol : ${fmtNum(bat.Surface_emprise_au_sol_m2_)} m²`;
 
-  return { SUN, SUB, SPC, SHON, nbPostes, capacite };
+  return { SUN, SUB, SPC, nbPostes, capacite };
 }
 
 function renderFunctional(bat, kpi, batSalles) {
@@ -842,9 +917,44 @@ els.refreshBtn.addEventListener('click', async () => {
   setStatus('Actualisé.');
 });
 els.printBtn.addEventListener('click', () => window.print());
-// The donut canvas keeps the pixel size it had on screen unless told to
-// resize — without this it can overflow the smaller print layout.
-window.addEventListener('beforeprint', () => { Object.values(charts).forEach(c => c.resize()); });
+// The donut canvas / mini-map keep the pixel size they had on screen unless
+// told to resize — without this they can overflow the smaller print layout.
+window.addEventListener('beforeprint', () => {
+  Object.values(charts).forEach(c => c.resize());
+  if (miniMap) { miniMap.invalidateSize(); }
+});
+
+// ---------------------------------------------------------------------------
+// Lightbox: click the photo or the map to open an enlarged version.
+// ---------------------------------------------------------------------------
+let lightboxMap = null;
+function openLightboxImage(src) {
+  document.getElementById('lightboxContent').innerHTML = `<img src="${src}" alt="Photo du bâtiment">`;
+  document.getElementById('lightbox').style.display = 'flex';
+}
+function openLightboxMap(latlng) {
+  document.getElementById('lightboxContent').innerHTML = '<div class="lightboxMapInner" id="lightboxMapInner"></div>';
+  document.getElementById('lightbox').style.display = 'flex';
+  lightboxMap = L.map('lightboxMapInner').setView(latlng, 17);
+  L.tileLayer(OSM_TILE_URL, { attribution: OSM_ATTRIBUTION, maxZoom: 19 }).addTo(lightboxMap);
+  L.marker(latlng).addTo(lightboxMap);
+  setTimeout(() => lightboxMap.invalidateSize(), 50);
+}
+function closeLightbox() {
+  document.getElementById('lightbox').style.display = 'none';
+  document.getElementById('lightboxContent').innerHTML = '';
+  if (lightboxMap) { lightboxMap.remove(); lightboxMap = null; }
+}
+document.getElementById('batPhotoWrap').addEventListener('click', () => {
+  const img = document.getElementById('batPhoto');
+  if (img.src) { openLightboxImage(img.src); }
+});
+document.getElementById('batMapWrap').addEventListener('click', () => {
+  if (currentLatLng) { openLightboxMap(currentLatLng); }
+});
+document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
+document.getElementById('lightbox').addEventListener('click', (e) => { if (e.target.id === 'lightbox') { closeLightbox(); } });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeLightbox(); } });
 
 // ---------------------------------------------------------------------------
 // Titre affiché à l'impression / dans l'onglet du navigateur.

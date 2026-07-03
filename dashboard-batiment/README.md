@@ -68,21 +68,39 @@ précis, chaque section a un id HTML stable, dans l'ordre du PDF de référence 
 
 **Page 1** (`#page1`)
 - `#sec-batiment` + `#sec-kpi` — Numéro / Appellation / Nom du bâtiment / Année de construction /
-  Commentaires, et les 6 indicateurs, dans un bandeau `.pageHeaderFlex` qui laisse 1/3 de la largeur
-  à droite (`#batPhotoWrap`) pour la photo du bâtiment (`BDD_Batiments.Photo_batiment`), le texte
-  s'ajustant dans les 2/3 restants.
+  Commentaires, et les 5 indicateurs, dans un bandeau `.pageHeaderFlex` qui laisse 1/3 de la largeur
+  à droite (`.pageHeaderPhoto`) pour la photo du bâtiment (`#batPhotoWrap`) et, en dessous, une carte
+  OpenStreetMap centrée sur `BDD_Batiments.Latitude`/`Longitude` (`#batMapWrap`) — le texte s'ajuste
+  dans les 2/3 restants. Cliquer sur la photo ou sur la carte ouvre un agrandissement (lightbox
+  `#lightbox`) ; pour la carte, l'agrandissement est une carte interactive complète (zoom/déplacement),
+  la miniature elle-même n'étant pas interactive pour ne pas entrer en conflit avec le clic d'ouverture.
 - `#sec-reglementaire` — Informations réglementaires + Date visite/avis commission + Capacité d'accueil
-- `#sec-surfaces-totales` — Emprise au sol + tableau Surfaces par niveau (SUN/SUB/SPC/SHON/SHOB) +
-  graphique en barres empilées (un type de surface par colonne, les niveaux empilés du Sous-sol en
-  bas au TT en haut) — écran uniquement.
+- `#sec-surfaces-totales` — Emprise au sol, une légende en italique rappelant la définition de chaque
+  acronyme (SUN/SUB/SPC/SHOB), le tableau Surfaces par niveau et un graphique en barres empilées (un
+  type de surface par colonne, les niveaux empilés du Sous-sol en bas au TT en haut) — écran uniquement.
 
 **Page 2** (`#page2`, saut de page forcé à l'impression)
 - `#sec-surfaces-fonctionnelles` — identité du bâtiment + blocs "Type de surface fonctionnelle"
   (mêmes regroupements que le PDF) + le donut "Surface SUB en m² par occupation fonctionnelle"
-  (affiché à l'écran **et** à l'impression, contrairement au graphique de la page 1)
+  (affiché à l'écran **et** à l'impression, contrairement aux graphiques de la page 1)
 - `#sec-repartition-bureau` — tableau "Répartition des surfaces de bureau et salles de cours"
 
-### Photo du bâtiment
+### SHON retirée
+
+L'indicateur SHON (colonne, ratio SUB/SHON, série du graphique) a été retiré du widget : ce champ
+(`BDD_Etages.Surface_SHON_m2_`) est saisi manuellement, et n'était pas renseigné pour le bâtiment
+testé. Si vous constatez qu'il l'est pour d'autres bâtiments, dites-le-moi, on pourra le réintégrer
+en le rendant simplement optionnel (masqué seulement quand vide) plutôt que retiré partout.
+
+### SPC : acronyme non identifié avec certitude
+
+Cet acronyme n'est pas standardisé dans le mesurage tertiaire. Il est vraisemblablement apparenté à
+la SDP (Surface De Plancher), qui a remplacé SHON et SHOB en 2012 dans le droit de l'urbanisme — ça
+correspondrait à sa position dans les valeurs du PDF (entre SUB et SHON/SHOB, croissantes), et au nom
+que vous avez donné vous-même à la colonne de base servant à son calcul (`Surface_base_pour_SDP_m2_`).
+Ce n'est qu'une hypothèse : le libellé "SPC" lui-même reste à confirmer si vous avez une source.
+
+### Photo et carte du bâtiment
 
 La photo est une pièce jointe Grist (`Photo_batiment`), pas une simple URL : `fetchTable` ne
 renvoie qu'un identifiant de pièce jointe, il faut ensuite `grist.docApi.getAccessToken()` pour
@@ -92,6 +110,12 @@ contre un vrai serveur Grist depuis l'environnement de développement — si la 
 pas alors qu'un bâtiment en a une, dites-le-moi (avec si possible le message d'erreur affiché
 dans la console du navigateur, F12), on ajustera l'URL. En cas d'échec de chargement, l'emplacement
 se masque proprement plutôt que d'afficher une image cassée.
+
+La carte utilise Leaflet + les tuiles OpenStreetMap standard (`tile.openstreetmap.org`), avec
+l'attribution requise par leur licence affichée sous la carte. La hauteur de la photo et de la carte
+est plafonnée (260px à l'écran, 110px à l'impression) pour qu'une image ou des proportions inhabituelles
+ne fassent pas déborder la mise en page sur une page supplémentaire — vérifié avec une image de test
+volontairement extrême (800×1100).
 
 Aucun indicateur n'a été ajouté au-delà de ce que contient le PDF : la section
 "Répartition par catégorie de local" d'une version précédente (qui n'existait
@@ -107,11 +131,12 @@ pas dans le PDF) a été retirée.
 | Ratio d'occupation SUN/Poste de travail (cible 12m²) | SUN bâtiment ÷ Nombre de postes de travail |
 | Ratio d'optimisation de la capacité d'accueil SUN/SUB (cible > 67%) | SUN bâtiment ÷ SUB bâtiment |
 | Ratio d'optimisation de la conception (SPC) SUB/SPC (cible > 85%) | SUB bâtiment ÷ SPC bâtiment |
-| Ratio d'optimisation de la conception (SHON) SUB/SHON | SUB bâtiment ÷ SHON bâtiment |
 | Type établissement principal / secondaire (1)(2)(3) | 1er, 2e, 3e, 4e élément de `BDD_Batiments.Type_d_ERP2` (liste), code repris depuis `Table_Type_d_ERP` |
 | Catégorie d'établissement               | `BDD_Batiments.Categorie_d_ERP`                                            |
 | Date visite commission / Avis commission / Date du dernier avis commission | `BDD_Batiments.Date_de_visite_de_commission` / `AvisCommission` / `Date_du_dernier_avis` |
-| SUN/SUB/SPC/SHON/SHOB par niveau et total | Somme de `BDD_Etages.Surface_SUN_m2_` / `Surface_SUB_m2_` / `Surface_SP_m2_` / `Surface_SHON_m2_` / `Surface_SHOB_m2_2` (hors étages au Site incohérent) |
+| SUN/SUB/SPC/SHOB par niveau et total | Somme de `BDD_Etages.Surface_SUN_m2_` / `Surface_SUB_m2_` / `Surface_SP_m2_` / `Surface_SHOB_m2_2` (hors étages au Site incohérent) |
+| Photo du bâtiment                      | `BDD_Batiments.Photo_batiment` (pièce jointe)                              |
+| Carte de localisation                  | `BDD_Batiments.Latitude` / `Longitude`                                     |
 | Surfaces fonctionnelles (Administration, Enseignement, …) | `BDD_Salles` groupées par `Occupation`, filtrées sur `Type_d_usage.SUB = vrai` |
 | Répartition des surfaces de bureau et salles de cours | `BDD_Salles` filtrées sur `Type_d_usage.Libellé` ∈ {Bureau, Salle de cours} et `SUB = vrai`, groupées par Occupation |
 
