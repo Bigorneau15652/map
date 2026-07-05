@@ -1194,7 +1194,28 @@ grist.onRecord((record) => {
     return;
   }
 
-  const url    = resolveUrl(record[state.config.colUrl]);
+  const rawVal = record[state.config.colUrl];
+  const url    = resolveUrl(rawVal);
+
+  // Aucune URL exploitable pour cette ligne → on montre pourquoi (diagnostic)
+  if (!url) {
+    const esc = s => String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    showEmpty();
+    $('empty').innerHTML = `
+      <div class="icon">🔍</div>
+      <div>Aucune URL pour cette ligne</div>
+      <div style="font-size:10px;max-width:380px;text-align:left;color:var(--text-muted);
+                  background:rgba(0,0,0,.25);padding:8px 10px;border-radius:6px;margin-top:8px;
+                  word-break:break-all;line-height:1.5">
+        <b>Diagnostic</b><br>
+        Colonne choisie : <b>${esc(state.config.colUrl)}</b><br>
+        Valeur brute de la cellule : ${esc(JSON.stringify(rawVal))}<br>
+        Ligne (id Grist) : ${esc(record.id)}<br>
+        Colonnes disponibles : ${esc(Object.keys(record).filter(k=>!k.startsWith('_')).join(', '))}
+      </div>`;
+    return;
+  }
+
   const roomId = state.config.colRoom ? record[state.config.colRoom] : null;
   state.dxf.highlightName = state.config.colName ? record[state.config.colName] : null;
   loadFile(url, roomId, record);
