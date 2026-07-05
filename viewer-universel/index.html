@@ -244,6 +244,12 @@
       <select id="cfg-col-360"><option value="">— aucune —</option></select>
     </div>
 
+    <div class="config-row">
+      <label>Proxy CORS <span style="color:var(--text-muted)">(avancé, optionnel)</span></label>
+      <input id="cfg-cors-proxy" type="text" placeholder="ex : https://corsproxy.io/?url={url}">
+      <div class="hint">Si le drive bloque le téléchargement direct (erreur CORS), indiquez un proxy. <code>{url}</code> est remplacé par l'URL du fichier. Laisser vide si le drive autorise l'accès direct.</div>
+    </div>
+
     <div class="config-actions">
       <button class="btn-secondary" id="cfg-cancel">Annuler</button>
       <button class="btn-primary" id="cfg-save">Enregistrer</button>
@@ -310,10 +316,39 @@ function updateFormatBadge() {
   badge.textContent = f ? f.toUpperCase() : '—';
 }
 
+/* Normalise une URL de partage Nextcloud vers le lien de téléchargement direct.
+   .../s/TOKEN          → .../s/TOKEN/download
+   .../s/TOKEN/         → .../s/TOKEN/download
+   (laisse tel quel si déjà /download ou si ce n'est pas un partage Nextcloud) */
+function normalizeFileUrl(url) {
+  url = (url || '').trim();
+  if (/\/s\/[A-Za-z0-9._-]+/.test(url) && !/\/download/.test(url)) {
+    url = url.replace(/(\/s\/[A-Za-z0-9._-]+)\/?(\?|#|$)/, '$1/download$2');
+  }
+  return url;
+}
+
+/* Récupère un fichier. En cas d'échec CORS, réessaie via un proxy si configuré.
+   state.config.corsProxy peut contenir {url} (remplacé par l'URL encodée),
+   sinon l'URL est simplement ajoutée à la fin. */
 async function fetchFile(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r;
+  const norm = normalizeFileUrl(url);
+  try {
+    const r = await fetch(norm);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r;
+  } catch (e) {
+    const proxy = state.config.corsProxy;
+    if (proxy) {
+      const purl = proxy.includes('{url}')
+        ? proxy.replace('{url}', encodeURIComponent(norm))
+        : proxy + encodeURIComponent(norm);
+      const r = await fetch(purl);
+      if (!r.ok) throw new Error(`HTTP ${r.status} (proxy)`);
+      return r;
+    }
+    throw e;
+  }
 }
 
 function detectFormat(url, record) {
@@ -915,6 +950,11 @@ async function loadDXF(url, roomId) {
   const text = await resp.text();
   setLoading(80);
 
+  // Le serveur a renvoyé une page HTML (page de partage) au lieu du fichier DXF
+  if (/^\s*<(!doctype|html|\?xml)/i.test(text.slice(0, 200)) && !/^\s*0\s*[\r\n]+\s*SECTION/i.test(text.slice(0, 200))) {
+    throw new Error('__HTML__');
+  }
+
   const parsed = parseDXF(text);
 
   // Init layers visibility
@@ -1020,12 +1060,22 @@ async function loadFile(url, roomId, record) {
   } catch(err) {
     console.error('Viewer error:', err);
     showEmpty();
-    // Un "Failed to fetch" est presque toujours un blocage CORS côté Nextcloud
     const isCors = err instanceof TypeError || /failed to fetch|networkerror/i.test(err.message || '');
-    const hint = isCors
-      ? `Le navigateur n'a pas pu télécharger le fichier.<br>Causes probables : lien Nextcloud non public, ou blocage CORS.<br>Utilisez un <b>lien de partage public</b> finissant par <code>/download</code>.`
-      : `<span style="color:#f07070">${err.message}</span>`;
-    $('empty').innerHTML = `<div class="icon">⚠️</div><div>Erreur de chargement</div><div style="font-size:11px;max-width:320px;text-align:center;line-height:1.5">${hint}</div>`;
+    let hint;
+    if (err.message === '__HTML__') {
+      hint = `L'URL renvoie une <b>page web</b>, pas un fichier DXF.<br>
+        C'est un lien vers la <b>page de partage</b> Nextcloud. Utilisez le lien
+        <b>direct</b> finissant par <code>/download</code><br>
+        (ex : <code>https://upvdrive…/s/XXXX/download</code>).`;
+    } else if (isCors) {
+      hint = `Le navigateur n'a pas pu télécharger le fichier (<b>CORS</b>).<br>
+        Le drive Nextcloud n'autorise pas la lecture directe depuis le widget.<br>
+        Solutions : activer CORS côté Nextcloud, renseigner un <b>proxy CORS</b>
+        dans ⚙ Config, ou stocker le plan en <b>pièce jointe Grist</b>.`;
+    } else {
+      hint = `<span style="color:#f07070">${err.message}</span>`;
+    }
+    $('empty').innerHTML = `<div class="icon">⚠️</div><div>Erreur de chargement</div><div style="font-size:11px;max-width:340px;text-align:center;line-height:1.6">${hint}</div>`;
   }
 }
 
@@ -1056,6 +1106,7 @@ function applyConfigToUI() {
   $('cfg-col-name').value   = c.colName  || '';
   $('cfg-col-360').value    = c.col360   || '';
   $('cfg-force-format').value = c.forceFormat || 'auto';
+  $('cfg-cors-proxy').value   = c.corsProxy   || '';
   $('cfg-360-detect').value   = c.detect360  || 'suffix';
   toggle360ColRow();
   // layerId / fitLayer sont remplis depuis les calques du DXF — on restaure si déjà connus
@@ -1143,6 +1194,7 @@ $('cfg-save').addEventListener('click', async () => {
     col360:    $('cfg-col-360').value   || null,
     layerId:     $('cfg-layer-id').value     || null,
     fitLayer:    $('cfg-fit-layer').value    || null,
+    corsProxy:   $('cfg-cors-proxy').value.trim() || null,
     forceFormat: $('cfg-force-format').value || 'auto',
     detect360:   $('cfg-360-detect').value,
   };
