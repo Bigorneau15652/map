@@ -1100,7 +1100,27 @@ async function loadFile(url, roomId, record) {
         ${d.directError ? 'Erreur accès direct : ' + d.directError + '<br>' : ''}
         Erreur finale : ${err.message}
       </div>`;
-    $('empty').innerHTML = `<div class="icon">⚠️</div><div>Erreur de chargement</div><div style="font-size:11px;max-width:360px;text-align:center;line-height:1.6">${hint}${details}</div>`;
+    const conn = `<div id="conn-test" style="margin-top:8px;font-size:10px;color:var(--text-muted)">Test connexion externe en cours…</div>`;
+    $('empty').innerHTML = `<div class="icon">⚠️</div><div>Erreur de chargement</div><div style="font-size:11px;max-width:360px;text-align:center;line-height:1.6">${hint}${details}${conn}</div>`;
+    runConnectivityTest();
+  }
+}
+
+/* Teste si le widget peut faire UNE requête externe (fetch) tout court.
+   api.github.com renvoie Access-Control-Allow-Origin:* → autorisé partout,
+   SAUF si l'iframe Grist impose une CSP connect-src qui bloque tout. */
+async function runConnectivityTest() {
+  const el = () => $('conn-test');
+  const set = m => { const e = el(); if (e) e.innerHTML = m; };
+  try {
+    const r = await fetch('https://api.github.com/zen', { cache: 'no-store' });
+    if (r.ok) {
+      set('✅ Test fetch externe (api.github.com) : <b>OK</b> — les requêtes externes fonctionnent.<br>→ C\'est le proxy <b>allorigins</b> qui est en cause (panne/limite). Essayez un autre proxy.');
+    } else {
+      set(`⚠️ Test fetch externe : HTTP ${r.status}`);
+    }
+  } catch (e) {
+    set('⛔ Test fetch externe (api.github.com) : <b>ÉCHEC</b> (' + (e.message||e) + ').<br>→ Le widget Grist <b>bloque toutes les requêtes externes</b> (CSP). Aucun proxy ne pourra fonctionner ici — il faudra CORS côté Nextcloud, une extension, ou une pièce jointe.');
   }
 }
 
