@@ -316,6 +316,16 @@ function updateFormatBadge() {
   badge.textContent = f ? f.toUpperCase() : '—';
 }
 
+/* Extrait une URL exploitable d'une valeur de cellule Grist.
+   Gère les colonnes hyperlien Grist ("label URL"), les listes, etc. */
+function resolveUrl(v) {
+  if (v == null) return '';
+  if (Array.isArray(v)) v = v[v.length - 1];
+  const s = String(v).trim();
+  const m = s.match(/https?:\/\/\S+/);
+  return m ? m[0] : s;
+}
+
 /* Normalise une URL de partage Nextcloud vers le lien de téléchargement direct.
    .../s/TOKEN          → .../s/TOKEN/download
    .../s/TOKEN/         → .../s/TOKEN/download
@@ -1169,7 +1179,7 @@ grist.onRecord((record) => {
     return;
   }
 
-  const url    = record[state.config.colUrl] || '';
+  const url    = resolveUrl(record[state.config.colUrl]);
   const roomId = state.config.colRoom ? record[state.config.colRoom] : null;
   state.dxf.highlightName = state.config.colName ? record[state.config.colName] : null;
   loadFile(url, roomId, record);
@@ -1209,7 +1219,7 @@ $('cfg-save').addEventListener('click', async () => {
     renderDXF();
   }
   if (state.currentRecord) {
-    const url    = state.currentRecord[state.config.colUrl] || '';
+    const url    = resolveUrl(state.currentRecord[state.config.colUrl]);
     const roomId = state.config.colRoom ? state.currentRecord[state.config.colRoom] : null;
     state.dxf.highlightName = state.config.colName ? state.currentRecord[state.config.colName] : null;
     loadFile(url, roomId, state.currentRecord);
