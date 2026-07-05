@@ -102,6 +102,7 @@
     #config-box {
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
       padding: 24px; width: 380px; max-width: 95vw;
+      max-height: 92vh; overflow-y: auto;
     }
     #config-box h2 { font-size: 15px; margin-bottom: 4px; }
     #config-box p { color: var(--text-muted); font-size: 12px; margin-bottom: 20px; }
@@ -343,18 +344,22 @@ function normalizeFileUrl(url) {
    sinon l'URL est simplement ajoutée à la fin. */
 async function fetchFile(url) {
   const norm = normalizeFileUrl(url);
+  state._diag = { url: norm, directError: null, proxied: false, proxyUrl: null };
   try {
     const r = await fetch(norm);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r;
   } catch (e) {
+    state._diag.directError = e.message || String(e);
     const proxy = state.config.corsProxy;
     if (proxy) {
       const purl = proxy.includes('{url}')
         ? proxy.replace('{url}', encodeURIComponent(norm))
         : proxy + encodeURIComponent(norm);
+      state._diag.proxied = true;
+      state._diag.proxyUrl = purl;
       const r = await fetch(purl);
-      if (!r.ok) throw new Error(`HTTP ${r.status} (proxy)`);
+      if (!r.ok) throw new Error(`HTTP ${r.status} (via proxy)`);
       return r;
     }
     throw e;
@@ -1085,7 +1090,17 @@ async function loadFile(url, roomId, record) {
     } else {
       hint = `<span style="color:#f07070">${err.message}</span>`;
     }
-    $('empty').innerHTML = `<div class="icon">⚠️</div><div>Erreur de chargement</div><div style="font-size:11px;max-width:340px;text-align:center;line-height:1.6">${hint}</div>`;
+    // Détails techniques (pour diagnostic) : URL essayée, proxy utilisé, erreur directe
+    const d = state._diag || {};
+    const details = `
+      <div style="margin-top:12px;padding:8px 10px;background:rgba(0,0,0,.25);border-radius:6px;text-align:left;font-size:10px;color:var(--text-muted);word-break:break-all;line-height:1.5">
+        <b>Détails techniques</b><br>
+        URL : ${d.url ? d.url : '—'}<br>
+        Proxy utilisé : ${d.proxied ? 'oui' : 'non'}${d.proxyUrl ? '<br>URL proxy : ' + d.proxyUrl : ''}<br>
+        ${d.directError ? 'Erreur accès direct : ' + d.directError + '<br>' : ''}
+        Erreur finale : ${err.message}
+      </div>`;
+    $('empty').innerHTML = `<div class="icon">⚠️</div><div>Erreur de chargement</div><div style="font-size:11px;max-width:360px;text-align:center;line-height:1.6">${hint}${details}</div>`;
   }
 }
 
