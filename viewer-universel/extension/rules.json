@@ -12,8 +12,8 @@
       ]
     },
     "condition": {
-      "requestDomains": ["upvdrive.univ-montp3.fr"],
-      "resourceTypes": ["xmlhttprequest"]
+      "urlFilter": "||upvdrive.univ-montp3.fr^",
+      "resourceTypes": ["xmlhttprequest", "other", "media", "sub_frame"]
     }
   }
 ]

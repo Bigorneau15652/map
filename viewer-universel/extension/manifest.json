@@ -3,7 +3,7 @@
   "name": "UPV Drive CORS – Viewer Grist",
   "version": "1.0.0",
   "description": "Ajoute les en-têtes CORS aux réponses du drive UPV (upvdrive.univ-montp3.fr) pour que le widget Grist puisse lire les fichiers DXF/plans. N'affecte QUE ce domaine.",
-  "permissions": ["declarativeNetRequest"],
+  "permissions": ["declarativeNetRequestWithHostAccess"],
   "host_permissions": ["https://upvdrive.univ-montp3.fr/*"],
   "declarative_net_request": {
     "rule_resources": [
