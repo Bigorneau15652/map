@@ -120,22 +120,25 @@
     .btn-secondary { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 5px; padding: 9px 16px; font-size: 13px; cursor: pointer; }
     .btn-secondary:hover { background: var(--border); color: var(--text); }
 
-    /* ── Tooltip / room info ── */
+    /* Badge de la pièce SÉLECTIONNÉE (liée à Grist, pas au survol souris) —
+       en bas à gauche DU PLAN, pour ne jamais recouvrir la barre d'outils. */
+    #selected-room-badge {
+      position: absolute; bottom: 12px; left: 12px; background: var(--accent);
+      color: #fff; border-radius: 6px; padding: 6px 12px; font-size: 12px;
+      font-weight: 600; z-index: 50; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35);
+      max-width: 320px;
+    }
+
+    /* ── Tooltip / room info (survol souris) ── */
+    /* Empilée au-dessus du badge de sélection (bottom:12px) pour ne pas le recouvrir */
     #room-tooltip {
-      position: absolute; bottom: 12px; left: 12px; background: var(--surface);
+      position: absolute; bottom: 56px; left: 12px; background: var(--surface);
       border: 1px solid var(--accent); border-radius: 6px; padding: 8px 12px;
       font-size: 12px; pointer-events: none; z-index: 50; max-width: 260px;
       display: none;
     }
     #room-tooltip .rt-id { font-size: 11px; color: var(--text-muted); }
     #room-tooltip .rt-name { font-weight: 600; margin-top: 2px; }
-
-    /* Badge de la pièce SÉLECTIONNÉE (liée à Grist, pas au survol souris) */
-    #selected-room-badge {
-      position: absolute; top: 12px; left: 12px; background: var(--accent);
-      color: #fff; border-radius: 6px; padding: 6px 12px; font-size: 12px;
-      font-weight: 600; z-index: 50; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35);
-    }
 
     /* ── Scrollbars ── */
     ::-webkit-scrollbar { width: 6px; }
@@ -222,12 +225,21 @@
     </div>
 
     <div class="config-row" style="border-top:1px solid var(--border);padding-top:14px;">
-      <label>Marge de zoom autour de la pièce</label>
+      <label>Niveau de zoom sur la pièce</label>
       <div style="display:flex;align-items:center;gap:10px;">
-        <input type="range" id="cfg-room-zoom" min="50" max="400" step="10" style="flex:1">
+        <input type="range" id="cfg-room-zoom" min="50" max="500" step="10" style="flex:1">
         <span id="cfg-room-zoom-val" style="font-size:12px;min-width:44px;text-align:right;">100%</span>
       </div>
-      <div class="hint">100 % = zoom actuel (ajusté à la pièce). Augmentez pour voir la pièce dans son environnement (couloir, pièces voisines).</div>
+      <div class="hint">100 % = réglage d'origine. Augmentez pour zoomer davantage sur la pièce ; diminuez pour voir plus de contexte (couloir, pièces voisines).</div>
+    </div>
+
+    <div class="config-row">
+      <label>Épaisseur des traits</label>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input type="range" id="cfg-line-width" min="50" max="400" step="10" style="flex:1">
+        <span id="cfg-line-width-val" style="font-size:12px;min-width:44px;text-align:right;">150%</span>
+      </div>
+      <div class="hint">Augmentez si les contours du plan sont difficiles à voir (traits fins ou peu contrastés dans le fichier d'origine).</div>
     </div>
 
     <div class="config-row">
@@ -662,6 +674,18 @@ function isLayerVisible(layerName) {
   return l ? l.visible !== false : true;
 }
 
+// Épaisseur de trait : dépend du zoom courant (constante à l'écran) et d'un
+// multiplicateur réglable (⚙ Config) pour rendre les contours plus visibles
+// sur des plans dont les traits d'origine sont fins ou peu contrastés.
+function lineWidthMult() {
+  const pct = state._previewLineWidthPct ?? state.config.lineWidthPct ?? 150;
+  return pct / 100;
+}
+function lineWidthPx(baseFactor = 1) {
+  const raw = baseFactor * lineWidthMult() / state.dxf.transform.scale * canvas.width / 800;
+  return Math.max(0.75 * baseFactor, raw);
+}
+
 function renderDXF() {
   if (!state.dxf.parsed) return;
   const w = canvas.width, h = canvas.height;
@@ -678,7 +702,7 @@ function renderDXF() {
     const color = getEntityColor(ent);
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
-    ctx.lineWidth = 1 / state.dxf.transform.scale * canvas.width / 800;
+    ctx.lineWidth = lineWidthPx();
 
     const isHighlighted = highlightId && isEntityMatch(ent, highlightId);
 
@@ -697,7 +721,7 @@ function renderDXF() {
           ctx.fillStyle = 'rgba(79,142,247,0.2)';
           ctx.fill();
           ctx.strokeStyle = '#4f8ef7';
-          ctx.lineWidth = Math.max(2, 2 / state.dxf.transform.scale * canvas.width / 800);
+          ctx.lineWidth = lineWidthPx(2);
         }
         ctx.stroke();
         break;
@@ -900,11 +924,13 @@ function fitAll() {
   fitToBBox(architectureBBox());
 }
 
-// 100 % (réglage par défaut) reproduit le zoom historique (marge = 40 % de la
-// pièce). Le curseur de config permet de l'élargir pour voir l'environnement.
+// « Niveau de zoom » façon appareil photo : plus le pourcentage est élevé,
+// plus la vue est resserrée sur la pièce. 100 % reproduit le réglage
+// historique (marge = 40 % de la pièce). Diminuer montre plus de contexte,
+// augmenter zoome davantage.
 function roomZoomFactor(pctOverride) {
   const p = pctOverride != null ? pctOverride : (state.config.roomZoomPct || 100);
-  return 0.4 * (p / 100);
+  return 0.4 / (p / 100);
 }
 
 function zoomToRoom(id, pctOverride) {
@@ -1255,6 +1281,8 @@ function applyConfigToUI() {
   toggle360ColRow();
   $('cfg-room-zoom').value = c.roomZoomPct || 100;
   $('cfg-room-zoom-val').textContent = (c.roomZoomPct || 100) + '%';
+  $('cfg-line-width').value = c.lineWidthPct || 150;
+  $('cfg-line-width-val').textContent = (c.lineWidthPct || 150) + '%';
   $('cfg-bg-color').value = c.bgColor || '#1a1a2a';
   // layerId / fitLayer sont remplis depuis les calques du DXF — on restaure si déjà connus
   if (c.layerId && $('cfg-layer-id').querySelector(`option[value="${c.layerId}"]`)) {
@@ -1350,8 +1378,9 @@ function openConfig() { $('config-overlay').classList.remove('hidden'); }
 function closeConfig() { $('config-overlay').classList.add('hidden'); }
 
 function cancelConfig() {
-  // Annule les prévisualisations non enregistrées (marge de zoom / fond)
+  // Annule les prévisualisations non enregistrées (zoom / traits / fond)
   state._previewBg = null;
+  state._previewLineWidthPct = null;
   applyConfigToUI();
   if (state.currentFormat === 'dxf') {
     renderDXF();
@@ -1363,11 +1392,19 @@ function cancelConfig() {
 $('btn-config').addEventListener('click', openConfig);
 $('cfg-cancel').addEventListener('click', cancelConfig);
 
-// Prévisualisation en direct : marge de zoom (glissière)
+// Prévisualisation en direct : niveau de zoom (glissière)
 $('cfg-room-zoom').addEventListener('input', () => {
   const v = parseInt($('cfg-room-zoom').value, 10);
   $('cfg-room-zoom-val').textContent = v + '%';
   if (state.currentFormat === 'dxf' && state.dxf.highlightId) zoomToRoom(state.dxf.highlightId, v);
+});
+
+// Prévisualisation en direct : épaisseur des traits
+$('cfg-line-width').addEventListener('input', () => {
+  const v = parseInt($('cfg-line-width').value, 10);
+  $('cfg-line-width-val').textContent = v + '%';
+  state._previewLineWidthPct = v;
+  if (state.currentFormat === 'dxf') renderDXF();
 });
 
 // Prévisualisation en direct : fond du plan
@@ -1394,10 +1431,13 @@ $('cfg-save').addEventListener('click', async () => {
     corsProxy:   $('cfg-cors-proxy').value.trim() || null,
     forceFormat: $('cfg-force-format').value || 'auto',
     detect360:   $('cfg-360-detect').value,
-    roomZoomPct: parseInt($('cfg-room-zoom').value, 10) || 100,
-    bgColor:     $('cfg-bg-color').value || '#1a1a2a',
+    roomZoomPct:   parseInt($('cfg-room-zoom').value, 10) || 100,
+    lineWidthPct:  parseInt($('cfg-line-width').value, 10) || 150,
+    bgColor:       $('cfg-bg-color').value || '#1a1a2a',
   };
-  state._previewBg = null; // la valeur choisie est désormais la valeur enregistrée
+  // Les valeurs choisies sont désormais les valeurs enregistrées
+  state._previewBg = null;
+  state._previewLineWidthPct = null;
   try {
     if (typeof grist.setOptions === 'function') await grist.setOptions(state.config);
     else if (grist.widgetApi?.setOptions) await grist.widgetApi.setOptions(state.config);
