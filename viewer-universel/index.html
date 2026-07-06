@@ -130,6 +130,13 @@
     #room-tooltip .rt-id { font-size: 11px; color: var(--text-muted); }
     #room-tooltip .rt-name { font-weight: 600; margin-top: 2px; }
 
+    /* Badge de la pièce SÉLECTIONNÉE (liée à Grist, pas au survol souris) */
+    #selected-room-badge {
+      position: absolute; top: 12px; left: 12px; background: var(--accent);
+      color: #fff; border-radius: 6px; padding: 6px 12px; font-size: 12px;
+      font-weight: 600; z-index: 50; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,.35);
+    }
+
     /* ── Scrollbars ── */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -178,6 +185,7 @@
     </div>
 
     <div id="loading-bar"></div>
+    <div id="selected-room-badge" style="display:none"></div>
     <div id="room-tooltip"><div class="rt-id" id="tt-id"></div><div class="rt-name" id="tt-name"></div></div>
     <div id="zoom-info">100%</div>
   </div>
@@ -297,6 +305,10 @@ function showSection(name) {
   $('sidebar').style.display = name === 'canvas-wrap' ? 'flex' : 'none';
   $('toggle-sidebar').style.display = name === 'canvas-wrap' ? '' : 'none';
   $('btn-fit').style.display = name === 'canvas-wrap' ? '' : 'none';
+  if (name !== 'canvas-wrap') {
+    $('selected-room-badge').style.display = 'none';
+    $('room-tooltip').style.display = 'none';
+  }
   updateFormatBadge();
 }
 
@@ -724,19 +736,29 @@ function buildRoomMap() {
     (e.type === 'TEXT' || e.type === 'MTEXT') && e.text &&
     (!layerId || e.layer === layerId)
   );
+  // On exclut les calques hors-plan (cartouche, présentation…) des candidats :
+  // un cartouche est presque toujours plus grand qu'une pièce et contiendrait
+  // n'importe quel texte, faussant la correspondance.
   const polys = state.dxf.parsed.entities.filter(e =>
-    e.type === 'LWPOLYLINE' && e.closed && e.vertices.length >= 3
+    e.type === 'LWPOLYLINE' && e.closed && e.vertices.length >= 3 && !NONPLAN_RE.test(e.layer)
   );
 
   for (const txt of texts) {
     const id = normId(txt.text);
     if (!id) continue;
+    // Un numéro de salle peut tomber dans plusieurs polygones imbriqués
+    // (la pièce elle-même, mais aussi un couloir ou le contour de l'étage).
+    // On garde systématiquement le PLUS PETIT — le plus ajusté à la pièce —
+    // plutôt que le premier trouvé dans l'ordre du fichier.
+    let best = null, bestArea = Infinity;
     for (const poly of polys) {
-      if (pointInPolygon(txt.x, txt.y, poly.vertices)) {
-        if (!state.dxf.roomMap[id]) state.dxf.roomMap[id] = poly;
-        if (!state.dxf.polyRoomId.has(poly)) state.dxf.polyRoomId.set(poly, id);
-        break;
-      }
+      if (!pointInPolygon(txt.x, txt.y, poly.vertices)) continue;
+      const a = polyArea(poly.vertices);
+      if (a < bestArea) { best = poly; bestArea = a; }
+    }
+    if (best) {
+      state.dxf.roomMap[id] = best;
+      if (!state.dxf.polyRoomId.has(best)) state.dxf.polyRoomId.set(best, id);
     }
   }
   console.log('Room map :', Object.keys(state.dxf.roomMap).length, 'salles trouvées',
@@ -763,6 +785,17 @@ function polyBBox(vertices) {
     if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y;
   }
   return { minX, minY, maxX, maxY };
+}
+
+// Aire (formule du lacet) — sert à choisir la polyligne la plus « ajustée »
+// quand plusieurs polygones (pièce, couloir, contour d'étage…) contiennent
+// le même point : on préfère toujours le plus petit (le plus précis).
+function polyArea(vertices) {
+  let a = 0;
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+    a += (vertices[j].x + vertices[i].x) * (vertices[j].y - vertices[i].y);
+  }
+  return Math.abs(a) / 2;
 }
 
 // Calques typiquement hors-plan (cartouche, présentation, points de repère…)
@@ -988,6 +1021,11 @@ async function loadDXF(url, roomId) {
   state.dxf.highlightId = roomId ? String(roomId) : null;
   state.currentFormat = 'dxf';
 
+  // L'infobulle de survol appartient à la souris, pas à la sélection Grist :
+  // on la masque à chaque changement de ligne pour éviter d'afficher une
+  // ancienne valeur périmée tant que la souris n'a pas bougé.
+  $('room-tooltip').style.display = 'none';
+
   showSection('canvas-wrap');
   resizeCanvas();
   buildLayerPanel();
@@ -1003,7 +1041,24 @@ async function loadDXF(url, roomId) {
     $('btn-zoom-room').style.display = 'none';
     fitAll();
   }
+  updateSelectedRoomBadge();
   setLoading(100);
+}
+
+/* Badge « pièce sélectionnée » : reflète TOUJOURS la sélection Grist
+   (state.dxf.highlightId/highlightName), contrairement à l'infobulle de
+   survol qui suit la souris. Se met à jour/se réinitialise à chaque ligne. */
+function updateSelectedRoomBadge() {
+  const badge = $('selected-room-badge');
+  const id = state.dxf.highlightId;
+  if (!id) { badge.style.display = 'none'; return; }
+
+  const found = state.dxf.roomMap && !!state.dxf.roomMap[normId(id)];
+  const name = state.dxf.highlightName;
+  badge.innerHTML = `Salle : <b>${id}</b>${name ? ' — ' + name : ''}` +
+    (found ? '' : ' <span style="opacity:.8">(non localisée sur le plan)</span>');
+  badge.style.background = found ? 'var(--accent)' : '#a05a1e';
+  badge.style.display = '';
 }
 
 /* ═══════════════════════════════════════════════════════════
