@@ -221,6 +221,26 @@
       <div class="hint">Calque sur lequel cadrer la vue « étage entier ». Laisser en auto convient à la plupart des plans. Utile si le plan apparaît minuscule (cartouche).</div>
     </div>
 
+    <div class="config-row" style="border-top:1px solid var(--border);padding-top:14px;">
+      <label>Marge de zoom autour de la pièce</label>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input type="range" id="cfg-room-zoom" min="50" max="400" step="10" style="flex:1">
+        <span id="cfg-room-zoom-val" style="font-size:12px;min-width:44px;text-align:right;">100%</span>
+      </div>
+      <div class="hint">100 % = zoom actuel (ajusté à la pièce). Augmentez pour voir la pièce dans son environnement (couloir, pièces voisines).</div>
+    </div>
+
+    <div class="config-row">
+      <label>Fond du plan</label>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="color" id="cfg-bg-color" style="width:40px;height:32px;padding:2px;border-radius:5px;border:1px solid var(--border);background:var(--bg);cursor:pointer">
+        <button type="button" class="sf-btn" id="cfg-bg-dark" style="flex:none;padding:6px 10px;">Sombre</button>
+        <button type="button" class="sf-btn" id="cfg-bg-light" style="flex:none;padding:6px 10px;">Clair</button>
+        <button type="button" class="sf-btn" id="cfg-bg-white" style="flex:none;padding:6px 10px;">Blanc</button>
+      </div>
+      <div class="hint">Certains plans sont plus lisibles sur fond clair. Le blanc/gris des calques s'adapte automatiquement au fond choisi.</div>
+    </div>
+
     <div class="config-row">
       <label>Colonne Nom Pièce <span style="color:var(--text-muted)">(optionnel)</span></label>
       <select id="cfg-col-name"><option value="">— aucune —</option></select>
@@ -581,7 +601,23 @@ const ACI = {
 function aciColor(n) {
   if (n === 256 || n == null) return null; // bylayer
   if (n === 0) return null; // byblock
+  // Convention AutoCAD : la couleur 7 est "blanc ou noir selon le fond".
+  if (n === 7) return inkColor();
   return ACI[n] || `hsl(${(n * 137) % 360},70%,65%)`;
+}
+
+/* ── Fond du plan (configurable) ── */
+function currentBgColor() {
+  return state._previewBg || state.config.bgColor || '#1a1a2a';
+}
+function bgLuminance(hex) {
+  const c = (hex || '#1a1a2a').replace('#', '');
+  const r = parseInt(c.substr(0,2),16) || 0, g = parseInt(c.substr(2,2),16) || 0, b = parseInt(c.substr(4,2),16) || 0;
+  return (0.2126*r + 0.7152*g + 0.0722*b) / 255;
+}
+// Couleur d'encre neutre (blanc/noir) qui reste lisible quel que soit le fond choisi
+function inkColor() {
+  return bgLuminance(currentBgColor()) > 0.5 ? '#202020' : '#e0e0e0';
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -618,7 +654,7 @@ function getEntityColor(ent) {
     const c = aciColor(layer.color);
     if (c) return c;
   }
-  return '#cccccc';
+  return inkColor();
 }
 
 function isLayerVisible(layerName) {
@@ -630,7 +666,7 @@ function renderDXF() {
   if (!state.dxf.parsed) return;
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = '#1a1a2a';
+  ctx.fillStyle = currentBgColor();
   ctx.fillRect(0, 0, w, h);
 
   const entities = state.dxf.parsed.entities;
@@ -864,7 +900,14 @@ function fitAll() {
   fitToBBox(architectureBBox());
 }
 
-function zoomToRoom(id) {
+// 100 % (réglage par défaut) reproduit le zoom historique (marge = 40 % de la
+// pièce). Le curseur de config permet de l'élargir pour voir l'environnement.
+function roomZoomFactor(pctOverride) {
+  const p = pctOverride != null ? pctOverride : (state.config.roomZoomPct || 100);
+  return 0.4 * (p / 100);
+}
+
+function zoomToRoom(id, pctOverride) {
   if (!state.dxf.parsed) { fitAll(); return; }
   if (!id) { fitAll(); return; }
 
@@ -880,7 +923,8 @@ function zoomToRoom(id) {
     return;
   }
   const bbox = polyBBox(ent.vertices);
-  const pad = Math.max((bbox.maxX - bbox.minX), (bbox.maxY - bbox.minY)) * 0.4 + 2;
+  const factor = roomZoomFactor(pctOverride);
+  const pad = Math.max((bbox.maxX - bbox.minX), (bbox.maxY - bbox.minY)) * factor + 2;
   fitToBBox({ minX: bbox.minX - pad, maxX: bbox.maxX + pad, minY: bbox.minY - pad, maxY: bbox.maxY + pad });
 }
 
@@ -1209,6 +1253,9 @@ function applyConfigToUI() {
   $('cfg-cors-proxy').value   = c.corsProxy   || '';
   $('cfg-360-detect').value   = c.detect360  || 'suffix';
   toggle360ColRow();
+  $('cfg-room-zoom').value = c.roomZoomPct || 100;
+  $('cfg-room-zoom-val').textContent = (c.roomZoomPct || 100) + '%';
+  $('cfg-bg-color').value = c.bgColor || '#1a1a2a';
   // layerId / fitLayer sont remplis depuis les calques du DXF — on restaure si déjà connus
   if (c.layerId && $('cfg-layer-id').querySelector(`option[value="${c.layerId}"]`)) {
     $('cfg-layer-id').value = c.layerId;
@@ -1302,8 +1349,37 @@ grist.onRecord((record) => {
 function openConfig() { $('config-overlay').classList.remove('hidden'); }
 function closeConfig() { $('config-overlay').classList.add('hidden'); }
 
+function cancelConfig() {
+  // Annule les prévisualisations non enregistrées (marge de zoom / fond)
+  state._previewBg = null;
+  applyConfigToUI();
+  if (state.currentFormat === 'dxf') {
+    renderDXF();
+    if (state.dxf.highlightId) zoomToRoom(state.dxf.highlightId);
+  }
+  closeConfig();
+}
+
 $('btn-config').addEventListener('click', openConfig);
-$('cfg-cancel').addEventListener('click', closeConfig);
+$('cfg-cancel').addEventListener('click', cancelConfig);
+
+// Prévisualisation en direct : marge de zoom (glissière)
+$('cfg-room-zoom').addEventListener('input', () => {
+  const v = parseInt($('cfg-room-zoom').value, 10);
+  $('cfg-room-zoom-val').textContent = v + '%';
+  if (state.currentFormat === 'dxf' && state.dxf.highlightId) zoomToRoom(state.dxf.highlightId, v);
+});
+
+// Prévisualisation en direct : fond du plan
+function setPreviewBg(hex) {
+  state._previewBg = hex;
+  $('cfg-bg-color').value = hex;
+  if (state.currentFormat === 'dxf') renderDXF();
+}
+$('cfg-bg-color').addEventListener('input', () => setPreviewBg($('cfg-bg-color').value));
+$('cfg-bg-dark').addEventListener('click', () => setPreviewBg('#1a1a2a'));
+$('cfg-bg-light').addEventListener('click', () => setPreviewBg('#e9e9ee'));
+$('cfg-bg-white').addEventListener('click', () => setPreviewBg('#ffffff'));
 
 $('cfg-save').addEventListener('click', async () => {
   const colUrl = $('cfg-col-url').value;
@@ -1318,7 +1394,10 @@ $('cfg-save').addEventListener('click', async () => {
     corsProxy:   $('cfg-cors-proxy').value.trim() || null,
     forceFormat: $('cfg-force-format').value || 'auto',
     detect360:   $('cfg-360-detect').value,
+    roomZoomPct: parseInt($('cfg-room-zoom').value, 10) || 100,
+    bgColor:     $('cfg-bg-color').value || '#1a1a2a',
   };
+  state._previewBg = null; // la valeur choisie est désormais la valeur enregistrée
   try {
     if (typeof grist.setOptions === 'function') await grist.setOptions(state.config);
     else if (grist.widgetApi?.setOptions) await grist.widgetApi.setOptions(state.config);
