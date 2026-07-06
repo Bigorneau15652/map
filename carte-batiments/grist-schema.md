@@ -13,6 +13,7 @@ au lieu des départements. Les formes de chaque bâtiment ont été tracées à 
 | `Bâtiment` | Text | Nom du bâtiment (voir liste exacte ci-dessous) |
 | `note` (ou le nom que vous voulez) | Text | **Optionnel.** Nom de la catégorie active pour ce bâtiment (doit correspondre exactement au `nom` d'une ligne de la table `Categories`, ex : `Très bon`). Laisser vide = bâtiment non coloré. |
 | `visible` (ou le nom que vous voulez) | Bool | **Optionnel.** `true`/coché = couleur normale · `false`/décoché = bâtiment grisé. Laisser ce menu vide dans ⚙️ → tous les bâtiments sont toujours visibles. |
+| `nom_court` (ou le nom que vous voulez) | Text | **Optionnel.** Nom abrégé (ex : `Bât. A`) affiché dans la liste "Bâtiments" quand le panneau de droite est replié (voir "Panneau repliable" ci-dessous). Laissé vide dans ⚙️ → le widget raccourcit automatiquement le nom complet aux 5 premiers caractères si celui-ci dépasse 5 caractères. |
 
 > Comme pour la table Catégories, les noms `note`/`visible` sont juste indicatifs : dans ⚙️, vous
 > choisissez la colonne exacte de **votre** table (ex : `Categories_energie`, `Active`…).
@@ -205,6 +206,14 @@ l'efface).
 > "Bâtiment" sont bien de type **Texte** dans Grist (pas *Référence*). Une colonne Référence
 > renvoie un identifiant numérique et non le texte affiché, ce que le widget ne sait pas
 > interpréter pour retrouver la forme du bâtiment sur le plan.
+
+## Panneau repliable
+
+Un petit triangle ▸ / ◂ entre la carte et le panneau de droite permet de replier ce dernier pour
+laisser plus de place à la carte. En version repliée, chaque catégorie garde sa case à cocher et
+sa couleur, et la liste des bâtiments garde sa case "Visible/grisé" — seuls les noms sont raccourcis
+(colonne "Nom court" si configurée, sinon les 5 premiers caractères du nom complet). Le nom complet
+reste visible au survol de la souris. L'état replié/déplié est mémorisé par navigateur.
 
 ## Fonds de carte
 

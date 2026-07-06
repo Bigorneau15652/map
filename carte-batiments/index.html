@@ -71,7 +71,6 @@
   #side{width:310px;background:#fff;border-left:1px solid #dde;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;color:#222;transition:width .15s ease}
   #side.collapsed{width:104px}
   #side.collapsed #cfg-banner{display:none}
-  #side.collapsed #bs{display:none}
   #side.collapsed #add-cat-row{display:none}
   #side.collapsed .cumr{display:none}
   #side.collapsed .sh{padding:7px 4px;justify-content:center}
@@ -81,6 +80,13 @@
   #side.collapsed .cr{padding:4px 3px;gap:3px}
   #side.collapsed .cedit{display:none}
   #side.collapsed .cn{font-size:10px}
+  #side.collapsed #bsearch,#side.collapsed .fbs,#side.collapsed .bulk-btns{display:none}
+  #side.collapsed .dr{padding:3px 1px;gap:3px}
+  #side.collapsed .dn{font-size:10px}
+  #side.collapsed .dcs{display:none}
+  .dn-short{display:none}
+  #side.collapsed .dn-full{display:none}
+  #side.collapsed .dn-short{display:inline}
   #side-toggle{width:14px;flex-shrink:0;background:#f0f1f3;border-left:1px solid #dde;border-right:1px solid #dde;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:#888;user-select:none}
   #side-toggle:hover{background:#e4e6ea;color:#333}
 
@@ -274,7 +280,7 @@
 
       <!-- Bâtiments -->
       <div class="sec" id="bs">
-        <div class="sh" onclick="tog(this)">🏢 Bâtiments <span id="bbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span><span class="arr">▾</span></div>
+        <div class="sh" onclick="tog(this)">🏢 <span class="sh-label">Bâtiments <span id="bbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span></span><span class="arr">▾</span></div>
         <div class="sb">
           <input type="text" id="bsearch" placeholder="Rechercher un bâtiment…" oninput="renderBuildings()">
           <div class="fbs">
@@ -319,6 +325,9 @@
           <label style="margin-top:8px">Colonne "Visible / Active" dans Bâtiments (optionnel)</label>
           <small>Bascule qui grise le bâtiment sur la carte quand elle est décochée. Laisser vide → tout est toujours visible.</small>
           <select id="cfg-col-visible"></select>
+          <label style="margin-top:8px">Colonne "Nom court" dans Bâtiments (optionnel)</label>
+          <small>Nom abrégé affiché dans la liste "Bâtiments" quand le panneau est replié (ex : "Bât. A"). Laissé vide → le widget raccourcit automatiquement le nom complet aux 5 premiers caractères s'il est trop long.</small>
+          <select id="cfg-col-court"></select>
         </div>
         <div class="cfg-group">
           <label>Table des Catégories</label>
@@ -459,7 +468,7 @@ function shapeCode(site,bat){
 }
 
 // ── Config ────────────────────────────────────────────────
-let CFG={bat:'Batiments',cats:'Categories',dc:'Batiment_categories',colSite:'Site',colBat:'Bâtiment',colNote:'',colVisible:'',colDept:'batiment',colCat:'categorie',colCatNom:'',colCatCouleur:'',colCatActive:''};
+let CFG={bat:'Batiments',cats:'Categories',dc:'Batiment_categories',colSite:'Site',colBat:'Bâtiment',colNote:'',colVisible:'',colCourt:'',colDept:'batiment',colCat:'categorie',colCatNom:'',colCatCouleur:'',colCatActive:''};
 
 // ── Options widget : fusion défensive ─────────────────────
 // grist.setOptions() remplace tout l'objet d'options ; si chaque écran (config,
@@ -795,6 +804,10 @@ function getFilteredList(){
   return list;
 }
 
+function shortLabel(b){
+  if(b.court)return b.court;
+  return b.bat.length>5?b.bat.slice(0,5):b.bat;
+}
 function renderBuildings(){
   const wrap=document.getElementById('bw');
   const list=getFilteredList();
@@ -811,7 +824,7 @@ function renderBuildings(){
       const co=col(cat.couleur)||NAMED.bleu;
       return `<div class="cdot" title="${cat.nom}" style="background:${on?co:'#ddd'};border-color:${on?co:'#bbb'}" onclick="toggleBuildingCat('${b.key}',${cat._id})"></div>`;
     }).join('');
-    row.innerHTML=`<input type="checkbox" class="dvis" ${b.visible?'checked':''} title="Visible/grisé" onchange="toggleVis('${b.key}',this.checked)"><span class="dn" title="${b.bat}${hasShape?'':' (pas de forme sur le plan)'}">${b.bat}${hasShape?'':' ⚠︎'}</span><div class="dcs">${dots||'<span style="font-size:10px;color:#bbb">—</span>'}</div>`;
+    row.innerHTML=`<input type="checkbox" class="dvis" ${b.visible?'checked':''} title="Visible/grisé" onchange="toggleVis('${b.key}',this.checked)"><span class="dn" title="${b.bat}${hasShape?'':' (pas de forme sur le plan)'}"><span class="dn-full">${b.bat}${hasShape?'':' ⚠︎'}</span><span class="dn-short">${shortLabel(b)}${hasShape?'':' ⚠︎'}</span></span><div class="dcs">${dots||'<span style="font-size:10px;color:#bbb">—</span>'}</div>`;
     wrap.appendChild(row);
   }
 }
@@ -912,6 +925,7 @@ async function onCfgBatChange(){
     makeOpts(document.getElementById('cfg-col-bat'),cols,CFG.colBat);
     makeOpts(document.getElementById('cfg-col-note'),cols,CFG.colNote);
     makeOpts(document.getElementById('cfg-col-visible'),cols,CFG.colVisible);
+    makeOpts(document.getElementById('cfg-col-court'),cols,CFG.colCourt);
     document.getElementById('cfg-bat-cols').style.display='block';
   }else document.getElementById('cfg-bat-cols').style.display='none';
 }
@@ -939,7 +953,7 @@ async function showConfig(){
     document.getElementById('cfg-bat').onchange=onCfgBatChange;
     makeOpts(document.getElementById('cfg-cats'),ALL_TABLES,CFG.cats);
     makeOpts(document.getElementById('cfg-dc'),ALL_TABLES,CFG.dc);
-    if(CFG.bat){await loadTableCols(CFG.bat);const cols=(TABLE_COLS[CFG.bat]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-site'),cols,CFG.colSite);makeOpts(document.getElementById('cfg-col-bat'),cols,CFG.colBat);makeOpts(document.getElementById('cfg-col-note'),cols,CFG.colNote);makeOpts(document.getElementById('cfg-col-visible'),cols,CFG.colVisible);document.getElementById('cfg-bat-cols').style.display='block';}
+    if(CFG.bat){await loadTableCols(CFG.bat);const cols=(TABLE_COLS[CFG.bat]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-site'),cols,CFG.colSite);makeOpts(document.getElementById('cfg-col-bat'),cols,CFG.colBat);makeOpts(document.getElementById('cfg-col-note'),cols,CFG.colNote);makeOpts(document.getElementById('cfg-col-visible'),cols,CFG.colVisible);makeOpts(document.getElementById('cfg-col-court'),cols,CFG.colCourt);document.getElementById('cfg-bat-cols').style.display='block';}
     if(CFG.cats){await loadTableCols(CFG.cats);const cols=(TABLE_COLS[CFG.cats]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-catnom'),cols,CFG.colCatNom);makeOpts(document.getElementById('cfg-col-catcouleur'),cols,CFG.colCatCouleur);makeOpts(document.getElementById('cfg-col-catactive'),cols,CFG.colCatActive);document.getElementById('cfg-cats-cols').style.display='block';}
     if(CFG.dc){await loadTableCols(CFG.dc);const cols=(TABLE_COLS[CFG.dc]||[]).map(c=>({id:c,label:c}));makeOpts(document.getElementById('cfg-col-dept'),cols,CFG.colDept);makeOpts(document.getElementById('cfg-col-cat'),cols,CFG.colCat);document.getElementById('cfg-cols').style.display='block';}
     document.getElementById('cfg-loading').style.display='none';
@@ -957,6 +971,7 @@ async function saveConfig(){
     colBat:document.getElementById('cfg-col-bat').value||CFG.colBat,
     colNote:document.getElementById('cfg-col-note').value||'',
     colVisible:document.getElementById('cfg-col-visible').value||'',
+    colCourt:document.getElementById('cfg-col-court').value||'',
     cats:document.getElementById('cfg-cats').value,
     colCatNom:document.getElementById('cfg-col-catnom').value||'',
     colCatCouleur:document.getElementById('cfg-col-catcouleur').value||'',
@@ -969,7 +984,7 @@ async function saveConfig(){
   if(!c.bat||!c.cats){msg.className='err';msg.style.display='block';msg.textContent='⚠️ Sélectionnez au minimum les tables Bâtiments et Catégories.';return;}
   Object.assign(CFG,c);
   try{
-    await patchOptions({tableBat:CFG.bat,colSite:CFG.colSite,colBat:CFG.colBat,colNote:CFG.colNote,colVisible:CFG.colVisible,
+    await patchOptions({tableBat:CFG.bat,colSite:CFG.colSite,colBat:CFG.colBat,colNote:CFG.colNote,colVisible:CFG.colVisible,colCourt:CFG.colCourt,
       tableCats:CFG.cats,colCatNom:CFG.colCatNom,colCatCouleur:CFG.colCatCouleur,colCatActive:CFG.colCatActive,
       tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat});
     msg.className='ok';msg.style.display='block';msg.textContent='✅ Configuration sauvegardée !';setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},700);
@@ -983,6 +998,7 @@ function loadConfig(opts){
   if(opts?.colBat)   CFG.colBat=opts.colBat;
   if(opts?.colNote!==undefined) CFG.colNote=opts.colNote;
   if(opts?.colVisible!==undefined) CFG.colVisible=opts.colVisible;
+  if(opts?.colCourt!==undefined) CFG.colCourt=opts.colCourt;
   if(opts?.tableCats)CFG.cats=opts.tableCats;
   if(opts?.colCatNom!==undefined)     CFG.colCatNom=opts.colCatNom;
   if(opts?.colCatCouleur!==undefined) CFG.colCatCouleur=opts.colCatCouleur;
@@ -1064,6 +1080,7 @@ async function fetchAllTables(){
     let bats=batT[CFG.colBat]||[];
     const visibles=CFG.colVisible?batT[CFG.colVisible]:batT.visible;
     const notes=CFG.colNote?batT[CFG.colNote]:null;
+    const courts=CFG.colCourt?batT[CFG.colCourt]:null;
     let unresolvedRef=false;
     if(sites.length&&typeof sites[0]==='number'){
       const resolved=await resolveRefText(CFG.bat,CFG.colSite,sites);
@@ -1090,8 +1107,9 @@ async function fetchAllTables(){
         if(typeof raw==='number'&&catById[raw])catIds=[raw];
         else if(raw){const id=catByName[normName(raw)];if(id!=null)catIds=[id];}
       }
+      const court=courts?String(courts[i]||'').trim():'';
       APP.buildings[key]={key, rowId:rowIds[i], site, bat, code, nomComplet:site+' — '+bat,
-        visible: visibles?visibles[i]!==false:true, catIds};
+        visible: visibles?visibles[i]!==false:true, catIds, court};
       APP.batRowId[rowIds[i]]=key;
     }
   }catch(e){
