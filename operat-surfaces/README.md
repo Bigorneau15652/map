@@ -22,34 +22,76 @@ accorder l'accès **"Full document access"** lors de l'ajout (Grist le demande
 automatiquement), nécessaire aussi bien pour lire ces tables que pour écrire
 la table de correspondance décrite ci-dessous.
 
-### Table de correspondance créée automatiquement
+### Le paramétrage se fait bâtiment par bâtiment
 
-Au premier chargement, le widget crée dans votre document une table
-**`Table_correspondance_OPERAT`** (si elle n'existe pas déjà), avec une ligne
-par type de local UMPV et 3 colonnes :
+Le mapping "type de local → OPERAT" n'est **pas global** : chaque bâtiment a
+sa propre correspondance, modifiable indépendamment (un même type de local,
+ex. "Salle de réunion", peut être classé différemment d'un bâtiment à
+l'autre). Le bouton **⚙ Paramétrer les correspondances** exige donc d'avoir
+choisi un **bâtiment précis** dans la barre d'outils (pas "Tous les
+bâtiments") ; sinon un message vous invite à en choisir un.
 
+### Deux tables créées automatiquement
+
+Au premier chargement, le widget crée dans votre document (si elles
+n'existent pas déjà) :
+
+**`Table_correspondance_OPERAT`** — une ligne par couple (bâtiment, type de
+local UMPV) réellement présent dans `BDD_Salles` :
+
+- `Batiment` : référence vers `BDD_Batiments`
 - `TypeUsage` : référence vers `Table_locaux_types_et_correspondance`
 - `Mode` : `Affectation directe` / `Répartition au prorata` / `Hors périmètre`
 - `SousCategorieOPERAT` : référence vers `Segmentation_OPERAT` (uniquement
   utilisée en mode "Affectation directe")
 
-Cette table est **visible et modifiable comme n'importe quelle table Grist**
-dans le grid normal, pas seulement depuis le widget — vos collègues peuvent
-l'auditer sans ouvrir le widget. Une proposition initiale est pré-remplie
-automatiquement (voir "Proposition par défaut" plus bas) ; si vous ajoutez de
-nouveaux types de locaux plus tard dans `Table_locaux_types_et_correspondance`,
-le widget leur ajoute une ligne de proposition à l'ouverture suivante, sans
-jamais toucher aux lignes déjà présentes (donc sans jamais écraser vos
-corrections).
+**`Table_repartition_prorata_manuelle`** — vide au départ, une ligne par
+**exception** que vous ajoutez vous-même (voir section suivante) :
 
-Le bouton **⚙ Paramétrer les correspondances** ouvre l'écran d'édition (menus
-déroulants Mode / Catégorie OPERAT / Sous-catégorie OPERAT par type de local,
-chaque changement est enregistré immédiatement). Le bouton **↺ Restaurer les
-propositions par défaut** écrase tout (avec confirmation) pour repartir de la
-proposition initiale.
+- `Batiment`, `SousCategorieOPERAT` : références
+- `StatutThermique` : le statut concerné (ex. "Chauffée (seule)")
+- `PourcentageManuel` : le % que vous imposez pour cette cible
+
+Ces deux tables sont **visibles et modifiables comme n'importe quelle table
+Grist** dans le grid normal, pas seulement depuis le widget — vos collègues
+peuvent les auditer sans ouvrir le widget. `Table_correspondance_OPERAT` est
+pré-remplie automatiquement avec une proposition par défaut (voir plus bas) ;
+si de nouvelles salles/bâtiments apparaissent plus tard, le widget leur
+ajoute une ligne de proposition à l'ouverture suivante, sans jamais toucher
+aux lignes déjà présentes (donc sans jamais écraser vos corrections).
+
+Le bouton **⚙ Paramétrer les correspondances**, une fois un bâtiment choisi,
+ouvre l'écran d'édition (menus déroulants Mode / Catégorie OPERAT /
+Sous-catégorie OPERAT pour chaque type de local présent dans ce bâtiment,
+chaque changement enregistré immédiatement) et, en dessous, la section
+**Répartition manuelle du prorata**. Le bouton **↺ Restaurer les propositions
+par défaut** écrase tout (avec confirmation) pour ce bâtiment uniquement.
 
 **Cette proposition initiale n'est qu'une suggestion et doit être relue et
 validée avant tout usage officiel** — voir le détail du raisonnement plus bas.
+
+### Répartition manuelle du prorata (exceptions)
+
+Par défaut, le prorata est **automatique** : une catégorie "à répartir"
+(circulation, sanitaire…) se ventile proportionnellement aux m² déjà en
+affectation directe, dans le même bâtiment et le même statut thermique — voir
+"Trois modes par type de local" ci-dessous pour le détail du calcul.
+
+Pour une **exception**, dans la section "Répartition manuelle du prorata" de
+l'écran de paramétrage (un tableau par statut thermique ayant du prorata à
+répartir dans ce bâtiment) : indiquez un **% exact** dans la case "% manuel"
+en face de la catégorie cible. Ce % s'applique en priorité ; le reste du
+prorata continue à se répartir automatiquement entre les autres catégories.
+Le bouton **+ Ajouter une catégorie cible** permet d'imposer un % vers une
+sous-catégorie qui n'a par ailleurs aucune surface en affectation directe
+dans ce bâtiment/statut (impossible à faire avec le seul calcul automatique).
+Laissez le % vide (ou cliquez **✕ Retirer**) pour revenir à l'automatique
+sur cette ligne.
+
+Si la somme des % manuels d'un même statut dépasse 100 %, ils sont appliqués
+tels quels (pas de replafonnement silencieux) et un avertissement rouge vous
+le signale — à corriger vous-même, la surface totale de ce statut serait
+sinon surestimée.
 
 ## Logique de calcul
 
@@ -97,9 +139,11 @@ dans le mauvais site.
 
 ## Proposition par défaut : raisonnement
 
-La correspondance pré-remplie automatiquement est **globale** (un type de
-local UMPV pointe toujours vers la même sous-catégorie OPERAT, quel que soit
-le site) et a été établie ainsi :
+La correspondance pré-remplie automatiquement suit le même barème pour tous
+les bâtiments au départ (un type de local UMPV pointe par défaut vers la même
+sous-catégorie OPERAT partout), mais **chaque bâtiment peut ensuite s'en
+écarter indépendamment** puisque le mapping est stocké par bâtiment. Le
+barème de départ a été établi ainsi :
 
 - **Sans ambiguïté** (repris tel quel) : Vacant → Local vacant (SCAP0001) ;
   Aires de stationnement/manœuvre/rampes/garage → Stationnement en
@@ -133,9 +177,10 @@ le site) et a été établie ainsi :
    ```
 
 3. Acceptez la demande d'autorisation **"Full document access"**.
-4. Choisissez un EFA dans le menu déroulant. Ouvrez **⚙ Paramétrer les
-   correspondances** pour relire/ajuster la proposition initiale avant toute
-   utilisation officielle.
+4. Choisissez un EFA, puis un **bâtiment précis**, et ouvrez **⚙ Paramétrer
+   les correspondances** pour relire/ajuster la proposition initiale de ce
+   bâtiment avant toute utilisation officielle. À répéter pour chaque
+   bâtiment que vous voulez valider.
 
 ## Développement / test local
 
