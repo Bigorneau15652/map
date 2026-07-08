@@ -105,6 +105,10 @@
     padding-bottom: 6px;
   }
   .card .subhead { font-size: 11px; color: var(--text-muted); margin: -4px 0 10px; white-space: normal; overflow-wrap: anywhere; }
+  .helpText { font-size: 13px; color: #1a202c; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
+  .helpText p { margin: 0 0 10px; }
+  .helpText ul { margin: 4px 0 10px 20px; padding: 0; }
+  .helpText li { margin-bottom: 4px; }
 
   .kpiRow { display: flex; flex-wrap: wrap; gap: 10px; }
   .kpi {
@@ -163,6 +167,7 @@
   .prorataTotalLine { font-size: 11.5px; margin-top: 4px; }
   .prorataTotalLine.over { color: var(--bad); font-weight: 600; }
   .removeOverrideBtn { font-size: 11px; padding: 2px 7px; }
+  .pctResultCell { font-weight: 600; color: var(--accent); white-space: nowrap; }
 
   @media (max-width: 480px) {
     #toolbar { flex-direction: column; align-items: stretch; }
@@ -196,6 +201,7 @@
 <body>
 
 <div id="toolbar">
+  <button id="popoutBtn" title="Ouvrir les résultats dans une fenêtre à part, déplaçable sur un autre écran">⛶ Fenêtre flottante</button>
   <div class="field">
     <label for="siteSelect">EFA (site)</label>
     <select id="siteSelect"><option value="">— choisir —</option></select>
@@ -209,6 +215,7 @@
     <label for="codeCheck">Afficher le code technique OPERAT</label>
   </div>
   <button id="settingsBtn">⚙ Paramétrer les correspondances</button>
+  <button id="helpBtn">❓ Aide &amp; configuration</button>
   <button id="refreshBtn" title="Recharger les données du document">⟳ Actualiser</button>
   <span id="status"></span>
 </div>
@@ -305,6 +312,60 @@
       </div>
     </div>
   </div>
+
+  <div id="helpPanel" style="display:none">
+    <div class="card">
+      <h2>Configuration des tables sources</h2>
+      <div class="subhead">
+        Le widget a besoin de savoir quelle table de votre document contient la nomenclature OPERAT (catégorie /
+        sous-catégorie / code technique). Il essaie d'abord <code>Segmentation_OPERAT</code> automatiquement ;
+        si votre table porte un autre nom, ou si les menus déroulants « Catégorie OPERAT » / « Sous-catégorie
+        OPERAT » de l'écran de paramétrage restent vides, choisissez la bonne table ci-dessous.
+      </div>
+      <div class="field">
+        <label for="operatTableSelect">Table de nomenclature OPERAT</label>
+        <select id="operatTableSelect"></select>
+      </div>
+      <div id="operatTableStatus" class="subhead" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Notice explicative</h2>
+      <div class="helpText">
+        <p><b>1. Choisir un EFA (site) puis, si besoin, un bâtiment.</b> Le menu <i>EFA (site)</i> limite l'affichage
+        aux 5 sites encore en activité. Le menu <i>Bâtiment</i> permet de voir le détail d'un seul bâtiment, ou de
+        rester sur « Tous les bâtiments (agrégé) » pour le total de l'EFA.</p>
+
+        <p><b>2. Lire les résultats.</b> Le tableau « Surfaces par catégorie OPERAT » liste, pour chaque
+        sous-catégorie OPERAT, une ligne par statut thermique (chauffée seule, chauffée + rafraîchie, rafraîchie
+        seule, non chauffée/non rafraîchie). Le tableau « Hors périmètre » liste séparément les locaux sans usage
+        occupé propre (combles, trémies, logements de fonction…), non comptés dans les totaux OPERAT.</p>
+
+        <p><b>3. Paramétrer les correspondances (bouton ⚙).</b> Nécessite d'avoir choisi un bâtiment précis (pas
+        « Tous les bâtiments »). Pour chaque type de local présent dans ce bâtiment, choisissez un <b>Mode</b> :</p>
+        <ul style="margin:4px 0 8px 20px; padding:0">
+          <li><b>Affectation directe</b> — le local pointe vers une sous-catégorie OPERAT précise. Les menus
+          <i>Catégorie OPERAT</i> et <i>Sous-catégorie OPERAT</i> ne sont <b>actifs que dans ce mode</b> — s'ils
+          sont grisés, changez d'abord le Mode sur « Affectation directe ».</li>
+          <li><b>Répartition au prorata</b> — pour les circulations, sanitaires, locaux techniques… sans
+          équivalent OPERAT propre. Réparti automatiquement, ajustable dans la section suivante.</li>
+          <li><b>Hors périmètre</b> — exclu de la déclaration (combles, trémies, logements de fonction…).</li>
+        </ul>
+
+        <p><b>4. Répartition manuelle du prorata.</b> Exemple : une circulation de 118 m² à répartir, 33 % vers
+        Bureau et 67 % vers Salles de classe → entrez 33 dans la case % en face de « Bureau » ; le tableau affiche
+        aussitôt les m² correspondants (≈ 38,9 m² pour 33 %, le reste se répartissant automatiquement). Laissez le
+        % vide pour revenir à l'automatique sur cette ligne.</p>
+
+        <p><b>5. Case « Afficher le code technique OPERAT ».</b> Ajoute le code SCAP… à côté de chaque
+        sous-catégorie dans les résultats — pratique pour la déclaration, pas toujours obligatoire au quotidien.</p>
+
+        <p><b>6. Fenêtre flottante (bouton ⛶ en haut à gauche).</b> Ouvre les résultats actuels dans une fenêtre de
+        navigateur séparée, que vous pouvez déplacer sur un second écran. Cette fenêtre se met à jour automatiquement
+        à chaque changement d'EFA/bâtiment/case à cocher tant qu'elle reste ouverte — pas besoin de la rouvrir.</p>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -323,6 +384,7 @@ const SITES_EFA = ['Route de Mende', 'Béziers', 'Saint-Charles', 'Saint-Louis',
 
 const MAPPING_TABLE = 'Table_correspondance_OPERAT';
 const PRORATA_TABLE = 'Table_repartition_prorata_manuelle';
+const DEFAULT_OPERAT_TABLE = 'Segmentation_OPERAT';
 
 const MODE_DIRECT = 'Affectation directe';
 const MODE_PRORATA = 'Répartition au prorata';
@@ -477,17 +539,22 @@ let operatByRowId = {};         // Segmentation_OPERAT rowId -> record
 let operatByCode = {};          // Code_technique_OPERAT -> record
 let mappingByKey = {};          // "batimentId|typeRowId" -> Table_correspondance_OPERAT record
 let prorataOverridesByBatiment = {}; // batimentId -> { bucketKey -> [override records] }
+let operatTableId = DEFAULT_OPERAT_TABLE; // configurable via le panneau Aide & configuration
+let operatTableError = '';      // message si la table configurée est introuvable
 
 const els = {
   siteSelect: document.getElementById('siteSelect'),
   batSelect: document.getElementById('batSelect'),
   codeCheck: document.getElementById('codeCheck'),
   settingsBtn: document.getElementById('settingsBtn'),
+  helpBtn: document.getElementById('helpBtn'),
+  popoutBtn: document.getElementById('popoutBtn'),
   refreshBtn: document.getElementById('refreshBtn'),
   status: document.getElementById('status'),
   emptyState: document.getElementById('emptyState'),
   mainView: document.getElementById('mainView'),
   settingsPanel: document.getElementById('settingsPanel'),
+  helpPanel: document.getElementById('helpPanel'),
   warnings: document.getElementById('warnings'),
   kpiRow: document.getElementById('kpiRow'),
   kpiTitle: document.getElementById('kpiTitle'),
@@ -501,6 +568,8 @@ const els = {
   settingsForBuilding: document.getElementById('settingsForBuilding'),
   settingsBuildingTitle: document.getElementById('settingsBuildingTitle'),
   prorataSections: document.getElementById('prorataSections'),
+  operatTableSelect: document.getElementById('operatTableSelect'),
+  operatTableStatus: document.getElementById('operatTableStatus'),
 };
 
 function setStatus(msg) { els.status.textContent = msg || ''; }
@@ -508,17 +577,37 @@ function setStatus(msg) { els.status.textContent = msg || ''; }
 // ---------------------------------------------------------------------------
 // Data loading
 // ---------------------------------------------------------------------------
+// Liste tous les tableaux "normaux" du document (exclut les tables internes
+// _grist_*), pour permettre à l'opérateur de choisir lui-même la table de
+// nomenclature OPERAT si son nom diffère de la valeur par défaut.
+async function listAllTableIds() {
+  const meta = await grist.docApi.fetchTable('_grist_Tables');
+  return (meta.tableId || [])
+    .filter(id => !id.startsWith('_grist_') && id !== MAPPING_TABLE && id !== PRORATA_TABLE)
+    .sort((a, b) => a.localeCompare(b, 'fr'));
+}
+
 async function loadBaseData() {
-  const [s, b, r, t, o] = await Promise.all([
+  const [s, b, r, t] = await Promise.all([
     fetchRecords('BDD_Sites'),
     fetchRecords('BDD_Batiments'),
     fetchRecords('BDD_Salles'),
     fetchRecords('Table_locaux_types_et_correspondance'),
-    fetchRecords('Segmentation_OPERAT'),
   ]);
-  sites = s; batiments = b; salles = r; typesLocaux = t; operatRows = o;
-
+  sites = s; batiments = b; salles = r; typesLocaux = t;
   typeByRowId = Object.fromEntries(typesLocaux.map(x => [x.id, x]));
+
+  // Table de nomenclature OPERAT : séparée du Promise.all ci-dessus et
+  // protégée par son propre try/catch, car son nom peut différer d'un
+  // document à l'autre (configurable dans Aide & configuration) — une
+  // table introuvable ne doit pas empêcher le reste du widget de charger.
+  try {
+    operatRows = await fetchRecords(operatTableId);
+    operatTableError = '';
+  } catch (e) {
+    operatRows = [];
+    operatTableError = `Table "${operatTableId}" introuvable dans ce document.`;
+  }
   operatByRowId = Object.fromEntries(operatRows.map(x => [x.id, x]));
   operatByCode = Object.fromEntries(operatRows.map(x => [x.Code_technique_OPERAT, x]));
 }
@@ -774,6 +863,41 @@ function emptyBuckets() {
 }
 
 // ---------------------------------------------------------------------------
+// Rendering — Aide & configuration
+// ---------------------------------------------------------------------------
+async function populateOperatTableSelect() {
+  let tableIds = [];
+  try {
+    tableIds = await listAllTableIds();
+  } catch (e) {
+    tableIds = [operatTableId];
+  }
+  if (!tableIds.includes(operatTableId)) { tableIds.push(operatTableId); }
+  els.operatTableSelect.innerHTML = tableIds.map(id =>
+    `<option value="${escapeHtml(id)}" ${id === operatTableId ? 'selected' : ''}>${escapeHtml(id)}</option>`
+  ).join('');
+  renderOperatTableStatus();
+}
+
+function renderOperatTableStatus() {
+  if (operatTableError) {
+    els.operatTableStatus.innerHTML = `<span style="color:var(--bad); font-weight:600">✕ ${escapeHtml(operatTableError)} Choisissez la bonne table ci-dessus.</span>`;
+  } else {
+    const catCount = new Set(operatRows.map(r => r.Categorie_d_activite)).size;
+    els.operatTableStatus.innerHTML = `<span style="color:var(--ok)">✓ Table chargée : ${operatRows.length} sous-catégories, ${catCount} catégories.</span> Si vous venez de changer de table alors que des correspondances existaient déjà avec des catégories vides, utilisez ensuite le bouton <b>↺ Restaurer les propositions par défaut</b> (dans ⚙ Paramétrer les correspondances) pour chaque bâtiment concerné.`;
+  }
+}
+
+els.operatTableSelect.addEventListener('change', async () => {
+  operatTableId = els.operatTableSelect.value;
+  await grist.setOption('operatTableId', operatTableId);
+  els.operatTableStatus.textContent = 'Chargement…';
+  await loadBaseData();
+  renderOperatTableStatus();
+  renderResults();
+});
+
+// ---------------------------------------------------------------------------
 // Rendering — main view
 // ---------------------------------------------------------------------------
 function populateSiteSelect() {
@@ -824,11 +948,12 @@ function subcatCode(subcatId) {
 }
 
 function renderResults() {
-  if (settingsVisible) { return; }
+  if (currentView !== 'results') { return; }
   const siteId = Number(els.siteSelect.value) || null;
   if (!siteId) {
     els.emptyState.style.display = '';
     els.mainView.style.display = 'none';
+    refreshPopoutIfOpen();
     return;
   }
   els.emptyState.style.display = 'none';
@@ -847,6 +972,12 @@ function renderResults() {
   // dans ce document, cf. README de dashboard-batiment) est exclue et
   // signalée, plutôt que silencieusement comptée dans le mauvais site.
   const warnings = [];
+  if (operatTableError) {
+    warnings.push({
+      bad: true,
+      html: `<b>${escapeHtml(operatTableError)}</b> Les catégories/sous-catégories OPERAT ne peuvent pas être résolues. Ouvrez <b>❓ Aide &amp; configuration</b> pour choisir la bonne table.`,
+    });
+  }
   let combined = emptyBuckets();
   let totalSurface = 0, totalChauffee = 0, totalRafraichie = 0;
   const mismatchedRooms = [];
@@ -925,6 +1056,7 @@ function renderResults() {
 
   renderResultsTable(combined);
   renderHorsPerimetreTable(combined);
+  refreshPopoutIfOpen();
 }
 
 function renderResultsTable(combined) {
@@ -1184,21 +1316,26 @@ function renderProrataPanel(batId) {
     rows.sort((x, y) => subcatLabel(x.subcatId).localeCompare(subcatLabel(y.subcatId), 'fr'));
 
     const totalPct = sum(overrides, o => o.PourcentageManuel || 0);
-    const rowsHtml = rows.map(row => `
-      <tr data-subcat-id="${row.subcatId}" data-override-id="${row.override ? row.override.id : ''}">
-        <td class="lib">${escapeHtml(subcatCategorie(row.subcatId))} — ${escapeHtml(subcatLabel(row.subcatId))}</td>
-        <td class="num">${fmtNum(row.base)} m²</td>
-        <td><input type="number" class="pctInput" min="0" max="100" step="0.1" value="${row.override && row.override.PourcentageManuel != null ? row.override.PourcentageManuel : ''}" placeholder="auto"></td>
+    const rowsHtml = rows.map(row => {
+      const pctVal = row.override && row.override.PourcentageManuel != null ? row.override.PourcentageManuel : '';
+      const finalM2 = row.base + d.pool * ((Number(pctVal) || 0) / 100);
+      return `
+      <tr data-subcat-id="${row.subcatId}" data-override-id="${row.override ? row.override.id : ''}" data-base="${row.base}" data-pool="${d.pool}">
+        <td class="lib" data-label="Sous-catégorie OPERAT cible">${escapeHtml(subcatCategorie(row.subcatId))} — ${escapeHtml(subcatLabel(row.subcatId))}</td>
+        <td class="num" data-label="Base">${fmtNum(row.base)} m²</td>
+        <td data-label="% manuel"><input type="number" class="pctInput" min="0" max="100" step="0.1" value="${pctVal}" placeholder="auto"></td>
+        <td class="num pctResultCell" data-label="Base + part du prorata">${pctVal !== '' ? '→ ' + fmtNum(finalM2) + ' m²' : '—'}</td>
         <td>${row.override ? '<button class="removeOverrideBtn">✕ Retirer</button>' : ''}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 
     html += `<div class="prorataSection" data-bucket-key="${b.key}">
       <h3>${escapeHtml(b.label)}</h3>
       <div class="poolInfo">Surface à répartir (locaux "au prorata") dans ce statut : <b>${fmtNum(d.pool)} m²</b></div>
       <div class="tableWrap">
-        <table>
-          <thead><tr><th>Sous-catégorie OPERAT cible</th><th class="num">Base</th><th>% manuel</th><th></th></tr></thead>
-          <tbody>${rowsHtml || '<tr><td colspan="4" style="color:var(--text-muted)">Aucune catégorie en affectation directe dans ce statut — ajoutez-en une ci-dessous.</td></tr>'}</tbody>
+        <table class="respTable">
+          <thead><tr><th>Sous-catégorie OPERAT cible</th><th class="num">Base</th><th>% manuel</th><th class="num">Base + part du prorata</th><th></th></tr></thead>
+          <tbody>${rowsHtml || '<tr><td colspan="5" style="color:var(--text-muted)">Aucune catégorie en affectation directe dans ce statut — ajoutez-en une ci-dessous.</td></tr>'}</tbody>
         </table>
       </div>
       <div class="prorataTotalLine${totalPct > 100 ? ' over' : ''}">Total % manuel : ${fmtNum(totalPct, 1)} % ${totalPct > 100 ? '(dépasse 100 % — à corriger)' : '(le reste, ' + fmtNum(Math.max(0, 100 - totalPct), 1) + ' %, se répartit automatiquement)'}</div>
@@ -1216,6 +1353,19 @@ function renderProrataPanel(batId) {
   wireProrataPanelEvents(batId);
 }
 
+// Recalcule "Total % manuel" à partir des inputs affichés à l'écran, pendant
+// la saisie (avant tout enregistrement), pour rester cohérent avec l'aperçu
+// des m² par ligne.
+function updateProrataTotalLine(section) {
+  const line = section.querySelector('.prorataTotalLine');
+  if (!line) { return; }
+  const total = [...section.querySelectorAll('.pctInput')].reduce((acc, el) => acc + (Number(el.value) || 0), 0);
+  line.classList.toggle('over', total > 100);
+  line.textContent = total > 100
+    ? `Total % manuel : ${fmtNum(total, 1)} % (dépasse 100 % — à corriger)`
+    : `Total % manuel : ${fmtNum(total, 1)} % (le reste, ${fmtNum(Math.max(0, 100 - total), 1)} %, se répartit automatiquement)`;
+}
+
 function wireProrataPanelEvents(batId) {
   els.prorataSections.querySelectorAll('.prorataSection').forEach(section => {
     const bucketKeyStr = section.dataset.bucketKey;
@@ -1223,7 +1373,18 @@ function wireProrataPanelEvents(batId) {
     section.querySelectorAll('tr[data-subcat-id]').forEach(tr => {
       const subcatId = Number(tr.dataset.subcatId);
       const input = tr.querySelector('.pctInput');
+      const resultCell = tr.querySelector('.pctResultCell');
       const removeBtn = tr.querySelector('.removeOverrideBtn');
+      const base = Number(tr.dataset.base) || 0;
+      const pool = Number(tr.dataset.pool) || 0;
+      // Aperçu immédiat des m² pendant la saisie, avant même l'enregistrement
+      // (qui n'a lieu qu'au "change", c'est-à-dire à la validation/perte de
+      // focus) — répond directement à la demande de voir "combien cela fait".
+      input.addEventListener('input', () => {
+        const pct = input.value === '' ? null : Number(input.value);
+        resultCell.textContent = pct === null ? '—' : '→ ' + fmtNum(base + pool * (pct / 100)) + ' m²';
+        updateProrataTotalLine(section);
+      });
       input.addEventListener('change', async () => {
         await saveProrataOverride(batId, bucketKeyStr, subcatId, tr.dataset.overrideId || '', input.value);
       });
@@ -1313,18 +1474,69 @@ async function removeProrataOverride(batId, overrideId) {
 }
 
 // ---------------------------------------------------------------------------
+// Fenêtre flottante : un vrai second onglet/fenêtre de navigateur (pas une
+// simple mise en plein écran dans le panneau Grist) que l'opérateur peut
+// déplacer sur un second écran. Un widget custom Grist ne peut pas juste se
+// recharger dans une fenêtre séparée : la connexion à l'API Grist (grist.
+// ready/fetchTable) dépend d'un canal postMessage avec la page Grist parente,
+// qui n'existe plus une fois sorti de l'iframe. La fenêtre flottante est donc
+// un simple miroir en lecture seule du dernier rendu du widget (HTML déjà
+// calculé, recopié tel quel) : elle se remet à jour à chaque nouveau rendu
+// tant qu'elle reste ouverte, mais ne peut pas interroger Grist elle-même.
+let popoutWin = null;
+
+function refreshPopoutIfOpen() {
+  if (!popoutWin || popoutWin.closed) { return; }
+  const styleHtml = document.querySelector('style').outerHTML;
+  const bodyHtml = els.emptyState.style.display === 'none' ? els.mainView.outerHTML : els.emptyState.outerHTML;
+  const now = new Date().toLocaleString('fr-FR');
+  popoutWin.document.open();
+  popoutWin.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Surfaces OPERAT — fenêtre flottante</title>${styleHtml}</head><body>` +
+    `<div style="padding:8px 14px;background:#fef3c7;border-bottom:1px solid #f0b429;color:#7a4a00;font-size:13px;font-weight:500">` +
+    `Fenêtre flottante — se met à jour automatiquement tant qu'elle reste ouverte et que le widget est ouvert dans Grist (non interactive elle-même). Dernière mise à jour : ${escapeHtml(now)}.</div>` +
+    `<div id="content">${bodyHtml}</div></body></html>`);
+  popoutWin.document.close();
+}
+
+function openPopout() {
+  if (popoutWin && !popoutWin.closed) {
+    refreshPopoutIfOpen();
+    popoutWin.focus();
+    return;
+  }
+  popoutWin = window.open('', 'operatSurfacesPopout', 'width=1000,height=800,resizable=yes,scrollbars=yes');
+  if (!popoutWin) {
+    window.alert('Le navigateur a bloqué l’ouverture de la fenêtre. Autorisez les pop-ups pour ce site puis réessayez.');
+    return;
+  }
+  refreshPopoutIfOpen();
+}
+
+els.popoutBtn.addEventListener('click', openPopout);
+
+// ---------------------------------------------------------------------------
 // View switching
 // ---------------------------------------------------------------------------
-let settingsVisible = false;
+// currentView: 'results' | 'settings' | 'help'
+let currentView = 'results';
+let settingsVisible = false; // gardé pour compat interne : true quand currentView==='settings'
 
-function showSettings(show) {
-  settingsVisible = show;
-  els.settingsPanel.style.display = show ? '' : 'none';
-  els.settingsBtn.textContent = show ? '← Retour aux résultats' : '⚙ Paramétrer les correspondances';
-  if (show) {
+function showView(view) {
+  currentView = view;
+  settingsVisible = (view === 'settings');
+  els.settingsPanel.style.display = (view === 'settings') ? '' : 'none';
+  els.helpPanel.style.display = (view === 'help') ? '' : 'none';
+  els.settingsBtn.textContent = (view === 'settings') ? '← Retour aux résultats' : '⚙ Paramétrer les correspondances';
+  els.helpBtn.textContent = (view === 'help') ? '← Retour aux résultats' : '❓ Aide & configuration';
+
+  if (view === 'settings') {
     els.emptyState.style.display = 'none';
     els.mainView.style.display = 'none';
     renderMappingPanel();
+  } else if (view === 'help') {
+    els.emptyState.style.display = 'none';
+    els.mainView.style.display = 'none';
+    renderOperatTableStatus();
   } else {
     renderResults();
   }
@@ -1345,7 +1557,8 @@ els.codeCheck.addEventListener('change', async () => {
   renderResults();
   await grist.setOption('showCode', els.codeCheck.checked);
 });
-els.settingsBtn.addEventListener('click', () => { showSettings(!settingsVisible); });
+els.settingsBtn.addEventListener('click', () => { showView(currentView === 'settings' ? 'results' : 'settings'); });
+els.helpBtn.addEventListener('click', () => { showView(currentView === 'help' ? 'results' : 'help'); });
 els.resetMappingBtn.addEventListener('click', () => {
   const batId = Number(els.batSelect.value) || null;
   if (!batId) { return; }
@@ -1358,8 +1571,8 @@ els.refreshBtn.addEventListener('click', async () => {
   populateSiteSelect();
   if (site) { els.siteSelect.value = site; }
   populateBatSelect();
-  if (bat) { els.batSelect.value = bat; }
-  if (settingsVisible) { renderMappingPanel(); } else { renderResults(); }
+  await populateOperatTableSelect();
+  if (currentView === 'settings') { renderMappingPanel(); } else if (currentView === 'help') { renderOperatTableStatus(); } else { renderResults(); }
   setStatus('Actualisé.');
 });
 
@@ -1368,16 +1581,24 @@ els.refreshBtn.addEventListener('click', async () => {
 // ---------------------------------------------------------------------------
 // grist.onOptions is the only way to read persisted widget options (there is
 // no synchronous getOptions() call) — it fires once with the stored options
-// as soon as the widget is ready, and again on any later change from
-// elsewhere. It can fire before loadAll() resolves, so stash the values and
-// (re)apply them once data is actually loaded.
-let dataLoaded = false;
-let pendingOptions = null;
+// as soon as the widget is ready. operatTableId must be known BEFORE the
+// first loadBaseData() call (it decides which table to fetch), so the
+// initial load is held until this first callback fires, instead of racing
+// it like the other (cosmetic) options.
+let optionsReceived = false;
+let initialOptions = null;
 
 grist.onOptions((options) => {
+  if (!optionsReceived) {
+    optionsReceived = true;
+    initialOptions = options || {};
+    if (initialOptions.showCode !== undefined) { els.codeCheck.checked = !!initialOptions.showCode; }
+    if (initialOptions.operatTableId) { operatTableId = initialOptions.operatTableId; }
+    startInitialLoad();
+    return;
+  }
   if (!options) { return; }
   if (options.showCode !== undefined) { els.codeCheck.checked = !!options.showCode; }
-  if (!dataLoaded) { pendingOptions = options; return; }
   if (options.lastSiteId) {
     els.siteSelect.value = options.lastSiteId;
     populateBatSelect();
@@ -1387,13 +1608,21 @@ grist.onOptions((options) => {
 
 grist.ready({ requiredAccess: 'full' });
 
-loadAll().then(() => {
-  dataLoaded = true;
-  populateSiteSelect();
-  if (pendingOptions && pendingOptions.lastSiteId) { els.siteSelect.value = pendingOptions.lastSiteId; }
-  populateBatSelect();
-  renderResults();
-}).catch(err => setStatus('Erreur de chargement : ' + err.message));
+// Filet de sécurité si onOptions ne se déclenche jamais (ne devrait pas
+// arriver avec l'API Grist réelle, mais évite un widget bloqué indéfiniment).
+setTimeout(() => {
+  if (!optionsReceived) { optionsReceived = true; initialOptions = {}; startInitialLoad(); }
+}, 2000);
+
+function startInitialLoad() {
+  loadAll().then(() => {
+    populateSiteSelect();
+    if (initialOptions && initialOptions.lastSiteId) { els.siteSelect.value = initialOptions.lastSiteId; }
+    populateBatSelect();
+    populateOperatTableSelect();
+    renderResults();
+  }).catch(err => setStatus('Erreur de chargement : ' + err.message));
+}
 
 })();
 </script>
