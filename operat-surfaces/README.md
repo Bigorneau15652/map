@@ -37,9 +37,9 @@ se recalculent avec la bonne table.
 
 ### Fenêtre flottante
 
-Le bouton **⛶ Fenêtre flottante** (en haut à gauche) ouvre les résultats
-actuels dans une vraie fenêtre de navigateur séparée, déplaçable sur un
-second écran. Techniquement, un widget custom Grist ne peut pas se recharger
+Le bouton **⛶** (icône seule, en haut à droite de la barre d'outils) ouvre
+les résultats actuels dans une vraie fenêtre de navigateur séparée,
+déplaçable sur un second écran. Techniquement, un widget custom Grist ne peut pas se recharger
 tel quel dans une fenêtre indépendante : la connexion à l'API Grist repose
 sur un canal de communication avec la page Grist qui l'héberge, qui
 n'existe plus hors de l'iframe. Cette fenêtre est donc un **miroir en lecture
@@ -117,23 +117,41 @@ l'écran de paramétrage (un tableau par statut thermique ayant du prorata à
 répartir dans ce bâtiment) : indiquez un **% exact** dans la case "% manuel"
 en face de la catégorie cible. Ce % s'applique en priorité ; le reste du
 prorata continue à se répartir automatiquement entre les autres catégories.
-Le bouton **+ Ajouter une catégorie cible** permet d'imposer un % vers une
-sous-catégorie qui n'a par ailleurs aucune surface en affectation directe
-dans ce bâtiment/statut (impossible à faire avec le seul calcul automatique).
 Laissez le % vide (ou cliquez **✕ Retirer**) pour revenir à l'automatique
 sur cette ligne.
+
+Le menu **"+ Ajouter une catégorie cible"** propose d'abord les catégories
+**déjà affectées en Affectation directe ailleurs dans ce bâtiment** (avec
+leur surface et leur statut thermique déjà connus, ex. "Bibliothèque — 297,2
+m² (chauffée + rafraîchie) déjà affectés dans ce bâtiment") plutôt que la
+nomenclature OPERAT complète (~490 lignes) — utile si un bâtiment a par
+exemple 3 catégories déjà affectées, elles apparaissent en premier dans la
+liste. L'option **"Autre catégorie OPERAT (liste complète)"** au bas du menu
+révèle les 2 menus déroulants classiques (Catégorie puis Sous-catégorie) pour
+les cas hors de cette liste.
 
 La colonne **"Base + part du prorata"** affiche, en direct pendant la saisie
 (avant même l'enregistrement), la surface finale que recevrait cette
 catégorie : base déjà en affectation directe + part du prorata au % indiqué.
 Exemple : une circulation de 118 m² à répartir, 33 % vers Bureau (qui a par
 ailleurs 0 m² en direct) → la case "% manuel" en face de Bureau à 33 affiche
-aussitôt "→ 38,9 m²" dans cette colonne.
+aussitôt "→ 38,9 m²" dans cette colonne, et le "Total % manuel" de la section
+se met aussi à jour en direct.
 
 Si la somme des % manuels d'un même statut dépasse 100 %, ils sont appliqués
 tels quels (pas de replafonnement silencieux) et un avertissement rouge vous
 le signale — à corriger vous-même, la surface totale de ce statut serait
 sinon surestimée.
+
+### Informations de surface pendant le paramétrage
+
+L'écran de paramétrage affiche, en haut, un bandeau **Salles / Surface
+totale / Surface chauffée / Surface rafraîchie** du bâtiment sélectionné (les
+mêmes chiffres que la vue résultats, sans avoir à y retourner). Sous chaque
+type de local de la table de correspondance, une ligne indique sa surface
+dans ce bâtiment et sa répartition par statut thermique (ex. "266,35 m²
+(266,35 m² chauffée (seule))" ou, si mixte, "45,32 m² (16,43 m² chauffée
+(seule), 28,89 m² non chauffée/non rafraîchie)").
 
 ## Logique de calcul
 

@@ -64,6 +64,7 @@
   }
   button:hover { background: var(--accent-light); border-color: var(--accent); }
   button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.iconBtn { padding: 6px 10px; font-size: 15px; line-height: 1; }
   button.primary:hover { background: #245a92; }
   #status { font-size: 11px; color: var(--text-muted); align-self: center; margin-left: auto; white-space: normal; overflow-wrap: anywhere; }
 
@@ -129,6 +130,7 @@
   tr.totalRow td { background: #eef3f9; font-weight: 700; border-top: 2px solid var(--accent); }
   tr.subRow td.lib { padding-left: 20px; }
   .code { font-size: 11px; color: var(--text-muted); font-family: ui-monospace, Consolas, monospace; }
+  .typeSurfaceInfo { font-size: 11px; color: var(--text-muted); margin-top: 2px; white-space: normal; overflow-wrap: anywhere; }
   .bucketTag {
     display: inline-block;
     font-size: 11px;
@@ -164,6 +166,8 @@
   }
   .prorataAddRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
   .prorataAddRow select { min-width: 160px; font-size: 12px; padding: 4px 6px; }
+  .prorataAddRow .addDirectSelect { min-width: 280px; max-width: 100%; }
+  .prorataAddRow .addOtherPicker { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .prorataTotalLine { font-size: 11.5px; margin-top: 4px; }
   .prorataTotalLine.over { color: var(--bad); font-weight: 600; }
   .removeOverrideBtn { font-size: 11px; padding: 2px 7px; }
@@ -201,7 +205,6 @@
 <body>
 
 <div id="toolbar">
-  <button id="popoutBtn" title="Ouvrir les résultats dans une fenêtre à part, déplaçable sur un autre écran">⛶ Fenêtre flottante</button>
   <div class="field">
     <label for="siteSelect">EFA (site)</label>
     <select id="siteSelect"><option value="">— choisir —</option></select>
@@ -218,6 +221,7 @@
   <button id="helpBtn">❓ Aide &amp; configuration</button>
   <button id="refreshBtn" title="Recharger les données du document">⟳ Actualiser</button>
   <span id="status"></span>
+  <button id="popoutBtn" class="iconBtn" title="Ouvrir les résultats dans une fenêtre à part, déplaçable sur un autre écran">⛶</button>
 </div>
 
 <div id="content">
@@ -272,6 +276,7 @@
     <div id="settingsForBuilding" style="display:none">
       <div class="card">
         <h2 id="settingsBuildingTitle">Correspondances des types de locaux</h2>
+        <div class="kpiRow" id="settingsKpiRow" style="margin-bottom:12px"></div>
         <div class="subhead">
           Pour chaque type de local présent dans ce bâtiment, choisissez comment il doit être traité pour la
           déclaration OPERAT : <b>Affectation directe</b> (pointe vers une sous-catégorie OPERAT),
@@ -567,6 +572,7 @@ const els = {
   settingsNoBuilding: document.getElementById('settingsNoBuilding'),
   settingsForBuilding: document.getElementById('settingsForBuilding'),
   settingsBuildingTitle: document.getElementById('settingsBuildingTitle'),
+  settingsKpiRow: document.getElementById('settingsKpiRow'),
   prorataSections: document.getElementById('prorataSections'),
   operatTableSelect: document.getElementById('operatTableSelect'),
   operatTableStatus: document.getElementById('operatTableStatus'),
@@ -1180,6 +1186,73 @@ function typesUsedInBuilding(batId) {
   return [...ids].map(id => typeByRowId[id]).filter(Boolean).sort((a, b) => a.id - b.id);
 }
 
+function roomsForBuilding(batId) {
+  const bat = batiments.find(b => b.id === batId);
+  return salles.filter(r => r.Batiment === batId && bat && r.Site === bat.Site);
+}
+
+// Surface totale + répartition par statut thermique d'un bâtiment — pour
+// donner à l'opérateur le contexte "quelle surface, chauffée, rafraîchie"
+// pendant qu'il paramètre les correspondances, sans devoir revenir à l'écran
+// de résultats.
+function buildingSurfaceStats(batId) {
+  const rooms = roomsForBuilding(batId);
+  let total = 0, chauffee = 0, rafraichie = 0;
+  for (const r of rooms) {
+    const surf = r.Surface_utile_m2_ || 0;
+    total += surf;
+    if (r.Surface_Chaufee) { chauffee += surf; }
+    if (r.Surface_Rafraichie) { rafraichie += surf; }
+  }
+  return { total, chauffee, rafraichie, nbSalles: rooms.length };
+}
+
+// Surface par type de local dans ce bâtiment, avec répartition par statut
+// thermique — affichée sous chaque ligne de l'écran de paramétrage pour
+// informer le choix de Mode/catégorie.
+function typeSurfaceStatsInBuilding(batId) {
+  const stats = new Map(); // typeRowId -> { total, byBucket: {C,CR,R,N} }
+  for (const r of roomsForBuilding(batId)) {
+    const surf = r.Surface_utile_m2_ || 0;
+    if (!surf) { continue; }
+    if (!stats.has(r.Type_d_usage)) { stats.set(r.Type_d_usage, { total: 0, byBucket: {} }); }
+    const entry = stats.get(r.Type_d_usage);
+    entry.total += surf;
+    const key = bucketKey(!!r.Surface_Chaufee, !!r.Surface_Rafraichie);
+    entry.byBucket[key] = (entry.byBucket[key] || 0) + surf;
+  }
+  return stats;
+}
+
+function formatSurfaceBreakdown(entry) {
+  const parts = BUCKETS
+    .filter(b => entry.byBucket[b.key] > 0)
+    .map(b => `${fmtNum(entry.byBucket[b.key])} m² ${b.label.toLowerCase()}`);
+  return `${fmtNum(entry.total)} m² (${parts.join(', ')})`;
+}
+
+// Sous-catégories déjà affectées en mode "Affectation directe" quelque part
+// dans ce bâtiment (tous types de locaux, tous statuts thermiques confondus)
+// — ce sont les cibles "naturelles" à proposer en premier pour la
+// répartition manuelle du prorata, plutôt que la nomenclature OPERAT
+// complète (~490 lignes).
+function buildingDirectAssignments(batId) {
+  const bySubcat = new Map(); // subcatId -> { total, byBucket }
+  for (const r of roomsForBuilding(batId)) {
+    const mapRec = mappingByKey[batId + '|' + r.Type_d_usage];
+    if (!mapRec || mapRec.Mode !== MODE_DIRECT || !mapRec.SousCategorieOPERAT) { continue; }
+    const surf = r.Surface_utile_m2_ || 0;
+    if (!surf) { continue; }
+    const subcatId = mapRec.SousCategorieOPERAT;
+    if (!bySubcat.has(subcatId)) { bySubcat.set(subcatId, { total: 0, byBucket: {} }); }
+    const entry = bySubcat.get(subcatId);
+    entry.total += surf;
+    const key = bucketKey(!!r.Surface_Chaufee, !!r.Surface_Rafraichie);
+    entry.byBucket[key] = (entry.byBucket[key] || 0) + surf;
+  }
+  return bySubcat;
+}
+
 function renderMappingPanel() {
   const batId = Number(els.batSelect.value) || null;
   if (!batId) {
@@ -1192,6 +1265,15 @@ function renderMappingPanel() {
   const bat = batiments.find(b => b.id === batId);
   els.settingsBuildingTitle.textContent = 'Correspondances des types de locaux — ' + (bat ? formatBatLabel(bat) : '');
 
+  const bStats = buildingSurfaceStats(batId);
+  els.settingsKpiRow.innerHTML = [
+    ['Salles', fmtNum(bStats.nbSalles)],
+    ['Surface totale', fmtNum(bStats.total) + ' m²'],
+    ['Surface chauffée', fmtNum(bStats.chauffee) + ' m²'],
+    ['Surface rafraîchie', fmtNum(bStats.rafraichie) + ' m²'],
+  ].map(([lbl, val]) => `<div class="kpi"><div class="val">${val}</div><div class="lbl">${escapeHtml(lbl)}</div></div>`).join('');
+
+  const typeStats = typeSurfaceStatsInBuilding(batId);
   const categories = operatCategories();
   const types = typesUsedInBuilding(batId);
   let currentCatGroup = null;
@@ -1220,8 +1302,11 @@ function renderMappingPanel() {
       return `<option value="${id}" ${id === subcatId ? 'selected' : ''}>${escapeHtml(rec.Sous_categorie_d_activite)}</option>`;
     }).join('');
 
+    const surfEntry = typeStats.get(t.id);
+    const surfInfo = surfEntry ? formatSurfaceBreakdown(surfEntry) : '';
+
     html += `<tr data-type-id="${t.id}" data-map-id="${mapRec ? mapRec.id : ''}">
-      <td class="lib" data-label="Type de local">${escapeHtml(t.Libelle || '(sans libellé)')} <span class="code">${escapeHtml(t.CodeSurface || '')}</span></td>
+      <td class="lib" data-label="Type de local">${escapeHtml(t.Libelle || '(sans libellé)')} <span class="code">${escapeHtml(t.CodeSurface || '')}</span>${surfInfo ? `<div class="typeSurfaceInfo">${escapeHtml(surfInfo)}</div>` : ''}</td>
       <td data-label="Mode"><select class="modeSelect">${modeOptions}</select></td>
       <td data-label="Catégorie OPERAT"><select class="catSelect" ${mode !== MODE_DIRECT ? 'disabled' : ''}>${catOptions}</select></td>
       <td data-label="Sous-catégorie OPERAT"><select class="subcatSelect" ${mode !== MODE_DIRECT ? 'disabled' : ''}>${subcatOptions}</select></td>
@@ -1295,6 +1380,7 @@ function renderProrataPanel(batId) {
   const bat = batiments.find(b => b.id === batId);
   const rooms = salles.filter(r => r.Batiment === batId && bat && r.Site === bat.Site);
   const direct = computeDirectAndPool(rooms, batId);
+  const buildingDirect = buildingDirectAssignments(batId);
 
   let html = '';
   for (const b of BUCKETS) {
@@ -1329,6 +1415,18 @@ function renderProrataPanel(batId) {
       </tr>`;
     }).join('');
 
+    // Cibles suggérées pour "+ Ajouter" : les catégories déjà affectées en
+    // Affectation directe quelque part dans ce bâtiment (tous types de
+    // locaux confondus), sauf celles qui ont déjà une ligne dans CE statut
+    // ci-dessus. Une liste courte et pertinente plutôt que les ~490 lignes
+    // de la nomenclature OPERAT complète.
+    const alreadyInBucket = new Set(rows.map(r => r.subcatId));
+    const suggestedOptions = [...buildingDirect.entries()]
+      .filter(([subcatId]) => !alreadyInBucket.has(subcatId))
+      .sort((x, y) => subcatLabel(x[0]).localeCompare(subcatLabel(y[0]), 'fr'))
+      .map(([subcatId, entry]) => `<option value="${subcatId}">${escapeHtml(subcatCategorie(subcatId))} — ${escapeHtml(subcatLabel(subcatId))} (${escapeHtml(formatSurfaceBreakdown(entry))} déjà affectés dans ce bâtiment)</option>`)
+      .join('');
+
     html += `<div class="prorataSection" data-bucket-key="${b.key}">
       <h3>${escapeHtml(b.label)}</h3>
       <div class="poolInfo">Surface à répartir (locaux "au prorata") dans ce statut : <b>${fmtNum(d.pool)} m²</b></div>
@@ -1340,9 +1438,16 @@ function renderProrataPanel(batId) {
       </div>
       <div class="prorataTotalLine${totalPct > 100 ? ' over' : ''}">Total % manuel : ${fmtNum(totalPct, 1)} % ${totalPct > 100 ? '(dépasse 100 % — à corriger)' : '(le reste, ' + fmtNum(Math.max(0, 100 - totalPct), 1) + ' %, se répartit automatiquement)'}</div>
       <div class="prorataAddRow">
-        <select class="addCatSelect"><option value="">Catégorie OPERAT…</option>${operatCategories().map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}</select>
-        <select class="addSubcatSelect"><option value="">Sous-catégorie…</option></select>
-        <button class="addOverrideBtn">+ Ajouter une catégorie cible</button>
+        <select class="addDirectSelect">
+          <option value="">+ Ajouter une catégorie cible…</option>
+          ${suggestedOptions}
+          <option value="__other__">Autre catégorie OPERAT (liste complète)…</option>
+        </select>
+        <span class="addOtherPicker" style="display:none">
+          <select class="addCatSelect"><option value="">Catégorie OPERAT…</option>${operatCategories().map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}</select>
+          <select class="addSubcatSelect"><option value="">Sous-catégorie…</option></select>
+          <button class="addOverrideBtn">+ Ajouter</button>
+        </span>
       </div>
     </div>`;
   }
@@ -1395,9 +1500,23 @@ function wireProrataPanelEvents(batId) {
       }
     });
 
+    const addDirectSelect = section.querySelector('.addDirectSelect');
+    const addOtherPicker = section.querySelector('.addOtherPicker');
     const addCatSelect = section.querySelector('.addCatSelect');
     const addSubcatSelect = section.querySelector('.addSubcatSelect');
     const addBtn = section.querySelector('.addOverrideBtn');
+
+    addDirectSelect.addEventListener('change', async () => {
+      if (addDirectSelect.value === '__other__') {
+        addOtherPicker.style.display = '';
+        addDirectSelect.value = '';
+        return;
+      }
+      const subcatId = Number(addDirectSelect.value) || null;
+      if (!subcatId) { return; }
+      await saveProrataOverride(batId, bucketKeyStr, subcatId, '', '0');
+    });
+
     addCatSelect.addEventListener('change', () => {
       const subcats = addCatSelect.value ? operatSubcatsFor(addCatSelect.value) : [];
       addSubcatSelect.innerHTML = '<option value="">Sous-catégorie…</option>' +
