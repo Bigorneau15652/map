@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Surfaces OPERAT par EFA</title>
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<style>
+  :root {
+    --accent: #2b6cb0;
+    --accent-light: #ebf4ff;
+    --ok: #2f855a;
+    --warn: #c05621;
+    --bad: #c53030;
+    --border: #dde3ea;
+    --text-muted: #6b7280;
+    /* Opt out of UA dark-mode form-control styling: without this a <select>/
+       <button> with an explicit white background but no explicit text color
+       can render white-on-white in a dark-themed browser/OS. See /CLAUDE.md. */
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1a202c;
+    background: #f4f6f8;
+    font-size: 13px;
+  }
+
+  /* Toolbar: intentionally NOT position:sticky (see /CLAUDE.md — sticky
+     toolbars have caused content to render unreadable until hover inside
+     some Grist widget-panel embeddings). Keep it static. */
+  #toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+    padding: 10px 14px;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+  }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+  select, input[type="text"] {
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 13px;
+    background: #fff;
+    color: #1a202c;
+  }
+  select { min-width: 200px; }
+  .checkField { flex-direction: row; align-items: center; gap: 6px; }
+  .checkField label { text-transform: none; font-size: 12px; letter-spacing: 0; }
+  button {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: #fff;
+    color: #1a202c;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  button:hover { background: var(--accent-light); border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { background: #245a92; }
+  #status { font-size: 11px; color: var(--text-muted); align-self: center; margin-left: auto; white-space: normal; overflow-wrap: anywhere; }
+
+  #content { padding: 14px; max-width: 1150px; margin: 0 auto; }
+  #emptyState { padding: 60px 20px; text-align: center; color: var(--text-muted); }
+
+  /* Warning banners: high contrast, never truncated. See /CLAUDE.md. */
+  #warnings { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  #warnings .w {
+    display: block;
+    background: #fef3c7;
+    border: 1px solid #f0b429;
+    color: #7a4a00;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.5;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  #warnings .w.bad { background: #fde2e2; border-color: #e0554f; color: #7a1a1a; }
+  #warnings .w b { font-weight: 700; }
+
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--accent);
+    margin: 0 0 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+  .card .subhead { font-size: 11px; color: var(--text-muted); margin: -4px 0 10px; white-space: normal; overflow-wrap: anywhere; }
+
+  .kpiRow { display: flex; flex-wrap: wrap; gap: 10px; }
+  .kpi {
+    flex: 1 1 150px;
+    background: var(--accent-light);
+    border: 1px solid #cfe0f5;
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .kpi .val { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .kpi .lbl { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .02em; color: var(--text-muted); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.catRow td { background: #f7f9fb; font-weight: 700; border-top: 2px solid var(--border); }
+  tr.totalRow td { background: #eef3f9; font-weight: 700; border-top: 2px solid var(--accent); }
+  tr.subRow td.lib { padding-left: 20px; }
+  .code { font-size: 11px; color: var(--text-muted); font-family: ui-monospace, Consolas, monospace; }
+  .bucketTag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: #e2e8f0;
+    color: #2d3748;
+  }
+  .bucketTag.cr { background: #fde8cc; color: #7a4a00; }
+  .bucketTag.c  { background: #fde2c8; color: #8a3d00; }
+  .bucketTag.r  { background: #cfe8f5; color: #0b5a7a; }
+  .bucketTag.n  { background: #e2e2e2; color: #444; }
+
+  .tableWrap { overflow-x: auto; }
+
+  /* Settings panel (mapping type de local -> OPERAT). display:none is set
+     inline in the markup, not here — a stylesheet display:none would win
+     over `el.style.display = ''` (that only clears the inline override, it
+     doesn't beat a class rule), which left the panel blank when opened. */
+  #settingsPanel table td, #settingsPanel table th { white-space: normal; overflow-wrap: anywhere; }
+  #settingsPanel select { min-width: 0; width: 100%; font-size: 12px; padding: 4px 6px; }
+  .catGroupRow td { background: #f0f4f8; font-weight: 700; color: var(--accent); }
+  .savedTag { font-size: 11px; color: var(--ok); margin-left: 6px; }
+
+  .prorataSection { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .prorataSection:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .prorataSection h3 { font-size: 12.5px; margin: 0 0 4px; }
+  .prorataSection .poolInfo { font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px; }
+  .prorataSection table { margin-bottom: 8px; }
+  .prorataSection input[type="number"] {
+    width: 70px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px;
+    background: #fff; color: #1a202c; font-size: 12.5px;
+  }
+  .prorataAddRow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+  .prorataAddRow select { min-width: 160px; font-size: 12px; padding: 4px 6px; }
+  .prorataTotalLine { font-size: 11.5px; margin-top: 4px; }
+  .prorataTotalLine.over { color: var(--bad); font-weight: 600; }
+  .removeOverrideBtn { font-size: 11px; padding: 2px 7px; }
+
+  @media (max-width: 480px) {
+    #toolbar { flex-direction: column; align-items: stretch; }
+    select { min-width: 0; width: 100%; }
+    #status { margin-left: 0; }
+    .kpi { flex: 1 1 100%; }
+
+    /* Below this width a plain table forces horizontal scrolling to reach the
+       surface value — the single most important number in the table. Stack
+       each row into a small card instead, with data-label driving the
+       inline caption (see /CLAUDE.md: verify narrow Grist panel widths,
+       ~340px, not just desktop). */
+    .respTable, .respTable thead, .respTable tbody { display: block; width: 100%; }
+    .respTable thead { display: none; }
+    .respTable tr { display: block; padding: 6px 0; }
+    .respTable tr.subRow { border-bottom: 1px solid var(--border); }
+    .respTable tr.catRow, .respTable tr.totalRow { display: flex; justify-content: space-between; gap: 8px; }
+    .respTable td { display: block; border-bottom: none; padding: 2px 0; }
+    .respTable td.num { text-align: left; }
+    .respTable td[data-label]::before {
+      content: attr(data-label) " : ";
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+      color: var(--text-muted);
+    }
+    .respTable tr.subRow td.lib::before { content: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <div class="field">
+    <label for="siteSelect">EFA (site)</label>
+    <select id="siteSelect"><option value="">— choisir —</option></select>
+  </div>
+  <div class="field">
+    <label for="batSelect">Bâtiment</label>
+    <select id="batSelect"><option value="">Tous les bâtiments (agrégé)</option></select>
+  </div>
+  <div class="field checkField">
+    <input type="checkbox" id="codeCheck">
+    <label for="codeCheck">Afficher le code technique OPERAT</label>
+  </div>
+  <button id="settingsBtn">⚙ Paramétrer les correspondances</button>
+  <button id="refreshBtn" title="Recharger les données du document">⟳ Actualiser</button>
+  <span id="status"></span>
+</div>
+
+<div id="content">
+  <div id="emptyState">Choisissez un EFA (site) ci-dessus.</div>
+
+  <div id="mainView" style="display:none">
+    <div id="warnings"></div>
+
+    <div class="card">
+      <h2 id="kpiTitle">Totaux</h2>
+      <div class="kpiRow" id="kpiRow"></div>
+    </div>
+
+    <div class="card">
+      <h2>Surfaces par catégorie OPERAT</h2>
+      <div class="subhead">Une ligne par sous-catégorie OPERAT et par statut de chauffage/rafraîchissement. Les circulations, sanitaires et locaux techniques sans équivalent OPERAT direct sont répartis au prorata des surfaces déjà affectées, dans le même bâtiment et le même statut thermique.</div>
+      <div class="tableWrap">
+        <table id="resultsTable" class="respTable">
+          <thead>
+            <tr>
+              <th>Sous-catégorie OPERAT</th>
+              <th>Statut thermique</th>
+              <th class="num">Surface (m²)</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" id="horsPerimetreCard" style="display:none">
+      <h2>Surfaces hors périmètre OPERAT</h2>
+      <div class="subhead">Locaux sans usage occupé propre (voiles techniques, trémies, combles, prolongements extérieurs, logements de fonction…) — non inclus dans les totaux OPERAT ci-dessus, affichés ici pour information.</div>
+      <div class="tableWrap">
+        <table id="horsPerimetreTable" class="respTable">
+          <thead><tr><th>Type de local</th><th>Statut thermique</th><th class="num">Surface (m²)</th></tr></thead>
+          <tbody id="horsPerimetreBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="settingsPanel" style="display:none">
+    <div id="settingsNoBuilding" class="card">
+      <div class="subhead" style="margin:0">
+        Le paramétrage se fait <b>bâtiment par bâtiment</b> : chaque bâtiment peut avoir ses propres
+        correspondances. Choisissez un EFA puis un <b>bâtiment précis</b> dans la barre d'outils ci-dessus
+        (le paramétrage n'est pas disponible en vue « Tous les bâtiments »).
+      </div>
+    </div>
+
+    <div id="settingsForBuilding" style="display:none">
+      <div class="card">
+        <h2 id="settingsBuildingTitle">Correspondances des types de locaux</h2>
+        <div class="subhead">
+          Pour chaque type de local présent dans ce bâtiment, choisissez comment il doit être traité pour la
+          déclaration OPERAT : <b>Affectation directe</b> (pointe vers une sous-catégorie OPERAT),
+          <b>Répartition au prorata</b> (circulations, sanitaires, locaux techniques… sans équivalent OPERAT
+          propre — ajustable dans la section « Répartition manuelle » ci-dessous), ou <b>Hors périmètre</b>
+          (exclu : combles, trémies, logements de fonction…). Une proposition initiale a été pré-remplie pour ce
+          bâtiment — <b>à valider avant tout usage officiel</b>. Chaque modification est enregistrée
+          immédiatement dans <code>Table_correspondance_OPERAT</code>.
+        </div>
+        <button id="resetMappingBtn">↺ Restaurer les propositions par défaut pour ce bâtiment (tout écraser)</button>
+        <span id="settingsStatus" class="savedTag"></span>
+        <div class="tableWrap" style="margin-top:10px">
+          <table id="mappingTable" class="respTable">
+            <thead>
+              <tr>
+                <th>Type de local (UMPV)</th>
+                <th>Mode</th>
+                <th>Catégorie OPERAT</th>
+                <th>Sous-catégorie OPERAT</th>
+                <th>Code technique</th>
+              </tr>
+            </thead>
+            <tbody id="mappingBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Répartition manuelle du prorata (exceptions)</h2>
+        <div class="subhead">
+          Par défaut, les surfaces « à répartir au prorata » sont ventilées automatiquement, proportionnellement
+          aux m² déjà en affectation directe (même bâtiment, même statut thermique). Pour une exception, indiquez
+          ici le <b>% exact</b> à affecter à une catégorie OPERAT cible : le reste continue à se répartir
+          automatiquement entre les autres catégories affectées directement. Laissez le % vide (ou supprimez la
+          ligne) pour revenir à l'automatique.
+        </div>
+        <div id="prorataSections"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
+
+// Les 5 EFA (entités fonctionnelles assujetties) encore en activité. Les
+// autres sites présents dans BDD_Sites (Abbé de l'Épée, Université du Tiers
+// Temps, Sites BU...) ne sont plus à l'UMPV ou hors périmètre et ne sont pas
+// proposés dans le menu déroulant.
+const SITES_EFA = ['Route de Mende', 'Béziers', 'Saint-Charles', 'Saint-Louis', 'Boutonnet'];
+
+const MAPPING_TABLE = 'Table_correspondance_OPERAT';
+const PRORATA_TABLE = 'Table_repartition_prorata_manuelle';
+
+const MODE_DIRECT = 'Affectation directe';
+const MODE_PRORATA = 'Répartition au prorata';
+const MODE_HORS = 'Hors périmètre';
+const MODE_CHOICES = [MODE_DIRECT, MODE_PRORATA, MODE_HORS];
+
+// Proposition initiale de correspondance [id_typeUsage, mode, code OPERAT ou null].
+// Voir README.md pour le détail du raisonnement. À valider par l'opérateur
+// dans l'écran "Paramétrer les correspondances" avant tout usage officiel.
+const DEFAULT_MAPPING = [
+  [1, 'direct', 'SCAP070301'],   // Bureau
+  [2, 'prorata', null],          // Local photocopieur
+  [3, 'direct', 'SCAP070301'],   // Placard
+  [4, 'direct', 'SCAP070306'],   // Salle d'attente
+  [5, 'prorata', null],          // Sanitaire, vestiaire
+  [6, 'direct', 'SCAP070306'],   // Salle de réunion
+  [7, 'direct', 'SCAP070306'],   // Salle d'équipe
+  [8, 'direct', 'SCAP070306'],   // Salle de formation
+  [9, 'direct', 'SCAP070306'],   // Salle de réunion (doublon)
+  [10, 'direct', 'SCAP060102'],  // Bibliothèque
+  [11, 'direct', 'SCAP060102'],  // Salle d'exposition
+  [12, 'prorata', null],         // Salle de pause
+  [13, 'direct', 'SCAP070306'],  // Salon de réception
+  [14, 'prorata', null],         // Circulation interne
+  [16, 'direct', 'SCAP0409'],    // Archives
+  [17, 'prorata', null],         // Locaux techniques "occupants"
+  [20, 'prorata', null],         // Stockage
+  [21, 'direct', 'SCAP070301'],  // Locaux syndicaux
+  [22, 'direct', 'SCAP070301'],  // Infirmerie
+  [23, 'direct', 'SCAP070306'],  // Activité culturelle
+  [24, 'prorata', null],         // Sanitaire, vestiaire (doublon)
+  [25, 'prorata', null],         // Circulation primaire
+  [26, 'prorata', null],         // Sanitaire, vestiaire (doublon)
+  [27, 'hors', null],            // Cave et salle aveugle
+  [28, 'prorata', null],         // Accueil / Attente
+  [29, 'direct', 'SCAP0407'],    // Réception public
+  [30, 'direct', 'SCAP070306'],  // Salle de cours
+  [31, 'direct', 'SCAP070305'],  // Amphithéâtre
+  [32, 'hors', null],            // Espaces verts intérieurs
+  [33, 'prorata', null],         // Stockage (doublon)
+  [34, 'prorata', null],         // Locaux techniques "occupants" (doublon)
+  [35, 'prorata', null],         // Circulation interne (doublon)
+  [36, 'direct', 'SCAP070301'],  // PC Sécu / Gardien
+  [37, 'prorata', null],         // Ménage / Standard
+  [38, 'direct', 'SCAP1103'],    // Imprimerie
+  [39, 'direct', 'SCAP070301'],  // Courrier / Chauffeur
+  [40, 'direct', 'SCAP1808'],    // Réfectoire
+  [41, 'prorata', null],         // Kitchenette et LT
+  [42, 'hors', null],            // Logement de fonction
+  [43, 'hors', null],            // Logement NAS/US
+  [44, 'prorata', null],         // Vérandas
+  [45, 'prorata', null],         // Palier d'étage
+  [46, 'prorata', null],         // Galerie non technique
+  [47, 'hors', null],            // Locaux techniques
+  [48, 'hors', null],            // Locaux techniques (doublon)
+  [49, 'direct', 'SCAP1405'],    // Hangar / Entrepôt
+  [51, 'hors', null],            // Cave
+  [53, 'hors', null],            // Coursive protégée
+  [54, 'prorata', null],         // Palier d'étage (doublon)
+  [55, 'hors', null],            // CCS H<1.80m
+  [56, 'hors', null],            // Comble non aména.
+  [57, 'hors', null],            // Comble non amén. struc
+  [58, 'hors', null],            // Cave et salle aveugle (doublon)
+  [59, 'hors', null],            // Cave et salle aveugle (doublon)
+  [60, 'hors', null],            // Hauteur < 1,80m
+  [61, 'hors', null],            // Locaux techniques (doublon)
+  [62, 'hors', null],            // Locaux techniques (doublon)
+  [63, 'hors', null],            // Surf. non close RDC
+  [64, 'hors', null],            // Balcon
+  [65, 'hors', null],            // Loggia
+  [66, 'hors', null],            // Coursive protégée (doublon)
+  [67, 'hors', null],            // Coursive protégée (doublon)
+  [68, 'hors', null],            // Niveau non fermé
+  [69, 'direct', 'SCAP2201'],    // Aire de stationnement
+  [70, 'direct', 'SCAP2201'],    // Aire de manœuvre
+  [71, 'direct', 'SCAP2201'],    // Sas de sécurité
+  [72, 'direct', 'SCAP2201'],    // Rampe d'accès
+  [73, 'hors', null],            // Toiture terrasse
+  [74, 'hors', null],            // Escalier
+  [75, 'hors', null],            // Ascenseur
+  [76, 'hors', null],            // Monte-charge
+  [77, 'hors', null],            // Skydôme
+  [78, 'hors', null],            // Autres (vides)
+  [79, 'hors', null],            // Marche d'escalier
+  [80, 'hors', null],            // Cabine d'ascenseur
+  [81, 'hors', null],            // Rampes d'accès (marches)
+  [82, 'hors', null],            // Pallier ext. RDC
+  [83, 'hors', null],            // Autres (marches)
+  [84, 'prorata', null],         // Kitchenette et LT (doublon)
+  [86, 'prorata', null],         // Stockage (doublon)
+  [87, 'direct', 'SCAP2201'],    // Garage
+  [88, 'direct', 'SCAP0001'],    // Vacant
+  [89, 'prorata', null],         // Tisanerie
+  [90, 'direct', 'SCAP1808'],    // Cafétaria
+  [91, 'hors', null],            // Gaine technique
+  [92, 'direct', 'SCAP1808'],    // Cuisine
+  [93, 'direct', 'SCAP2105'],    // Locaux de sports
+  [94, 'prorata', null],         // LT Occupant
+  [95, 'direct', 'SCAP070301'],  // Bulle de confidentialité
+  [96, 'hors', null],            // Locaux techniques (sans libellé)
+];
+const MODE_LABEL_BY_KEY = { direct: MODE_DIRECT, prorata: MODE_PRORATA, hors: MODE_HORS };
+
+const BUCKETS = [
+  { key: 'C',  label: 'Chauffée (seule)',        cls: 'c'  },
+  { key: 'CR', label: 'Chauffée + rafraîchie',   cls: 'cr' },
+  { key: 'R',  label: 'Rafraîchie (seule)',       cls: 'r'  },
+  { key: 'N',  label: 'Non chauffée / non rafraîchie', cls: 'n' },
+];
+function bucketKey(chauffee, rafraichie) {
+  if (chauffee && rafraichie) { return 'CR'; }
+  if (chauffee) { return 'C'; }
+  if (rafraichie) { return 'R'; }
+  return 'N';
+}
+function bucketInfo(key) { return BUCKETS.find(b => b.key === key); }
+const BUCKET_KEY_BY_LABEL = Object.fromEntries(BUCKETS.map(b => [b.label, b.key]));
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function fmtNum(n, digits) {
+  if (n === null || n === undefined || Number.isNaN(n) || !Number.isFinite(n)) { return '—'; }
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: digits ?? 0, maximumFractionDigits: digits ?? 2 });
+}
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+function sum(arr, fn) { return arr.reduce((acc, x) => acc + (fn(x) || 0), 0); }
+
+async function fetchRecords(tableId) {
+  const table = await grist.docApi.fetchTable(tableId);
+  const { id, ...cols } = table;
+  const colNames = Object.keys(cols);
+  return id.map((rowId, i) => {
+    const rec = { id: rowId };
+    for (const c of colNames) { rec[c] = cols[c][i]; }
+    return rec;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let sites = [], batiments = [], salles = [], typesLocaux = [], operatRows = [];
+let mappingRows = [];           // Table_correspondance_OPERAT records (one per Bâtiment x Type de local)
+let prorataOverrides = [];      // Table_repartition_prorata_manuelle records
+let typeByRowId = {};           // Table_locaux_types_et_correspondance rowId -> record
+let operatByRowId = {};         // Segmentation_OPERAT rowId -> record
+let operatByCode = {};          // Code_technique_OPERAT -> record
+let mappingByKey = {};          // "batimentId|typeRowId" -> Table_correspondance_OPERAT record
+let prorataOverridesByBatiment = {}; // batimentId -> { bucketKey -> [override records] }
+
+const els = {
+  siteSelect: document.getElementById('siteSelect'),
+  batSelect: document.getElementById('batSelect'),
+  codeCheck: document.getElementById('codeCheck'),
+  settingsBtn: document.getElementById('settingsBtn'),
+  refreshBtn: document.getElementById('refreshBtn'),
+  status: document.getElementById('status'),
+  emptyState: document.getElementById('emptyState'),
+  mainView: document.getElementById('mainView'),
+  settingsPanel: document.getElementById('settingsPanel'),
+  warnings: document.getElementById('warnings'),
+  kpiRow: document.getElementById('kpiRow'),
+  kpiTitle: document.getElementById('kpiTitle'),
+  resultsBody: document.getElementById('resultsBody'),
+  horsPerimetreCard: document.getElementById('horsPerimetreCard'),
+  horsPerimetreBody: document.getElementById('horsPerimetreBody'),
+  mappingBody: document.getElementById('mappingBody'),
+  settingsStatus: document.getElementById('settingsStatus'),
+  resetMappingBtn: document.getElementById('resetMappingBtn'),
+  settingsNoBuilding: document.getElementById('settingsNoBuilding'),
+  settingsForBuilding: document.getElementById('settingsForBuilding'),
+  settingsBuildingTitle: document.getElementById('settingsBuildingTitle'),
+  prorataSections: document.getElementById('prorataSections'),
+};
+
+function setStatus(msg) { els.status.textContent = msg || ''; }
+
+// ---------------------------------------------------------------------------
+// Data loading
+// ---------------------------------------------------------------------------
+async function loadBaseData() {
+  const [s, b, r, t, o] = await Promise.all([
+    fetchRecords('BDD_Sites'),
+    fetchRecords('BDD_Batiments'),
+    fetchRecords('BDD_Salles'),
+    fetchRecords('Table_locaux_types_et_correspondance'),
+    fetchRecords('Segmentation_OPERAT'),
+  ]);
+  sites = s; batiments = b; salles = r; typesLocaux = t; operatRows = o;
+
+  typeByRowId = Object.fromEntries(typesLocaux.map(x => [x.id, x]));
+  operatByRowId = Object.fromEntries(operatRows.map(x => [x.id, x]));
+  operatByCode = Object.fromEntries(operatRows.map(x => [x.Code_technique_OPERAT, x]));
+}
+
+// Crée la table Table_correspondance_OPERAT si elle n'existe pas encore, puis
+// ajoute une ligne de proposition par défaut pour chaque couple (bâtiment,
+// type de local) réellement utilisé dans BDD_Salles et qui n'y figure pas
+// déjà (upsert additif : ne touche jamais aux lignes existantes, donc jamais
+// aux corrections déjà faites par l'opérateur). Le mapping est par bâtiment,
+// pas global : deux bâtiments peuvent classer le même type de local
+// différemment.
+async function ensureMappingTable() {
+  try {
+    mappingRows = await fetchRecords(MAPPING_TABLE);
+  } catch (e) {
+    await grist.docApi.applyUserActions([
+      ['AddTable', MAPPING_TABLE, [
+        { id: 'Batiment', type: 'Ref:BDD_Batiments', label: 'Bâtiment' },
+        { id: 'TypeUsage', type: 'Ref:Table_locaux_types_et_correspondance', label: 'Type de local' },
+        { id: 'Mode', type: 'Choice', label: 'Mode d’affectation OPERAT',
+          widgetOptions: JSON.stringify({ choices: MODE_CHOICES }) },
+        { id: 'SousCategorieOPERAT', type: 'Ref:Segmentation_OPERAT', label: 'Sous-catégorie OPERAT' },
+      ]],
+    ]);
+    mappingRows = [];
+  }
+
+  const efaSiteIds = new Set(sites.filter(s => SITES_EFA.includes(s.Nom)).map(s => s.id));
+  const efaBuildingIds = new Set(batiments.filter(b => efaSiteIds.has(b.Site)).map(b => b.id));
+
+  const covered = new Set(mappingRows.map(m => m.Batiment + '|' + m.TypeUsage));
+  const usedPairs = new Map(); // "batId|typeRowId" -> { batimentId, typeRec }
+  for (const r of salles) {
+    if (!efaBuildingIds.has(r.Batiment)) { continue; }
+    const typeRec = typeByRowId[r.Type_d_usage];
+    if (!typeRec) { continue; }
+    const key = r.Batiment + '|' + typeRec.id;
+    if (!usedPairs.has(key)) { usedPairs.set(key, { batimentId: r.Batiment, typeRec }); }
+  }
+  const toAdd = [...usedPairs.entries()].filter(([key]) => !covered.has(key)).map(([, v]) => v);
+  if (toAdd.length) {
+    await bulkAddDefaultRows(toAdd);
+    mappingRows = await fetchRecords(MAPPING_TABLE);
+  }
+  mappingByKey = Object.fromEntries(mappingRows.map(m => [m.Batiment + '|' + m.TypeUsage, m]));
+}
+
+// Crée la table Table_repartition_prorata_manuelle si elle n'existe pas
+// encore. Contrairement à la table de correspondance, elle ne reçoit aucune
+// ligne par défaut : une ligne n'existe que si l'opérateur a explicitement
+// défini une exception pour un bâtiment/statut thermique/catégorie cible.
+async function ensureProrataTable() {
+  try {
+    prorataOverrides = await fetchRecords(PRORATA_TABLE);
+  } catch (e) {
+    await grist.docApi.applyUserActions([
+      ['AddTable', PRORATA_TABLE, [
+        { id: 'Batiment', type: 'Ref:BDD_Batiments', label: 'Bâtiment' },
+        { id: 'StatutThermique', type: 'Choice', label: 'Statut thermique',
+          widgetOptions: JSON.stringify({ choices: BUCKETS.map(b => b.label) }) },
+        { id: 'SousCategorieOPERAT', type: 'Ref:Segmentation_OPERAT', label: 'Sous-catégorie OPERAT cible' },
+        { id: 'PourcentageManuel', type: 'Numeric', label: '% manuel' },
+      ]],
+    ]);
+    prorataOverrides = [];
+  }
+  rebuildProrataIndex();
+}
+
+function rebuildProrataIndex() {
+  prorataOverridesByBatiment = {};
+  for (const o of prorataOverrides) {
+    const key = BUCKET_KEY_BY_LABEL[o.StatutThermique];
+    if (!key) { continue; }
+    if (!prorataOverridesByBatiment[o.Batiment]) { prorataOverridesByBatiment[o.Batiment] = {}; }
+    if (!prorataOverridesByBatiment[o.Batiment][key]) { prorataOverridesByBatiment[o.Batiment][key] = []; }
+    prorataOverridesByBatiment[o.Batiment][key].push(o);
+  }
+}
+
+function defaultForType(typeRec) {
+  const entry = DEFAULT_MAPPING.find(d => d[0] === typeRec.id_typeUsage);
+  if (!entry) { return { mode: '', code: null }; }
+  return { mode: MODE_LABEL_BY_KEY[entry[1]], code: entry[2] };
+}
+
+async function bulkAddDefaultRows(pairs) {
+  const batIds = [], typeIds = [], modes = [], subcats = [];
+  for (const { batimentId, typeRec } of pairs) {
+    const d = defaultForType(typeRec);
+    batIds.push(batimentId);
+    typeIds.push(typeRec.id);
+    modes.push(d.mode);
+    const operatRec = d.code ? operatByCode[d.code] : null;
+    subcats.push(operatRec ? operatRec.id : 0);
+  }
+  await grist.docApi.applyUserActions([
+    ['BulkAddRecord', MAPPING_TABLE, batIds.map(() => null), {
+      Batiment: batIds, TypeUsage: typeIds, Mode: modes, SousCategorieOPERAT: subcats,
+    }],
+  ]);
+}
+
+async function resetBuildingMappingToDefaults(batId) {
+  if (!window.confirm('Ceci va écraser TOUTES les correspondances actuelles de ce bâtiment (y compris vos modifications) avec la proposition par défaut. Continuer ?')) {
+    return;
+  }
+  const rowIds = [], modes = [], subcats = [];
+  for (const m of mappingRows) {
+    if (m.Batiment !== batId) { continue; }
+    const typeRec = typeByRowId[m.TypeUsage];
+    if (!typeRec) { continue; }
+    const d = defaultForType(typeRec);
+    const operatRec = d.code ? operatByCode[d.code] : null;
+    rowIds.push(m.id);
+    modes.push(d.mode);
+    subcats.push(operatRec ? operatRec.id : 0);
+  }
+  await grist.docApi.applyUserActions([
+    ['BulkUpdateRecord', MAPPING_TABLE, rowIds, { Mode: modes, SousCategorieOPERAT: subcats }],
+  ]);
+  mappingRows = await fetchRecords(MAPPING_TABLE);
+  mappingByKey = Object.fromEntries(mappingRows.map(m => [m.Batiment + '|' + m.TypeUsage, m]));
+  renderMappingPanel();
+  renderResults();
+  els.settingsStatus.textContent = 'Propositions par défaut restaurées pour ce bâtiment.';
+  setTimeout(() => { els.settingsStatus.textContent = ''; }, 2500);
+}
+
+async function loadAll() {
+  setStatus('Chargement des données…');
+  await loadBaseData();
+  await ensureMappingTable();
+  await ensureProrataTable();
+  setStatus('Chargé.');
+}
+
+// ---------------------------------------------------------------------------
+// Computation
+// ---------------------------------------------------------------------------
+
+// Étape 1 : classe les salles d'un bâtiment par statut thermique, en séparant
+// les m² déjà en affectation directe (bySubcatDirect) du "pool" à répartir au
+// prorata (mode Répartition au prorata) — sans encore appliquer le prorata.
+// Réutilisé tel quel par l'écran de paramétrage pour afficher les bases de
+// calcul de la répartition manuelle.
+function computeDirectAndPool(rooms, batimentId) {
+  const perBucket = {};
+  for (const b of BUCKETS) {
+    perBucket[b.key] = { bySubcatDirect: new Map(), pool: 0, horsPerimetre: 0, nonMappe: 0, nonMappeTypes: new Set() };
+  }
+  for (const r of rooms) {
+    const surf = r.Surface_utile_m2_ || 0;
+    if (!surf) { continue; }
+    const key = bucketKey(!!r.Surface_Chaufee, !!r.Surface_Rafraichie);
+    const bucket = perBucket[key];
+    const mapRec = mappingByKey[batimentId + '|' + r.Type_d_usage];
+    const mode = mapRec ? mapRec.Mode : '';
+    if (!mode) {
+      bucket.nonMappe += surf;
+      bucket.nonMappeTypes.add(r.Type_d_usage);
+      continue;
+    }
+    if (mode === MODE_HORS) {
+      bucket.horsPerimetre += surf;
+      continue;
+    }
+    if (mode === MODE_PRORATA) {
+      bucket.pool += surf;
+      continue;
+    }
+    if (mode === MODE_DIRECT) {
+      const subcatId = mapRec.SousCategorieOPERAT;
+      if (!subcatId) {
+        bucket.nonMappe += surf;
+        bucket.nonMappeTypes.add(r.Type_d_usage);
+        continue;
+      }
+      bucket.bySubcatDirect.set(subcatId, (bucket.bySubcatDirect.get(subcatId) || 0) + surf);
+      continue;
+    }
+  }
+  return perBucket;
+}
+
+// Étape 2 : applique la répartition du prorata de chaque statut thermique —
+// d'abord les exceptions manuelles (Table_repartition_prorata_manuelle),
+// puis le reste automatiquement au prorata des m² en affectation directe.
+// Si le total des % manuels dépasse 100 %, il n'est PAS replafonné en
+// silence : le dépassement est appliqué tel quel (la somme finale dépassera
+// donc la surface réelle) et signalé dans overcapBuckets pour que
+// l'opérateur corrige lui-même ses pourcentages.
+function applyProrata(perBucketDirect, batimentId) {
+  const perBucket = {};
+  const overcapBuckets = [];
+  for (const b of BUCKETS) {
+    const d = perBucketDirect[b.key];
+    const bySubcat = new Map(d.bySubcatDirect);
+    const overrides = (prorataOverridesByBatiment[batimentId] || {})[b.key] || [];
+    let overriddenPct = 0;
+    for (const o of overrides) {
+      const pct = o.PourcentageManuel || 0;
+      overriddenPct += pct;
+      if (pct) {
+        bySubcat.set(o.SousCategorieOPERAT, (bySubcat.get(o.SousCategorieOPERAT) || 0) + d.pool * (pct / 100));
+      }
+    }
+    let unallocated = 0;
+    const remainderPct = Math.max(0, 100 - overriddenPct);
+    const remainderPool = d.pool * remainderPct / 100;
+    if (remainderPool > 0.0000001) {
+      const totalDirect = sum([...d.bySubcatDirect.values()], v => v);
+      if (totalDirect > 0) {
+        for (const [subcatId, m2] of d.bySubcatDirect) {
+          bySubcat.set(subcatId, (bySubcat.get(subcatId) || 0) + remainderPool * (m2 / totalDirect));
+        }
+      } else {
+        unallocated += remainderPool;
+      }
+    }
+    if (overriddenPct > 100) { overcapBuckets.push({ bucket: b, pct: overriddenPct }); }
+    perBucket[b.key] = {
+      bySubcat, horsPerimetre: d.horsPerimetre, nonMappe: d.nonMappe, nonMappeTypes: d.nonMappeTypes, unallocated,
+    };
+  }
+  return { perBucket, overcapBuckets };
+}
+
+function computeOneBuilding(rooms, batimentId) {
+  return applyProrata(computeDirectAndPool(rooms, batimentId), batimentId);
+}
+
+function mergeBuckets(target, source) {
+  for (const b of BUCKETS) {
+    const t = target[b.key], s = source[b.key];
+    for (const [subcatId, m2] of s.bySubcat) {
+      t.bySubcat.set(subcatId, (t.bySubcat.get(subcatId) || 0) + m2);
+    }
+    t.horsPerimetre += s.horsPerimetre;
+    t.nonMappe += s.nonMappe;
+    for (const typeId of s.nonMappeTypes) { t.nonMappeTypes.add(typeId); }
+    t.unallocated += s.unallocated;
+  }
+  return target;
+}
+
+function emptyBuckets() {
+  const perBucket = {};
+  for (const b of BUCKETS) {
+    perBucket[b.key] = { bySubcat: new Map(), horsPerimetre: 0, nonMappe: 0, nonMappeTypes: new Set(), unallocated: 0 };
+  }
+  return perBucket;
+}
+
+// ---------------------------------------------------------------------------
+// Rendering — main view
+// ---------------------------------------------------------------------------
+function populateSiteSelect() {
+  const bySite = Object.fromEntries(sites.map(s => [s.Nom, s]));
+  const currentValue = els.siteSelect.value;
+  els.siteSelect.innerHTML = '<option value="">— choisir —</option>' +
+    SITES_EFA.filter(name => bySite[name]).map(name => {
+      const s = bySite[name];
+      return `<option value="${s.id}">${escapeHtml(name)}</option>`;
+    }).join('');
+  if (currentValue && SITES_EFA.some(name => bySite[name] && String(bySite[name].id) === currentValue)) {
+    els.siteSelect.value = currentValue;
+  }
+}
+
+function formatBatLabel(b) {
+  const parts = [];
+  if (b.Numero) { parts.push(b.Numero); }
+  if (b.Appellation) { parts.push(b.Appellation); }
+  if (b.Nom) { parts.push('— ' + b.Nom); }
+  return parts.join(' ') || ('Bâtiment #' + b.id);
+}
+
+function populateBatSelect() {
+  const siteId = Number(els.siteSelect.value) || null;
+  const currentValue = els.batSelect.value;
+  const filtered = batiments.filter(b => siteId && b.Site === siteId);
+  const sorted = [...filtered].sort((a, b) => (a.Numero || 0) - (b.Numero || 0));
+  els.batSelect.innerHTML = '<option value="">Tous les bâtiments (agrégé)</option>' +
+    sorted.map(b => `<option value="${b.id}">${escapeHtml(formatBatLabel(b))}</option>`).join('');
+  if (currentValue && filtered.some(b => String(b.id) === currentValue)) {
+    els.batSelect.value = currentValue;
+  }
+}
+
+function subcatLabel(subcatId) {
+  const rec = operatByRowId[subcatId];
+  if (!rec) { return '(sous-catégorie inconnue)'; }
+  return rec.Sous_categorie_d_activite || rec.Categorie_d_activite;
+}
+function subcatCategorie(subcatId) {
+  const rec = operatByRowId[subcatId];
+  return rec ? rec.Categorie_d_activite : '';
+}
+function subcatCode(subcatId) {
+  const rec = operatByRowId[subcatId];
+  return rec ? rec.Code_technique_OPERAT : '';
+}
+
+function renderResults() {
+  if (settingsVisible) { return; }
+  const siteId = Number(els.siteSelect.value) || null;
+  if (!siteId) {
+    els.emptyState.style.display = '';
+    els.mainView.style.display = 'none';
+    return;
+  }
+  els.emptyState.style.display = 'none';
+  els.mainView.style.display = '';
+
+  const site = sites.find(s => s.id === siteId);
+  const batId = Number(els.batSelect.value) || null;
+  const buildingsInScope = batId ? batiments.filter(b => b.id === batId) : batiments.filter(b => b.Site === siteId);
+
+  els.kpiTitle.textContent = batId
+    ? `Totaux — ${formatBatLabel(buildingsInScope[0])}`
+    : `Totaux EFA — ${site ? site.Nom : ''}`;
+
+  // Filtrage salles par Bâtiment ET Site du bâtiment : une salle dont le Site
+  // diverge de celui de son Bâtiment (incohérence de saisie déjà rencontrée
+  // dans ce document, cf. README de dashboard-batiment) est exclue et
+  // signalée, plutôt que silencieusement comptée dans le mauvais site.
+  const warnings = [];
+  let combined = emptyBuckets();
+  let totalSurface = 0, totalChauffee = 0, totalRafraichie = 0;
+  const mismatchedRooms = [];
+
+  for (const b of buildingsInScope) {
+    const roomsOk = salles.filter(r => r.Batiment === b.id && r.Site === b.Site);
+    const roomsMismatch = salles.filter(r => r.Batiment === b.id && r.Site !== b.Site);
+    if (roomsMismatch.length) {
+      mismatchedRooms.push({ batiment: b, rooms: roomsMismatch });
+    }
+    for (const r of roomsOk) {
+      const surf = r.Surface_utile_m2_ || 0;
+      totalSurface += surf;
+      if (r.Surface_Chaufee) { totalChauffee += surf; }
+      if (r.Surface_Rafraichie) { totalRafraichie += surf; }
+    }
+    const { perBucket, overcapBuckets } = computeOneBuilding(roomsOk, b.id);
+    combined = mergeBuckets(combined, perBucket);
+    for (const oc of overcapBuckets) {
+      warnings.push({
+        bad: true,
+        html: `<b>${escapeHtml(formatBatLabel(b))}</b> — statut « ${escapeHtml(oc.bucket.label)} » : le total des % manuels de répartition du prorata atteint <b>${escapeHtml(fmtNum(oc.pct, 1))} %</b> (plus de 100 %). Les pourcentages ont été appliqués tels quels, la surface totale de ce statut est donc surestimée. Corrigez les % dans « Répartition manuelle du prorata » pour ce bâtiment.`,
+      });
+    }
+  }
+
+  if (mismatchedRooms.length) {
+    for (const m of mismatchedRooms) {
+      const sample = m.rooms.slice(0, 6).map(r => r.Numero || ('#' + r.id)).join(', ');
+      const more = m.rooms.length > 6 ? ` et ${m.rooms.length - 6} autres` : '';
+      const surf = sum(m.rooms, r => r.Surface_utile_m2_);
+      warnings.push({
+        bad: true,
+        html: `<b>${escapeHtml(formatBatLabel(m.batiment))}</b> : ${m.rooms.length} local(aux) (${escapeHtml(sample)}${more}) ont un <b>Site</b> différent de celui du bâtiment dans <code>BDD_Salles</code> (${escapeHtml(fmtNum(surf))} m² exclus des totaux). Vérifiez la colonne <b>Bâtiment</b> de ces lignes dans <code>BDD_Salles</code> — elles sont probablement rattachées au mauvais bâtiment homonyme.`,
+      });
+    }
+  }
+
+  const nonMappeTypeIds = new Set();
+  let nonMappeSurface = 0;
+  let unallocatedTotal = [];
+  for (const b of BUCKETS) {
+    const bucket = combined[b.key];
+    nonMappeSurface += bucket.nonMappe;
+    for (const t of bucket.nonMappeTypes) { nonMappeTypeIds.add(t); }
+    if (bucket.unallocated > 0) {
+      unallocatedTotal.push({ bucket: b, m2: bucket.unallocated });
+    }
+  }
+  if (nonMappeTypeIds.size) {
+    const names = [...nonMappeTypeIds].map(id => (typeByRowId[id] || {}).Libelle || `#${id}`);
+    warnings.push({
+      bad: false,
+      html: `<b>${escapeHtml(fmtNum(nonMappeSurface))} m²</b> non affectés faute de correspondance OPERAT définie pour : ${escapeHtml(names.join(', '))}. Ouvrez <b>⚙ Paramétrer les correspondances</b> pour choisir un mode pour ces types de local.`,
+    });
+  }
+  if (unallocatedTotal.length) {
+    for (const u of unallocatedTotal) {
+      warnings.push({
+        bad: false,
+        html: `<b>${escapeHtml(fmtNum(u.m2))} m²</b> de locaux "à répartir au prorata" (statut « ${escapeHtml(u.bucket.label)} ») n'ont pas pu être ventilés : aucun local à affectation directe dans ce même statut thermique pour ce périmètre. Affectez au moins un local directement dans ce statut, ou reclassez ces locaux "à répartir".`,
+      });
+    }
+  }
+
+  els.warnings.innerHTML = warnings.map(w => `<div class="w${w.bad ? ' bad' : ''}">${w.html}</div>`).join('');
+
+  // KPI cards
+  const nbBat = buildingsInScope.length;
+  els.kpiRow.innerHTML = [
+    ['Bâtiments', fmtNum(nbBat)],
+    ['Surface totale', fmtNum(totalSurface) + ' m²'],
+    ['Surface totale chauffée', fmtNum(totalChauffee) + ' m²'],
+    ['Surface totale rafraîchie', fmtNum(totalRafraichie) + ' m²'],
+  ].map(([lbl, val]) => `<div class="kpi"><div class="val">${val}</div><div class="lbl">${escapeHtml(lbl)}</div></div>`).join('');
+
+  renderResultsTable(combined);
+  renderHorsPerimetreTable(combined);
+}
+
+function renderResultsTable(combined) {
+  const showCode = els.codeCheck.checked;
+  // Regroupe (subcatId, bucket) -> m2, puis trie par Catégorie puis Sous-catégorie.
+  const rows = [];
+  for (const b of BUCKETS) {
+    for (const [subcatId, m2] of combined[b.key].bySubcat) {
+      if (m2 <= 0.0001) { continue; }
+      rows.push({ subcatId, bucket: b, m2 });
+    }
+  }
+  rows.sort((a, c) => {
+    const catA = subcatCategorie(a.subcatId), catC = subcatCategorie(c.subcatId);
+    if (catA !== catC) { return catA.localeCompare(catC, 'fr'); }
+    const libA = subcatLabel(a.subcatId), libC = subcatLabel(c.subcatId);
+    if (libA !== libC) { return libA.localeCompare(libC, 'fr'); }
+    return BUCKETS.indexOf(a.bucket) - BUCKETS.indexOf(c.bucket);
+  });
+
+  if (!rows.length) {
+    els.resultsBody.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted)">Aucune surface affectée pour ce périmètre.</td></tr>';
+    return;
+  }
+
+  let html = '';
+  let currentCat = null;
+  let catTotal = 0;
+  let grandTotal = 0;
+  const flushCat = () => {
+    if (currentCat !== null) {
+      html += `<tr class="catRow"><td colspan="2" data-label="Sous-total">Sous-total — ${escapeHtml(currentCat)}</td><td class="num" data-label="Surface">${fmtNum(catTotal)} m²</td></tr>`;
+    }
+  };
+  for (const row of rows) {
+    const cat = subcatCategorie(row.subcatId);
+    if (cat !== currentCat) {
+      flushCat();
+      currentCat = cat;
+      catTotal = 0;
+    }
+    catTotal += row.m2;
+    grandTotal += row.m2;
+    const code = showCode ? ` <span class="code">${escapeHtml(subcatCode(row.subcatId))}</span>` : '';
+    html += `<tr class="subRow">
+      <td class="lib" data-label="Sous-catégorie OPERAT">${escapeHtml(cat)} — ${escapeHtml(subcatLabel(row.subcatId))}${code}</td>
+      <td data-label="Statut thermique"><span class="bucketTag ${row.bucket.cls}">${escapeHtml(row.bucket.label)}</span></td>
+      <td class="num" data-label="Surface">${fmtNum(row.m2)} m²</td>
+    </tr>`;
+  }
+  flushCat();
+  html += `<tr class="totalRow"><td colspan="2" data-label="Total">Total affecté OPERAT</td><td class="num" data-label="Surface">${fmtNum(grandTotal)} m²</td></tr>`;
+  els.resultsBody.innerHTML = html;
+}
+
+function renderHorsPerimetreTable(combined) {
+  // Reconstitue le détail par type de local pour la vue "hors périmètre"
+  // (non conservé finement dans les buckets agrégés ci-dessus, donc recalculé
+  // ici à partir des mêmes salles pour rester simple).
+  const siteId = Number(els.siteSelect.value) || null;
+  const batId = Number(els.batSelect.value) || null;
+  const buildingsInScope = batId ? batiments.filter(b => b.id === batId) : batiments.filter(b => b.Site === siteId);
+  const rows = new Map(); // key: typeId|bucket -> m2
+
+  for (const b of buildingsInScope) {
+    const rooms = salles.filter(r => r.Batiment === b.id && r.Site === b.Site);
+    for (const r of rooms) {
+      const mapRec = mappingByKey[b.id + '|' + r.Type_d_usage];
+      if (!mapRec || mapRec.Mode !== MODE_HORS) { continue; }
+      const surf = r.Surface_utile_m2_ || 0;
+      if (!surf) { continue; }
+      const key = bucketKey(!!r.Surface_Chaufee, !!r.Surface_Rafraichie);
+      const k = r.Type_d_usage + '|' + key;
+      rows.set(k, (rows.get(k) || 0) + surf);
+    }
+  }
+
+  if (!rows.size) {
+    els.horsPerimetreCard.style.display = 'none';
+    return;
+  }
+  els.horsPerimetreCard.style.display = '';
+  const list = [...rows.entries()].map(([k, m2]) => {
+    const [typeIdStr, bucketKeyStr] = k.split('|');
+    return { typeId: Number(typeIdStr), bucket: bucketInfo(bucketKeyStr), m2 };
+  });
+  list.sort((a, c) => {
+    const libA = (typeByRowId[a.typeId] || {}).Libelle || '', libC = (typeByRowId[c.typeId] || {}).Libelle || '';
+    if (libA !== libC) { return libA.localeCompare(libC, 'fr'); }
+    return BUCKETS.indexOf(a.bucket) - BUCKETS.indexOf(c.bucket);
+  });
+  let total = 0;
+  const html = list.map(row => {
+    total += row.m2;
+    const lib = (typeByRowId[row.typeId] || {}).Libelle || `#${row.typeId}`;
+    return `<tr class="subRow">
+      <td class="lib" data-label="Type de local">${escapeHtml(lib)}</td>
+      <td data-label="Statut thermique"><span class="bucketTag ${row.bucket.cls}">${escapeHtml(row.bucket.label)}</span></td>
+      <td class="num" data-label="Surface">${fmtNum(row.m2)} m²</td>
+    </tr>`;
+  }).join('') + `<tr class="totalRow"><td colspan="2" data-label="Total">Total hors périmètre</td><td class="num" data-label="Surface">${fmtNum(total)} m²</td></tr>`;
+  els.horsPerimetreBody.innerHTML = html;
+}
+
+// ---------------------------------------------------------------------------
+// Rendering — settings panel (mapping type de local -> OPERAT)
+// ---------------------------------------------------------------------------
+function operatCategories() {
+  return [...new Set(operatRows.map(r => r.Categorie_d_activite))].sort((a, b) => a.localeCompare(b, 'fr'));
+}
+function operatSubcatsFor(categorie) {
+  return operatRows.filter(r => r.Categorie_d_activite === categorie)
+    .sort((a, b) => (a.Sous_categorie_d_activite || '').localeCompare(b.Sous_categorie_d_activite || '', 'fr'));
+}
+
+// Types de locaux réellement présents dans un bâtiment donné (pas les 90
+// types UMPV globaux) : c'est cette liste, plus courte et pertinente, que
+// l'écran de paramétrage affiche pour le bâtiment choisi.
+function typesUsedInBuilding(batId) {
+  const ids = new Set(salles.filter(r => r.Batiment === batId).map(r => r.Type_d_usage));
+  return [...ids].map(id => typeByRowId[id]).filter(Boolean).sort((a, b) => a.id - b.id);
+}
+
+function renderMappingPanel() {
+  const batId = Number(els.batSelect.value) || null;
+  if (!batId) {
+    els.settingsNoBuilding.style.display = '';
+    els.settingsForBuilding.style.display = 'none';
+    return;
+  }
+  els.settingsNoBuilding.style.display = 'none';
+  els.settingsForBuilding.style.display = '';
+  const bat = batiments.find(b => b.id === batId);
+  els.settingsBuildingTitle.textContent = 'Correspondances des types de locaux — ' + (bat ? formatBatLabel(bat) : '');
+
+  const categories = operatCategories();
+  const types = typesUsedInBuilding(batId);
+  let currentCatGroup = null;
+  let html = '';
+  for (const t of types) {
+    const mapRec = mappingByKey[batId + '|' + t.id];
+    const mode = mapRec ? mapRec.Mode : '';
+    const subcatId = mapRec ? mapRec.SousCategorieOPERAT : 0;
+    const currentCat = subcatId ? subcatCategorie(subcatId) : '';
+
+    if (t.CategorieSurface !== currentCatGroup) {
+      currentCatGroup = t.CategorieSurface;
+      html += `<tr class="catGroupRow"><td colspan="5">${escapeHtml(currentCatGroup || '(sans catégorie)')}</td></tr>`;
+    }
+
+    const modeOptions = ['', ...MODE_CHOICES].map(m =>
+      `<option value="${escapeHtml(m)}" ${m === mode ? 'selected' : ''}>${m ? escapeHtml(m) : '— non défini —'}</option>`
+    ).join('');
+    const catOptions = ['', ...categories].map(c =>
+      `<option value="${escapeHtml(c)}" ${c === currentCat ? 'selected' : ''}>${c ? escapeHtml(c) : '—'}</option>`
+    ).join('');
+    const subcats = currentCat ? operatSubcatsFor(currentCat) : [];
+    const subcatOptions = ['', ...subcats.map(s => s.id)].map(id => {
+      if (id === '') { return `<option value="">—</option>`; }
+      const rec = operatByRowId[id];
+      return `<option value="${id}" ${id === subcatId ? 'selected' : ''}>${escapeHtml(rec.Sous_categorie_d_activite)}</option>`;
+    }).join('');
+
+    html += `<tr data-type-id="${t.id}" data-map-id="${mapRec ? mapRec.id : ''}">
+      <td class="lib" data-label="Type de local">${escapeHtml(t.Libelle || '(sans libellé)')} <span class="code">${escapeHtml(t.CodeSurface || '')}</span></td>
+      <td data-label="Mode"><select class="modeSelect">${modeOptions}</select></td>
+      <td data-label="Catégorie OPERAT"><select class="catSelect" ${mode !== MODE_DIRECT ? 'disabled' : ''}>${catOptions}</select></td>
+      <td data-label="Sous-catégorie OPERAT"><select class="subcatSelect" ${mode !== MODE_DIRECT ? 'disabled' : ''}>${subcatOptions}</select></td>
+      <td class="code" data-label="Code technique">${escapeHtml(subcatId ? subcatCode(subcatId) : '')}</td>
+    </tr>`;
+  }
+  if (!types.length) {
+    html = '<tr><td colspan="5" style="color:var(--text-muted)">Aucune salle référencée dans BDD_Salles pour ce bâtiment.</td></tr>';
+  }
+  els.mappingBody.innerHTML = html;
+  wireMappingRowEvents(batId);
+  renderProrataPanel(batId);
+}
+
+function wireMappingRowEvents(batId) {
+  els.mappingBody.querySelectorAll('tr[data-type-id]').forEach(tr => {
+    const typeId = Number(tr.dataset.typeId);
+    const modeSelect = tr.querySelector('.modeSelect');
+    const catSelect = tr.querySelector('.catSelect');
+    const subcatSelect = tr.querySelector('.subcatSelect');
+
+    modeSelect.addEventListener('change', async () => {
+      const mode = modeSelect.value;
+      catSelect.disabled = mode !== MODE_DIRECT;
+      subcatSelect.disabled = mode !== MODE_DIRECT;
+      if (mode !== MODE_DIRECT) {
+        catSelect.value = '';
+        subcatSelect.innerHTML = '<option value="">—</option>';
+      }
+      await saveMappingRow(batId, typeId, tr, { Mode: mode, SousCategorieOPERAT: mode === MODE_DIRECT ? Number(subcatSelect.value) || 0 : 0 });
+    });
+
+    catSelect.addEventListener('change', () => {
+      const cat = catSelect.value;
+      const subcats = cat ? operatSubcatsFor(cat) : [];
+      subcatSelect.innerHTML = ['', ...subcats.map(s => s.id)].map(id => {
+        if (id === '') { return `<option value="">—</option>`; }
+        const rec = operatByRowId[id];
+        return `<option value="${id}">${escapeHtml(rec.Sous_categorie_d_activite)}</option>`;
+      }).join('');
+    });
+
+    subcatSelect.addEventListener('change', async () => {
+      await saveMappingRow(batId, typeId, tr, { Mode: modeSelect.value, SousCategorieOPERAT: Number(subcatSelect.value) || 0 });
+    });
+  });
+}
+
+async function saveMappingRow(batId, typeId, tr, fields) {
+  const mapRec = mappingByKey[batId + '|' + typeId];
+  if (!mapRec) { return; }
+  try {
+    await grist.docApi.applyUserActions([['UpdateRecord', MAPPING_TABLE, mapRec.id, fields]]);
+    mapRec.Mode = fields.Mode;
+    mapRec.SousCategorieOPERAT = fields.SousCategorieOPERAT;
+    const codeCell = tr.querySelector('td.code');
+    if (codeCell) { codeCell.textContent = fields.SousCategorieOPERAT ? subcatCode(fields.SousCategorieOPERAT) : ''; }
+    els.settingsStatus.textContent = 'Enregistré.';
+    setTimeout(() => { els.settingsStatus.textContent = ''; }, 1500);
+    renderProrataPanel(batId);
+    renderResults();
+  } catch (e) {
+    els.settingsStatus.textContent = 'Erreur : ' + e.message;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Rendering — répartition manuelle du prorata (exceptions par bâtiment)
+// ---------------------------------------------------------------------------
+function renderProrataPanel(batId) {
+  const bat = batiments.find(b => b.id === batId);
+  const rooms = salles.filter(r => r.Batiment === batId && bat && r.Site === bat.Site);
+  const direct = computeDirectAndPool(rooms, batId);
+
+  let html = '';
+  for (const b of BUCKETS) {
+    const d = direct[b.key];
+    if (!d.pool) { continue; }
+    const overrides = ((prorataOverridesByBatiment[batId] || {})[b.key] || []).slice();
+    const overriddenSubcats = new Set(overrides.map(o => o.SousCategorieOPERAT));
+    // Lignes affichées : toutes les catégories déjà en affectation directe
+    // dans ce statut (base automatique), plus celles ayant une exception
+    // manuelle même sans base directe (cible ajoutée par l'opérateur).
+    const rows = [];
+    for (const [subcatId, m2] of d.bySubcatDirect) {
+      const override = overrides.find(o => o.SousCategorieOPERAT === subcatId);
+      rows.push({ subcatId, base: m2, override: override || null });
+    }
+    for (const o of overrides) {
+      if (!d.bySubcatDirect.has(o.SousCategorieOPERAT)) { rows.push({ subcatId: o.SousCategorieOPERAT, base: 0, override: o }); }
+    }
+    rows.sort((x, y) => subcatLabel(x.subcatId).localeCompare(subcatLabel(y.subcatId), 'fr'));
+
+    const totalPct = sum(overrides, o => o.PourcentageManuel || 0);
+    const rowsHtml = rows.map(row => `
+      <tr data-subcat-id="${row.subcatId}" data-override-id="${row.override ? row.override.id : ''}">
+        <td class="lib">${escapeHtml(subcatCategorie(row.subcatId))} — ${escapeHtml(subcatLabel(row.subcatId))}</td>
+        <td class="num">${fmtNum(row.base)} m²</td>
+        <td><input type="number" class="pctInput" min="0" max="100" step="0.1" value="${row.override && row.override.PourcentageManuel != null ? row.override.PourcentageManuel : ''}" placeholder="auto"></td>
+        <td>${row.override ? '<button class="removeOverrideBtn">✕ Retirer</button>' : ''}</td>
+      </tr>`).join('');
+
+    html += `<div class="prorataSection" data-bucket-key="${b.key}">
+      <h3>${escapeHtml(b.label)}</h3>
+      <div class="poolInfo">Surface à répartir (locaux "au prorata") dans ce statut : <b>${fmtNum(d.pool)} m²</b></div>
+      <div class="tableWrap">
+        <table>
+          <thead><tr><th>Sous-catégorie OPERAT cible</th><th class="num">Base</th><th>% manuel</th><th></th></tr></thead>
+          <tbody>${rowsHtml || '<tr><td colspan="4" style="color:var(--text-muted)">Aucune catégorie en affectation directe dans ce statut — ajoutez-en une ci-dessous.</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div class="prorataTotalLine${totalPct > 100 ? ' over' : ''}">Total % manuel : ${fmtNum(totalPct, 1)} % ${totalPct > 100 ? '(dépasse 100 % — à corriger)' : '(le reste, ' + fmtNum(Math.max(0, 100 - totalPct), 1) + ' %, se répartit automatiquement)'}</div>
+      <div class="prorataAddRow">
+        <select class="addCatSelect"><option value="">Catégorie OPERAT…</option>${operatCategories().map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}</select>
+        <select class="addSubcatSelect"><option value="">Sous-catégorie…</option></select>
+        <button class="addOverrideBtn">+ Ajouter une catégorie cible</button>
+      </div>
+    </div>`;
+  }
+  if (!html) {
+    html = '<div class="subhead" style="margin:0">Aucun local "à répartir au prorata" dans ce bâtiment pour le moment.</div>';
+  }
+  els.prorataSections.innerHTML = html;
+  wireProrataPanelEvents(batId);
+}
+
+function wireProrataPanelEvents(batId) {
+  els.prorataSections.querySelectorAll('.prorataSection').forEach(section => {
+    const bucketKeyStr = section.dataset.bucketKey;
+
+    section.querySelectorAll('tr[data-subcat-id]').forEach(tr => {
+      const subcatId = Number(tr.dataset.subcatId);
+      const input = tr.querySelector('.pctInput');
+      const removeBtn = tr.querySelector('.removeOverrideBtn');
+      input.addEventListener('change', async () => {
+        await saveProrataOverride(batId, bucketKeyStr, subcatId, tr.dataset.overrideId || '', input.value);
+      });
+      if (removeBtn) {
+        removeBtn.addEventListener('click', async () => {
+          await removeProrataOverride(batId, tr.dataset.overrideId);
+        });
+      }
+    });
+
+    const addCatSelect = section.querySelector('.addCatSelect');
+    const addSubcatSelect = section.querySelector('.addSubcatSelect');
+    const addBtn = section.querySelector('.addOverrideBtn');
+    addCatSelect.addEventListener('change', () => {
+      const subcats = addCatSelect.value ? operatSubcatsFor(addCatSelect.value) : [];
+      addSubcatSelect.innerHTML = '<option value="">Sous-catégorie…</option>' +
+        subcats.map(s => `<option value="${s.id}">${escapeHtml(s.Sous_categorie_d_activite)}</option>`).join('');
+    });
+    addBtn.addEventListener('click', async () => {
+      const subcatId = Number(addSubcatSelect.value) || null;
+      if (!subcatId) { els.settingsStatus.textContent = 'Choisissez une catégorie puis une sous-catégorie.'; return; }
+      await saveProrataOverride(batId, bucketKeyStr, subcatId, '', '0');
+    });
+  });
+}
+
+// Guards against two overlapping saves for the same (bâtiment, statut,
+// sous-catégorie) target — e.g. a browser firing both an "input" and a
+// "change" event in quick succession — which would otherwise both read the
+// pre-save state and each AddRecord a separate override row for the same
+// target instead of the second one updating the first.
+const prorataSaveInFlight = new Set();
+
+async function saveProrataOverride(batId, bucketKeyStr, subcatId, existingOverrideIdFromDom, pctValue) {
+  const lockKey = batId + '|' + bucketKeyStr + '|' + subcatId;
+  if (prorataSaveInFlight.has(lockKey)) { return; }
+  prorataSaveInFlight.add(lockKey);
+  try {
+  const pct = pctValue === '' ? null : Number(pctValue);
+  // Look up any existing override from the actual state, not just the DOM
+  // attribute passed in: the DOM can go stale (e.g. a row rendered before the
+  // user's first edit was saved), and trusting only the attribute could add a
+  // second record for the same target instead of updating the first one.
+  const existing = ((prorataOverridesByBatiment[batId] || {})[bucketKeyStr] || []).find(o => o.SousCategorieOPERAT === subcatId);
+  const existingId = existing ? existing.id : (existingOverrideIdFromDom ? Number(existingOverrideIdFromDom) : null);
+  try {
+    if (existingId) {
+      if (pct === null) {
+        await grist.docApi.applyUserActions([['RemoveRecord', PRORATA_TABLE, existingId]]);
+        prorataOverrides = prorataOverrides.filter(o => o.id !== existingId);
+      } else {
+        await grist.docApi.applyUserActions([['UpdateRecord', PRORATA_TABLE, existingId, { PourcentageManuel: pct }]]);
+        const rec = prorataOverrides.find(o => o.id === existingId);
+        if (rec) { rec.PourcentageManuel = pct; }
+      }
+    } else if (pct !== null) {
+      const label = bucketInfo(bucketKeyStr).label;
+      await grist.docApi.applyUserActions([
+        ['AddRecord', PRORATA_TABLE, null, { Batiment: batId, StatutThermique: label, SousCategorieOPERAT: subcatId, PourcentageManuel: pct }],
+      ]);
+      prorataOverrides = await fetchRecords(PRORATA_TABLE);
+    }
+    rebuildProrataIndex();
+    els.settingsStatus.textContent = 'Enregistré.';
+    setTimeout(() => { els.settingsStatus.textContent = ''; }, 1500);
+    renderProrataPanel(batId);
+    renderResults();
+  } catch (e) {
+    els.settingsStatus.textContent = 'Erreur : ' + e.message;
+  }
+  } finally {
+    prorataSaveInFlight.delete(lockKey);
+  }
+}
+
+async function removeProrataOverride(batId, overrideId) {
+  if (!overrideId) { return; }
+  try {
+    await grist.docApi.applyUserActions([['RemoveRecord', PRORATA_TABLE, Number(overrideId)]]);
+    prorataOverrides = prorataOverrides.filter(o => o.id !== Number(overrideId));
+    rebuildProrataIndex();
+    renderProrataPanel(batId);
+    renderResults();
+  } catch (e) {
+    els.settingsStatus.textContent = 'Erreur : ' + e.message;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// View switching
+// ---------------------------------------------------------------------------
+let settingsVisible = false;
+
+function showSettings(show) {
+  settingsVisible = show;
+  els.settingsPanel.style.display = show ? '' : 'none';
+  els.settingsBtn.textContent = show ? '← Retour aux résultats' : '⚙ Paramétrer les correspondances';
+  if (show) {
+    els.emptyState.style.display = 'none';
+    els.mainView.style.display = 'none';
+    renderMappingPanel();
+  } else {
+    renderResults();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+els.siteSelect.addEventListener('change', async () => {
+  populateBatSelect();
+  if (settingsVisible) { renderMappingPanel(); } else { renderResults(); }
+  await grist.setOption('lastSiteId', els.siteSelect.value);
+});
+els.batSelect.addEventListener('change', () => {
+  if (settingsVisible) { renderMappingPanel(); } else { renderResults(); }
+});
+els.codeCheck.addEventListener('change', async () => {
+  renderResults();
+  await grist.setOption('showCode', els.codeCheck.checked);
+});
+els.settingsBtn.addEventListener('click', () => { showSettings(!settingsVisible); });
+els.resetMappingBtn.addEventListener('click', () => {
+  const batId = Number(els.batSelect.value) || null;
+  if (!batId) { return; }
+  resetBuildingMappingToDefaults(batId).catch(e => { els.settingsStatus.textContent = 'Erreur : ' + e.message; });
+});
+els.refreshBtn.addEventListener('click', async () => {
+  const site = els.siteSelect.value, bat = els.batSelect.value;
+  setStatus('Actualisation…');
+  await loadAll();
+  populateSiteSelect();
+  if (site) { els.siteSelect.value = site; }
+  populateBatSelect();
+  if (bat) { els.batSelect.value = bat; }
+  if (settingsVisible) { renderMappingPanel(); } else { renderResults(); }
+  setStatus('Actualisé.');
+});
+
+// ---------------------------------------------------------------------------
+// Grist init
+// ---------------------------------------------------------------------------
+// grist.onOptions is the only way to read persisted widget options (there is
+// no synchronous getOptions() call) — it fires once with the stored options
+// as soon as the widget is ready, and again on any later change from
+// elsewhere. It can fire before loadAll() resolves, so stash the values and
+// (re)apply them once data is actually loaded.
+let dataLoaded = false;
+let pendingOptions = null;
+
+grist.onOptions((options) => {
+  if (!options) { return; }
+  if (options.showCode !== undefined) { els.codeCheck.checked = !!options.showCode; }
+  if (!dataLoaded) { pendingOptions = options; return; }
+  if (options.lastSiteId) {
+    els.siteSelect.value = options.lastSiteId;
+    populateBatSelect();
+    renderResults();
+  }
+});
+
+grist.ready({ requiredAccess: 'full' });
+
+loadAll().then(() => {
+  dataLoaded = true;
+  populateSiteSelect();
+  if (pendingOptions && pendingOptions.lastSiteId) { els.siteSelect.value = pendingOptions.lastSiteId; }
+  populateBatSelect();
+  renderResults();
+}).catch(err => setStatus('Erreur de chargement : ' + err.message));
+
+})();
+</script>
+</body>
+</html>
