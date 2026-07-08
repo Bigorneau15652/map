@@ -22,6 +22,41 @@ accorder l'accès **"Full document access"** lors de l'ajout (Grist le demande
 automatiquement), nécessaire aussi bien pour lire ces tables que pour écrire
 la table de correspondance décrite ci-dessous.
 
+### Si votre table OPERAT ne s'appelle pas `Segmentation_OPERAT`
+
+Le widget essaie ce nom par défaut ; si votre document utilise un autre nom
+(ex. `BDD_OPERAT`), les menus déroulants "Catégorie OPERAT" / "Sous-catégorie
+OPERAT" de l'écran de paramétrage restent vides et un bandeau d'avertissement
+rouge l'indique. Ouvrez **❓ Aide & configuration**, section "Configuration des
+tables sources", et choisissez la bonne table dans la liste déroulante (elle
+liste toutes les tables du document). Le choix est mémorisé pour ce widget.
+Si des correspondances ont déjà été créées avec des catégories vides avant la
+correction, utilisez ensuite **↺ Restaurer les propositions par défaut** (dans
+⚙ Paramétrer les correspondances) pour chaque bâtiment concerné, afin qu'elles
+se recalculent avec la bonne table.
+
+### Fenêtre flottante
+
+Le bouton **⛶ Fenêtre flottante** (en haut à gauche) ouvre les résultats
+actuels dans une vraie fenêtre de navigateur séparée, déplaçable sur un
+second écran. Techniquement, un widget custom Grist ne peut pas se recharger
+tel quel dans une fenêtre indépendante : la connexion à l'API Grist repose
+sur un canal de communication avec la page Grist qui l'héberge, qui
+n'existe plus hors de l'iframe. Cette fenêtre est donc un **miroir en lecture
+seule** du dernier rendu du widget — pas une seconde instance connectée à
+Grist — mais elle se met à jour automatiquement à chaque nouveau calcul
+(changement d'EFA, de bâtiment, de la case à cocher…) tant qu'elle reste
+ouverte et que l'onglet Grist d'origine reste ouvert. Pas besoin de la
+rouvrir à chaque fois.
+
+### Aide & configuration
+
+Le bouton **❓ Aide & configuration** ouvre un panneau avec la configuration
+de la table OPERAT (ci-dessus) et une notice explicative pas-à-pas
+(sélection EFA/bâtiment, lecture des résultats, modes de correspondance,
+répartition manuelle du prorata avec un exemple chiffré, case code
+technique, fenêtre flottante).
+
 ### Le paramétrage se fait bâtiment par bâtiment
 
 Le mapping "type de local → OPERAT" n'est **pas global** : chaque bâtiment a
@@ -87,6 +122,13 @@ sous-catégorie qui n'a par ailleurs aucune surface en affectation directe
 dans ce bâtiment/statut (impossible à faire avec le seul calcul automatique).
 Laissez le % vide (ou cliquez **✕ Retirer**) pour revenir à l'automatique
 sur cette ligne.
+
+La colonne **"Base + part du prorata"** affiche, en direct pendant la saisie
+(avant même l'enregistrement), la surface finale que recevrait cette
+catégorie : base déjà en affectation directe + part du prorata au % indiqué.
+Exemple : une circulation de 118 m² à répartir, 33 % vers Bureau (qui a par
+ailleurs 0 m² en direct) → la case "% manuel" en face de Bureau à 33 affiche
+aussitôt "→ 38,9 m²" dans cette colonne.
 
 Si la somme des % manuels d'un même statut dépasse 100 %, ils sont appliqués
 tels quels (pas de replafonnement silencieux) et un avertissement rouge vous
