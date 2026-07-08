@@ -107,6 +107,7 @@
   }
   .card .subhead { font-size: 11px; color: var(--text-muted); margin: -4px 0 10px; white-space: normal; overflow-wrap: anywhere; }
   .helpText { font-size: 13px; color: #1a202c; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
+  .salleColGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
   .helpText p { margin: 0 0 10px; }
   .helpText ul { margin: 4px 0 10px 20px; padding: 0; }
   .helpText li { margin-bottom: 4px; }
@@ -320,7 +321,33 @@
 
   <div id="helpPanel" style="display:none">
     <div class="card">
-      <h2>Configuration des tables sources</h2>
+      <h2>Table des salles (données sources)</h2>
+      <div class="subhead">
+        Le widget lit une ligne par local (site, bâtiment, type d'usage, statut thermique, surface) — par défaut
+        <code>BDD_Salles</code> avec la surface utile. <b>Pour OPERAT, l'unité réglementaire est la Surface de
+        Plancher (SP/SDP), pas la surface utile.</b> Si vous disposez d'une table dédiée avec cette surface
+        (par exemple une colonne "SP"), sélectionnez-la ci-dessous et faites correspondre ses colonnes, puis
+        cliquez sur Appliquer. Toute modification future de cette table (ou de la correspondance des colonnes)
+        recalculera automatiquement les résultats du widget.
+      </div>
+      <div class="field">
+        <label for="salleTableSelect">Table des salles</label>
+        <select id="salleTableSelect"></select>
+      </div>
+      <div class="salleColGrid">
+        <div class="field"><label for="salleColSite">Colonne Site</label><select id="salleColSite"></select></div>
+        <div class="field"><label for="salleColBatiment">Colonne Bâtiment</label><select id="salleColBatiment"></select></div>
+        <div class="field"><label for="salleColTypeUsage">Colonne Type d'usage</label><select id="salleColTypeUsage"></select></div>
+        <div class="field"><label for="salleColChauffee">Colonne Surface chauffée (booléen)</label><select id="salleColChauffee"></select></div>
+        <div class="field"><label for="salleColRafraichie">Colonne Surface rafraîchie (booléen)</label><select id="salleColRafraichie"></select></div>
+        <div class="field"><label for="salleColSurface">Colonne Surface (m²) à utiliser pour OPERAT</label><select id="salleColSurface"></select></div>
+      </div>
+      <button id="salleConfigApplyBtn" class="primary" style="margin-top:10px">Appliquer cette configuration</button>
+      <div id="salleConfigStatus" class="subhead" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Table de nomenclature OPERAT</h2>
       <div class="subhead">
         Le widget a besoin de savoir quelle table de votre document contient la nomenclature OPERAT (catégorie /
         sous-catégorie / code technique). Il essaie d'abord <code>Segmentation_OPERAT</code> automatiquement ;
@@ -365,9 +392,15 @@
         <p><b>5. Case « Afficher le code technique OPERAT ».</b> Ajoute le code SCAP… à côté de chaque
         sous-catégorie dans les résultats — pratique pour la déclaration, pas toujours obligatoire au quotidien.</p>
 
-        <p><b>6. Fenêtre flottante (bouton ⛶ en haut à gauche).</b> Ouvre les résultats actuels dans une fenêtre de
+        <p><b>6. Fenêtre flottante (bouton ⛶ en haut à droite).</b> Ouvre les résultats actuels dans une fenêtre de
         navigateur séparée, que vous pouvez déplacer sur un second écran. Cette fenêtre se met à jour automatiquement
         à chaque changement d'EFA/bâtiment/case à cocher tant qu'elle reste ouverte — pas besoin de la rouvrir.</p>
+
+        <p><b>7. Table des salles et table de nomenclature OPERAT (section « Table des salles » et « Table de
+        nomenclature OPERAT » ci-dessus).</b> Si votre document utilise d'autres noms de table ou de colonnes que
+        les valeurs par défaut — notamment pour utiliser la <b>Surface de Plancher (SP/SDP)</b>, l'unité correcte
+        pour OPERAT, plutôt que la surface utile — choisissez-les ici. Le widget recharge alors ses calculs avec
+        vos tables.</p>
       </div>
     </div>
   </div>
@@ -390,6 +423,22 @@ const SITES_EFA = ['Route de Mende', 'Béziers', 'Saint-Charles', 'Saint-Louis',
 const MAPPING_TABLE = 'Table_correspondance_OPERAT';
 const PRORATA_TABLE = 'Table_repartition_prorata_manuelle';
 const DEFAULT_OPERAT_TABLE = 'Segmentation_OPERAT';
+
+// Configuration par défaut de la table "salles" (une ligne = un local avec
+// son site/bâtiment/type d'usage/statut thermique/surface). Par défaut
+// BDD_Salles avec la surface utile, mais entièrement configurable dans
+// Aide & configuration : la surface à utiliser pour OPERAT est la Surface
+// de Plancher (SP/SDP), pas la surface utile — voir la table dédiée que
+// l'opérateur peut fournir.
+const DEFAULT_SALLE_CONFIG = {
+  tableId: 'BDD_Salles',
+  site: 'Site',
+  batiment: 'Batiment',
+  typeUsage: 'Type_d_usage',
+  chauffee: 'Surface_Chaufee',
+  rafraichie: 'Surface_Rafraichie',
+  surface: 'Surface_utile_m2_',
+};
 
 const MODE_DIRECT = 'Affectation directe';
 const MODE_PRORATA = 'Répartition au prorata';
@@ -546,6 +595,8 @@ let mappingByKey = {};          // "batimentId|typeRowId" -> Table_correspondanc
 let prorataOverridesByBatiment = {}; // batimentId -> { bucketKey -> [override records] }
 let operatTableId = DEFAULT_OPERAT_TABLE; // configurable via le panneau Aide & configuration
 let operatTableError = '';      // message si la table configurée est introuvable
+let salleConfig = { ...DEFAULT_SALLE_CONFIG }; // configurable via le panneau Aide & configuration
+let salleConfigError = '';      // message si la table/colonne configurée est introuvable
 
 const els = {
   siteSelect: document.getElementById('siteSelect'),
@@ -576,6 +627,15 @@ const els = {
   prorataSections: document.getElementById('prorataSections'),
   operatTableSelect: document.getElementById('operatTableSelect'),
   operatTableStatus: document.getElementById('operatTableStatus'),
+  salleTableSelect: document.getElementById('salleTableSelect'),
+  salleColSite: document.getElementById('salleColSite'),
+  salleColBatiment: document.getElementById('salleColBatiment'),
+  salleColTypeUsage: document.getElementById('salleColTypeUsage'),
+  salleColChauffee: document.getElementById('salleColChauffee'),
+  salleColRafraichie: document.getElementById('salleColRafraichie'),
+  salleColSurface: document.getElementById('salleColSurface'),
+  salleConfigApplyBtn: document.getElementById('salleConfigApplyBtn'),
+  salleConfigStatus: document.getElementById('salleConfigStatus'),
 };
 
 function setStatus(msg) { els.status.textContent = msg || ''; }
@@ -593,20 +653,69 @@ async function listAllTableIds() {
     .sort((a, b) => a.localeCompare(b, 'fr'));
 }
 
+// Liste les colonnes "normales" d'une table donnée (exclut manualSort et les
+// colonnes techniques gristHelper_*), pour peupler les menus déroulants de
+// correspondance de colonnes dans Aide & configuration.
+async function listColumnsForTable(tableId) {
+  const tablesMeta = await grist.docApi.fetchTable('_grist_Tables');
+  const idx = (tablesMeta.tableId || []).indexOf(tableId);
+  if (idx === -1) { return []; }
+  const internalId = tablesMeta.id[idx];
+  const colsMeta = await grist.docApi.fetchTable('_grist_Tables_column');
+  const result = [];
+  for (let i = 0; i < colsMeta.id.length; i++) {
+    if (colsMeta.parentId[i] !== internalId) { continue; }
+    const colId = colsMeta.colId[i];
+    if (colId === 'manualSort' || colId.startsWith('gristHelper_')) { continue; }
+    result.push(colId);
+  }
+  return result.sort((a, b) => a.localeCompare(b, 'fr'));
+}
+
+// Ramène les colonnes (potentiellement renommées) de la table "salles"
+// configurée vers la forme canonique attendue par tout le reste du widget :
+// { id, Site, Batiment, Type_d_usage, Surface_Chaufee, Surface_Rafraichie,
+// Surface_utile_m2_ }. Ainsi, seul ce point d'entrée connaît le mapping de
+// colonnes choisi par l'opérateur (ex. pointer "Surface_utile_m2_" vers la
+// colonne SP/Surface de Plancher de sa propre table) — aucun autre calcul du
+// widget n'a besoin d'être modifié.
+function normalizeSalleRecords(rawRecords, cfg) {
+  return rawRecords.map(r => ({
+    id: r.id,
+    Site: r[cfg.site],
+    Batiment: r[cfg.batiment],
+    Type_d_usage: r[cfg.typeUsage],
+    Surface_Chaufee: r[cfg.chauffee],
+    Surface_Rafraichie: r[cfg.rafraichie],
+    Surface_utile_m2_: r[cfg.surface],
+  }));
+}
+
 async function loadBaseData() {
-  const [s, b, r, t] = await Promise.all([
+  const [s, b, t] = await Promise.all([
     fetchRecords('BDD_Sites'),
     fetchRecords('BDD_Batiments'),
-    fetchRecords('BDD_Salles'),
     fetchRecords('Table_locaux_types_et_correspondance'),
   ]);
-  sites = s; batiments = b; salles = r; typesLocaux = t;
+  sites = s; batiments = b; typesLocaux = t;
   typeByRowId = Object.fromEntries(typesLocaux.map(x => [x.id, x]));
 
-  // Table de nomenclature OPERAT : séparée du Promise.all ci-dessus et
-  // protégée par son propre try/catch, car son nom peut différer d'un
-  // document à l'autre (configurable dans Aide & configuration) — une
-  // table introuvable ne doit pas empêcher le reste du widget de charger.
+  // Table des salles : séparée du Promise.all ci-dessus et protégée par son
+  // propre try/catch, car sa table et ses colonnes sont configurables dans
+  // Aide & configuration (ex. pointer vers une table dédiée avec la Surface
+  // de Plancher/SDP plutôt que BDD_Salles.Surface_utile_m2_) — une
+  // configuration invalide ne doit pas empêcher le reste du widget de
+  // charger.
+  try {
+    const raw = await fetchRecords(salleConfig.tableId);
+    salles = normalizeSalleRecords(raw, salleConfig);
+    salleConfigError = '';
+  } catch (e) {
+    salles = [];
+    salleConfigError = `Table "${salleConfig.tableId}" introuvable dans ce document.`;
+  }
+
+  // Table de nomenclature OPERAT : même logique, protégée séparément.
   try {
     operatRows = await fetchRecords(operatTableId);
     operatTableError = '';
@@ -903,6 +1012,81 @@ els.operatTableSelect.addEventListener('change', async () => {
   renderResults();
 });
 
+async function populateSalleConfigUI() {
+  let tableIds = [];
+  try {
+    tableIds = await listAllTableIds();
+  } catch (e) {
+    tableIds = [salleConfig.tableId];
+  }
+  if (!tableIds.includes(salleConfig.tableId)) { tableIds.push(salleConfig.tableId); }
+  els.salleTableSelect.innerHTML = tableIds.map(id =>
+    `<option value="${escapeHtml(id)}" ${id === salleConfig.tableId ? 'selected' : ''}>${escapeHtml(id)}</option>`
+  ).join('');
+  await populateSalleColumnSelects(salleConfig.tableId);
+  renderSalleConfigStatus();
+}
+
+const SALLE_COL_FIELDS = [
+  ['salleColSite', 'site'],
+  ['salleColBatiment', 'batiment'],
+  ['salleColTypeUsage', 'typeUsage'],
+  ['salleColChauffee', 'chauffee'],
+  ['salleColRafraichie', 'rafraichie'],
+  ['salleColSurface', 'surface'],
+];
+
+async function populateSalleColumnSelects(tableId) {
+  let cols = [];
+  try {
+    cols = await listColumnsForTable(tableId);
+  } catch (e) {
+    cols = [];
+  }
+  for (const [elKey, cfgKey] of SALLE_COL_FIELDS) {
+    const current = salleConfig.tableId === tableId ? salleConfig[cfgKey] : '';
+    const optionsList = current && !cols.includes(current) ? [...cols, current] : cols;
+    els[elKey].innerHTML = optionsList.map(c =>
+      `<option value="${escapeHtml(c)}" ${c === current ? 'selected' : ''}>${escapeHtml(c)}</option>`
+    ).join('');
+  }
+}
+
+function renderSalleConfigStatus() {
+  if (salleConfigError) {
+    els.salleConfigStatus.innerHTML = `<span style="color:var(--bad); font-weight:600">✕ ${escapeHtml(salleConfigError)} Choisissez la bonne table ci-dessus.</span>`;
+  } else {
+    els.salleConfigStatus.innerHTML = `<span style="color:var(--ok)">✓ ${fmtNum(salles.length)} salles chargées depuis <code>${escapeHtml(salleConfig.tableId)}</code>, colonne surface utilisée : <code>${escapeHtml(salleConfig.surface)}</code>.</span> Si vous venez de changer de table, actualisez l'écran de paramétrage de chaque bâtiment pour vérifier les correspondances.`;
+  }
+}
+
+els.salleTableSelect.addEventListener('change', async () => {
+  await populateSalleColumnSelects(els.salleTableSelect.value);
+});
+
+els.salleConfigApplyBtn.addEventListener('click', async () => {
+  const newConfig = {
+    tableId: els.salleTableSelect.value,
+    site: els.salleColSite.value,
+    batiment: els.salleColBatiment.value,
+    typeUsage: els.salleColTypeUsage.value,
+    chauffee: els.salleColChauffee.value,
+    rafraichie: els.salleColRafraichie.value,
+    surface: els.salleColSurface.value,
+  };
+  if (Object.values(newConfig).some(v => !v)) {
+    els.salleConfigStatus.innerHTML = '<span style="color:var(--bad); font-weight:600">Choisissez une valeur pour chaque champ avant d\'appliquer.</span>';
+    return;
+  }
+  salleConfig = newConfig;
+  await grist.setOption('salleConfig', salleConfig);
+  els.salleConfigStatus.textContent = 'Chargement…';
+  await loadAll();
+  populateBatSelect();
+  renderSalleConfigStatus();
+  if (currentView === 'settings') { renderMappingPanel(); } else { renderResults(); }
+});
+
 // ---------------------------------------------------------------------------
 // Rendering — main view
 // ---------------------------------------------------------------------------
@@ -982,6 +1166,12 @@ function renderResults() {
     warnings.push({
       bad: true,
       html: `<b>${escapeHtml(operatTableError)}</b> Les catégories/sous-catégories OPERAT ne peuvent pas être résolues. Ouvrez <b>❓ Aide &amp; configuration</b> pour choisir la bonne table.`,
+    });
+  }
+  if (salleConfigError) {
+    warnings.push({
+      bad: true,
+      html: `<b>${escapeHtml(salleConfigError)}</b> Aucune salle ne peut être chargée. Ouvrez <b>❓ Aide &amp; configuration</b> pour choisir la bonne table des salles.`,
     });
   }
   let combined = emptyBuckets();
@@ -1656,6 +1846,7 @@ function showView(view) {
     els.emptyState.style.display = 'none';
     els.mainView.style.display = 'none';
     renderOperatTableStatus();
+    renderSalleConfigStatus();
   } else {
     renderResults();
   }
@@ -1691,7 +1882,8 @@ els.refreshBtn.addEventListener('click', async () => {
   if (site) { els.siteSelect.value = site; }
   populateBatSelect();
   await populateOperatTableSelect();
-  if (currentView === 'settings') { renderMappingPanel(); } else if (currentView === 'help') { renderOperatTableStatus(); } else { renderResults(); }
+  await populateSalleConfigUI();
+  if (currentView === 'settings') { renderMappingPanel(); } else if (currentView === 'help') { renderOperatTableStatus(); renderSalleConfigStatus(); } else { renderResults(); }
   setStatus('Actualisé.');
 });
 
@@ -1713,6 +1905,7 @@ grist.onOptions((options) => {
     initialOptions = options || {};
     if (initialOptions.showCode !== undefined) { els.codeCheck.checked = !!initialOptions.showCode; }
     if (initialOptions.operatTableId) { operatTableId = initialOptions.operatTableId; }
+    if (initialOptions.salleConfig) { salleConfig = { ...DEFAULT_SALLE_CONFIG, ...initialOptions.salleConfig }; }
     startInitialLoad();
     return;
   }
@@ -1739,6 +1932,7 @@ function startInitialLoad() {
     if (initialOptions && initialOptions.lastSiteId) { els.siteSelect.value = initialOptions.lastSiteId; }
     populateBatSelect();
     populateOperatTableSelect();
+    populateSalleConfigUI();
     renderResults();
   }).catch(err => setStatus('Erreur de chargement : ' + err.message));
 }
