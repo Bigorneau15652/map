@@ -11,9 +11,12 @@ Route de Mende, Béziers, Saint-Charles, Saint-Louis, Boutonnet.
 
 Le widget se connecte au document Grist ouvert et lit directement les tables :
 
-- `BDD_Sites`, `BDD_Batiments`, `BDD_Salles`
+- `BDD_Sites`, `BDD_Batiments`
+- Une table "salles" — une ligne par local, avec site/bâtiment/type d'usage/
+  statut thermique/surface. **Entièrement configurable**, voir ci-dessous.
 - `Table_locaux_types_et_correspondance` (types de locaux UMPV)
-- `Segmentation_OPERAT` (nomenclature catégorie / sous-catégorie / code technique OPERAT)
+- Une table de nomenclature OPERAT (catégorie / sous-catégorie / code
+  technique). **Configurable**, voir ci-dessous.
 
 Il n'est **pas** lié à une seule table via le panneau "Select by" : il embarque
 ses propres menus déroulants **EFA (site)** puis **Bâtiment**, et recalcule
@@ -22,18 +25,43 @@ accorder l'accès **"Full document access"** lors de l'ajout (Grist le demande
 automatiquement), nécessaire aussi bien pour lire ces tables que pour écrire
 la table de correspondance décrite ci-dessous.
 
+### Quelle surface est utilisée pour OPERAT : configurez votre propre table
+
+**Important** : par défaut, le widget utilise `BDD_Salles.Surface_utile_m2_`
+(la surface utile). **Ce n'est pas la bonne unité pour OPERAT** : la
+plateforme et le décret éco énergie tertiaire utilisent la **Surface de
+Plancher (SP/SDP)**, pas la surface utile. Dans ce document, la SP n'existe
+nativement qu'au niveau de l'étage (`BDD_Etages.Surface_SP_m2_`, calculée par
+soustraction), pas par local — d'où l'intérêt de fournir une table dédiée.
+
+Ouvrez **❓ Aide & configuration**, section **"Table des salles (données
+sources)"** : choisissez votre propre table (une ligne par local, avec Site,
+Bâtiment, Type d'usage, un booléen chauffée, un booléen rafraîchie et **une
+colonne de surface en Surface de Plancher**), faites correspondre chaque
+colonne, puis cliquez sur **Appliquer**. Le widget recalcule alors tout à
+partir de cette table — toute modification future de vos données ou de cette
+correspondance de colonnes se répercute automatiquement dans les résultats.
+Cette configuration est mémorisée pour le widget (indépendante de la config
+de la table OPERAT ci-dessous).
+
+Après un changement de table de salles, pensez à rouvrir **⚙ Paramétrer les
+correspondances** pour chaque bâtiment : les types de locaux réellement
+utilisés peuvent différer légèrement, et les surfaces affichées (bandeau du
+bâtiment, ligne sous chaque type de local) doivent refléter la nouvelle
+donnée.
+
 ### Si votre table OPERAT ne s'appelle pas `Segmentation_OPERAT`
 
 Le widget essaie ce nom par défaut ; si votre document utilise un autre nom
 (ex. `BDD_OPERAT`), les menus déroulants "Catégorie OPERAT" / "Sous-catégorie
 OPERAT" de l'écran de paramétrage restent vides et un bandeau d'avertissement
-rouge l'indique. Ouvrez **❓ Aide & configuration**, section "Configuration des
-tables sources", et choisissez la bonne table dans la liste déroulante (elle
-liste toutes les tables du document). Le choix est mémorisé pour ce widget.
-Si des correspondances ont déjà été créées avec des catégories vides avant la
-correction, utilisez ensuite **↺ Restaurer les propositions par défaut** (dans
-⚙ Paramétrer les correspondances) pour chaque bâtiment concerné, afin qu'elles
-se recalculent avec la bonne table.
+rouge l'indique. Ouvrez **❓ Aide & configuration**, section **"Table de
+nomenclature OPERAT"**, et choisissez la bonne table dans la liste déroulante
+(elle liste toutes les tables du document). Le choix est mémorisé pour ce
+widget. Si des correspondances ont déjà été créées avec des catégories vides
+avant la correction, utilisez ensuite **↺ Restaurer les propositions par
+défaut** (dans ⚙ Paramétrer les correspondances) pour chaque bâtiment
+concerné, afin qu'elles se recalculent avec la bonne table.
 
 ### Fenêtre flottante
 
@@ -52,10 +80,10 @@ rouvrir à chaque fois.
 ### Aide & configuration
 
 Le bouton **❓ Aide & configuration** ouvre un panneau avec la configuration
-de la table OPERAT (ci-dessus) et une notice explicative pas-à-pas
-(sélection EFA/bâtiment, lecture des résultats, modes de correspondance,
-répartition manuelle du prorata avec un exemple chiffré, case code
-technique, fenêtre flottante).
+de la table des salles et de la table OPERAT (ci-dessus) et une notice
+explicative pas-à-pas (sélection EFA/bâtiment, lecture des résultats, modes
+de correspondance, répartition manuelle du prorata avec un exemple chiffré,
+case code technique, fenêtre flottante).
 
 ### Le paramétrage se fait bâtiment par bâtiment
 
@@ -219,7 +247,14 @@ barème de départ a été établi ainsi :
 - **Structures non occupées** (trémies/escaliers/ascenseurs en tant que
   vides, combles, hauteur < 1,80 m, toiture, prolongements extérieurs,
   logements de fonction, gaine technique, espaces verts intérieurs) → mode
-  "Hors périmètre".
+  "Hors périmètre". **À reconsidérer maintenant que le widget peut utiliser
+  la Surface de Plancher (SP)** : la SP inclut généralement les escaliers et
+  autres circulations verticales, contrairement à l'hypothèse initiale de ce
+  barème (fondée sur la surface utile) qui les traitait comme des vides
+  structurels sans surface réglementaire propre. Une fois votre table SP
+  configurée (voir plus haut), revérifiez ces types dans le paramétrage de
+  chaque bâtiment — ils devraient probablement passer en "Répartition au
+  prorata" plutôt que "Hors périmètre" si votre SP les inclut.
 - **Salles de réunion/formation/cours/bibliothèque/salon de réception** →
   affectées à la sous-catégorie "Enseignement Supérieur" la plus proche
   (Administration et bureaux, ou "Salles de formation… sans process"), **à
