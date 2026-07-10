@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Surfaces OPERAT par EFA — catégorie dominante</title>
+<script>
+  // index.html?demo=1 loads a mock Grist API + a real (trimmed) data sample
+  // instead of the real grist-plugin-api.js, so this exact file can be
+  // exercised end-to-end (fetch -> classification -> render) without a
+  // live Grist document. See mock-grist.js / demo-seed.js.
+  (function () {
+    var demo = /(?:^|[?&])demo=1(?:&|$)/.test(location.search);
+    if (demo) {
+      document.write('<script src="demo-seed.js"><\/script>');
+      document.write('<script src="mock-grist.js"><\/script>');
+    } else {
+      document.write('<script src="https://docs.getgrist.com/grist-plugin-api.js"><\/script>');
+    }
+  })();
+</script>
+<style>
+  :root {
+    --accent: #2b6cb0;
+    --accent-light: #ebf4ff;
+    --ok: #2f855a;
+    --warn: #c05621;
+    --bad: #c53030;
+    --border: #dde3ea;
+    --text-muted: #6b7280;
+    /* Opt out of UA dark-mode form-control styling: without this a <select>/
+       <button> with an explicit white background but no explicit text color
+       can render white-on-white in a dark-themed browser/OS. See /CLAUDE.md. */
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1a202c;
+    background: #f4f6f8;
+    font-size: 13px;
+  }
+
+  /* Toolbar: intentionally NOT position:sticky (see /CLAUDE.md — sticky
+     toolbars have caused content to render unreadable until hover inside
+     some Grist widget-panel embeddings). Keep it static. */
+  #toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+    padding: 10px 14px;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+  }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+  select {
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 13px;
+    background: #fff;
+    color: #1a202c;
+    min-width: 240px;
+  }
+  button {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: #fff;
+    color: #1a202c;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  button:hover { background: var(--accent-light); border-color: var(--accent); }
+
+  #content { padding: 14px; max-width: 1200px; margin: 0 auto; }
+  #emptyState { padding: 60px 20px; text-align: center; color: var(--text-muted); white-space: normal; overflow-wrap: anywhere; }
+
+  /* Warning banners: high contrast, never truncated. See /CLAUDE.md. */
+  #warnings { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  #warnings .w {
+    display: block;
+    background: #fef3c7;
+    border: 1px solid #f0b429;
+    color: #7a4a00;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.5;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  #warnings .w.bad { background: #fde2e2; border-color: #e0554f; color: #7a1a1a; }
+
+  .card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .card h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--accent);
+    margin: 0 0 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+  .card .subhead { font-size: 11px; color: var(--text-muted); margin: -4px 0 10px; white-space: normal; overflow-wrap: anywhere; }
+  .helpText { font-size: 13px; color: #1a202c; line-height: 1.6; white-space: normal; overflow-wrap: anywhere; }
+  .helpText p { margin: 0 0 10px; }
+  .helpText ul { margin: 4px 0 10px 20px; padding: 0; }
+  .helpText li { margin-bottom: 4px; }
+
+  .kpiRow { display: flex; flex-wrap: wrap; gap: 10px; }
+  .kpi {
+    flex: 1 1 150px;
+    background: var(--accent-light);
+    border: 1px solid #cfe0f5;
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .kpi .val { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .kpi .lbl { font-size: 11px; color: var(--text-muted); margin-top: 2px; white-space: normal; overflow-wrap: anywhere; }
+  .kpi.muted { background: #f1f3f5; border-color: var(--border); }
+  .kpi.muted .val { color: #4a5568; }
+
+  .tableWrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .02em; color: var(--text-muted); white-space: normal; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.catRow td { background: #f7f9fb; font-weight: 700; border-top: 2px solid var(--border); }
+  tr.totalRow td { background: #eef3f9; font-weight: 700; border-top: 2px solid var(--accent); }
+  tr.subRow td.lib { padding-left: 20px; }
+  .code { font-size: 11px; color: var(--text-muted); font-family: ui-monospace, Consolas, monospace; }
+
+  .efaLink { color: var(--accent); font-weight: 600; cursor: pointer; background: none; border: none; padding: 0; font-size: inherit; text-decoration: underline; }
+  .efaLink:hover { color: #1a4a7a; }
+
+  details.buildingRow { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; background: #fff; }
+  details.buildingRow > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 10px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    align-items: baseline;
+  }
+  details.buildingRow > summary::-webkit-details-marker { display: none; }
+  details.buildingRow > summary::before { content: '▸ '; color: var(--text-muted); }
+  details.buildingRow[open] > summary::before { content: '▾ '; }
+  .bName { font-weight: 700; color: #1a202c; }
+  .bMeta { font-size: 11.5px; color: var(--text-muted); white-space: normal; overflow-wrap: anywhere; }
+  .buildingDetail { padding: 0 12px 12px; }
+  .noDominantNote { font-size: 12.5px; color: var(--warn); font-weight: 600; padding: 4px 0; white-space: normal; overflow-wrap: anywhere; }
+
+  .selectedTag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: #e2e8f0;
+    color: #2d3748;
+    margin: 1px 3px 1px 0;
+  }
+
+</style>
+</head>
+<body>
+  <div id="toolbar">
+    <div class="field">
+      <label for="efaSelect">EFA (site)</label>
+      <select id="efaSelect"></select>
+    </div>
+    <button id="helpBtn" type="button">❓ Méthode de calcul</button>
+  </div>
+  <div id="content">
+    <div id="emptyState">Chargement…</div>
+  </div>
+
+<script>
+'use strict';
+
+/* ---------------------------------------------------------------------
+ * Config — noms de tables/colonnes attendus dans le document Grist.
+ * Basé sur le document "Bac à sable SIPI" fourni. À ajuster ici si votre
+ * document utilise des noms différents (pas d'UI de configuration : ce
+ * widget est volontairement simple, la classification vit déjà dans
+ * BDD_Salles, il n'y a rien d'autre à faire correspondre).
+ * ------------------------------------------------------------------- */
+const TABLES = {
+  sites: 'BDD_Sites',
+  batiments: 'BDD_Batiments',
+  salles: 'BDD_Salles',
+  categories: 'Ref_Categorie_SCE',
+  sousCategories: 'Ref_SS_Categorie_SCE',
+};
+const COL = {
+  site: { id: 'id', nom: 'Nom' },
+  batiment: { id: 'id', nom: 'Nom', site: 'Site', appellation: 'Appellation', destruction: 'Destruction', finExploitation: 'Date_de_fin_d_exploitation' },
+  salle: { id: 'id', numero: 'Numero', batiment: 'Batiment', site: 'Site', surface: 'Surface_utile_m2_', chauffee: 'Surface_Chaufee', rafraichie: 'Surface_Rafraichie', categorie: 'Categorie_SCE_OPERAT', sousCategorie: 'SS_categorie_SCE_OPERAT' },
+  categorie: { id: 'id', nom: 'Ref_Categorie_SCE' },
+  sousCategorie: { id: 'id', categorie: 'Categorie', nom: 'Nom_SousCategorie', code: 'Code_technique_OPERAT' },
+};
+
+// Les 5 entités fonctionnelles assujetties (EFA) encore en activité pour
+// l'UMPV, au sens du décret éco énergie tertiaire. Les autres sites du
+// document (ex. Abbé de l'Epée, Université du Tiers Temps, Sites BU) sont
+// hors scope et volontairement ignorés.
+const EFA_NAMES = ['Route de Mende', 'Béziers', 'Saint-Charles', 'Saint-Louis', 'Boutonnet'];
+
+const NOM_CATEGORIE_A_REPARTIR = 'À répartir';
+const DOMINANT_THRESHOLD = 0.70; // règle "catégorie forte >= 70%"
+const MAX_SELECTED = 3; // règle "2 ou 3 sous-catégories moyennement fortes"
+
+const STATUSES = ['CR', 'C', 'R', 'N'];
+const STATUS_LABEL = {
+  CR: 'Chauffée + rafraîchie',
+  C: 'Chauffée (seule)',
+  R: 'Rafraîchie (seule)',
+  N: 'Non chauffée / non rafraîchie',
+};
+const STATUS_CLASS = { CR: 'cr', C: 'c', R: 'r', N: 'n' };
+
+/* ---------------------------------------------------------------------
+ * Chargement des données
+ * ------------------------------------------------------------------- */
+
+function toRows(cols) {
+  const keys = Object.keys(cols).filter((k) => k !== 'id');
+  const n = cols.id ? cols.id.length : 0;
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const row = { id: cols.id[i] };
+    for (const k of keys) row[k] = cols[k][i];
+    rows.push(row);
+  }
+  return rows;
+}
+
+function truthy(v) {
+  return v === true || v === 1 || v === '1';
+}
+
+async function fetchTableSafe(tableName) {
+  try {
+    const cols = await grist.docApi.fetchTable(tableName);
+    return { ok: true, rows: toRows(cols) };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
+}
+
+let DATA = null; // { sites, batiments, salles, categoriesById, sousCategoriesById, idARepartir, loadErrors }
+
+async function loadData() {
+  const [sites, batiments, salles, categories, sousCategories] = await Promise.all([
+    fetchTableSafe(TABLES.sites),
+    fetchTableSafe(TABLES.batiments),
+    fetchTableSafe(TABLES.salles),
+    fetchTableSafe(TABLES.categories),
+    fetchTableSafe(TABLES.sousCategories),
+  ]);
+
+  const loadErrors = [];
+  [
+    ['sites', sites], ['batiments', batiments], ['salles', salles],
+    ['categories', categories], ['sousCategories', sousCategories],
+  ].forEach(([key, res]) => {
+    if (!res.ok) loadErrors.push(`Table "${TABLES[Object.keys(TABLES).find((k) => k === key) || key]}" introuvable ou illisible (${res.error}).`);
+  });
+
+  if (loadErrors.length) {
+    DATA = { loadErrors };
+    return;
+  }
+
+  const categoriesById = new Map();
+  for (const c of categories.rows) categoriesById.set(c[COL.categorie.id], c[COL.categorie.nom]);
+
+  const sousCategoriesById = new Map();
+  for (const s of sousCategories.rows) {
+    sousCategoriesById.set(s[COL.sousCategorie.id], {
+      id: s[COL.sousCategorie.id],
+      categorieId: s[COL.sousCategorie.categorie],
+      nom: s[COL.sousCategorie.nom],
+      code: s[COL.sousCategorie.code],
+    });
+  }
+
+  let idARepartir = null;
+  for (const [id, nom] of categoriesById.entries()) {
+    if (nom === NOM_CATEGORIE_A_REPARTIR) { idARepartir = id; break; }
+  }
+
+  const sitesById = new Map();
+  for (const s of sites.rows) sitesById.set(s[COL.site.id], s[COL.site.nom]);
+
+  const batimentsById = new Map();
+  for (const b of batiments.rows) {
+    batimentsById.set(b[COL.batiment.id], {
+      id: b[COL.batiment.id],
+      nom: b[COL.batiment.nom],
+      site: b[COL.batiment.site],
+      appellation: b[COL.batiment.appellation],
+      destruction: truthy(b[COL.batiment.destruction]),
+      finExploitation: b[COL.batiment.finExploitation] || null,
+      actif: !truthy(b[COL.batiment.destruction]) && !b[COL.batiment.finExploitation],
+    });
+  }
+
+  const sallesByBatiment = new Map();
+  for (const s of salles.rows) {
+    const bid = s[COL.salle.batiment];
+    if (!sallesByBatiment.has(bid)) sallesByBatiment.set(bid, []);
+    sallesByBatiment.get(bid).push(s);
+  }
+
+  DATA = {
+    loadErrors: [],
+    sitesById, batimentsById, sallesByBatiment,
+    categoriesById, sousCategoriesById, idARepartir,
+  };
+
+  if (idARepartir == null) {
+    DATA.loadErrors.push(`Catégorie "${NOM_CATEGORIE_A_REPARTIR}" introuvable dans ${TABLES.categories} : les circulations/sanitaires ne pourront pas être détectés comme "à répartir".`);
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * Classification — cœur du calcul, par bâtiment
+ * ------------------------------------------------------------------- */
+
+function round1(v) { return Math.round(v * 10) / 10; }
+
+function actionable(message, numeros) {
+  const shown = numeros.slice(0, 5).map((n) => (n == null || n === '' ? '(sans numéro)' : n));
+  const extra = numeros.length > shown.length ? ` et ${numeros.length - shown.length} autre(s)` : '';
+  return message + (shown.length ? ` — salles concernées : ${shown.join(', ')}${extra}.` : '');
+}
+
+function thermalStatus(salle) {
+  const c = truthy(salle[COL.salle.chauffee]);
+  const r = truthy(salle[COL.salle.rafraichie]);
+  if (c && r) return 'CR';
+  if (c) return 'C';
+  if (r) return 'R';
+  return 'N';
+}
+
+function classifyBuilding(building) {
+  const salles = DATA.sallesByBatiment.get(building.id) || [];
+  const warnings = [];
+
+  const consistent = salles.filter((s) => s[COL.salle.site] === building.site);
+  const inconsistent = salles.filter((s) => s[COL.salle.site] !== building.site);
+  if (inconsistent.length) {
+    warnings.push(actionable(
+      `${building.nom} : ${inconsistent.length} salle(s) ont un Site différent de celui du bâtiment dans BDD_Salles, exclue(s) du calcul`,
+      inconsistent.map((s) => s[COL.salle.numero])
+    ));
+  }
+
+  const wellFormed = consistent.filter((s) => Number.isInteger(s[COL.salle.categorie]));
+  const malformed = consistent.filter((s) => !Number.isInteger(s[COL.salle.categorie]));
+  if (malformed.length) {
+    warnings.push(actionable(
+      `${building.nom} : ${malformed.length} salle(s) ont une Categorie_SCE_OPERAT invalide (erreur de formule dans BDD_Salles ?) — vérifiez et corrigez cette colonne`,
+      malformed.map((s) => s[COL.salle.numero])
+    ));
+  }
+
+  const horsPerimetreRows = wellFormed.filter((s) => s[COL.salle.categorie] === 0);
+  const aRepartirRows = DATA.idARepartir != null
+    ? wellFormed.filter((s) => s[COL.salle.categorie] === DATA.idARepartir)
+    : [];
+  const directRowsAll = wellFormed.filter((s) => s[COL.salle.categorie] !== 0 && s[COL.salle.categorie] !== DATA.idARepartir);
+
+  const missingSousCat = directRowsAll.filter((s) => !s[COL.salle.sousCategorie]);
+  const direct = directRowsAll.filter((s) => s[COL.salle.sousCategorie]);
+  if (missingSousCat.length) {
+    warnings.push(actionable(
+      `${building.nom} : ${missingSousCat.length} salle(s) ont une Catégorie SCE OPERAT mais pas de Sous-catégorie — vérifiez la colonne SS_categorie_SCE_OPERAT dans BDD_Salles`,
+      missingSousCat.map((s) => s[COL.salle.numero])
+    ));
+  }
+
+  const groups = new Map(); // sousCategorieId -> {total, byStatus}
+  for (const s of direct) {
+    const ssid = s[COL.salle.sousCategorie];
+    if (!groups.has(ssid)) groups.set(ssid, { total: 0, byStatus: { CR: 0, C: 0, R: 0, N: 0 } });
+    const g = groups.get(ssid);
+    const surf = s[COL.salle.surface] || 0;
+    g.total += surf;
+    g.byStatus[thermalStatus(s)] += surf;
+  }
+
+  const aRepByStatus = { CR: 0, C: 0, R: 0, N: 0 };
+  for (const s of aRepartirRows) aRepByStatus[thermalStatus(s)] += (s[COL.salle.surface] || 0);
+  const totalARepartir = STATUSES.reduce((sum, st) => sum + aRepByStatus[st], 0);
+
+  const horsPerimetreTotal = horsPerimetreRows.reduce((sum, s) => sum + (s[COL.salle.surface] || 0), 0);
+  const totalDirect = Array.from(groups.values()).reduce((sum, g) => sum + g.total, 0);
+  const totalSurfaceBatiment = totalDirect + totalARepartir + horsPerimetreTotal;
+
+  const result = {
+    buildingId: building.id,
+    buildingNom: building.nom,
+    appellation: building.appellation,
+    warnings,
+    horsPerimetreTotal,
+    totalSurfaceBatiment,
+    nonClasseTotal: 0,
+    lines: [],
+    selected: [],
+    top1SharePct: null,
+    totalOperat: 0,
+    noDominantCategory: false,
+  };
+
+  if (totalDirect <= 0) {
+    result.noDominantCategory = true;
+    result.nonClasseTotal = totalARepartir;
+    if (totalARepartir + horsPerimetreTotal > 0) {
+      warnings.push(actionable(
+        `${building.nom} : aucune sous-catégorie OPERAT directement affectée dans ce bâtiment — impossible d'appliquer la règle de catégorie dominante (${round1(totalARepartir)} m² à répartir restent non classés)`,
+        []
+      ));
+    }
+    return result;
+  }
+
+  const sortedGroups = Array.from(groups.entries()).sort((a, b) => b[1].total - a[1].total);
+  const top1Share = sortedGroups[0][1].total / totalDirect;
+  const selectedEntries = top1Share >= DOMINANT_THRESHOLD ? sortedGroups.slice(0, 1) : sortedGroups.slice(0, MAX_SELECTED);
+
+  const sumSelected = selectedEntries.reduce((sum, [, g]) => sum + g.total, 0);
+  const weights = new Map(selectedEntries.map(([ssid, g]) => [ssid, g.total / sumSelected]));
+
+  const grandTotalByStatus = { CR: 0, C: 0, R: 0, N: 0 };
+  for (const g of groups.values()) for (const st of STATUSES) grandTotalByStatus[st] += g.byStatus[st];
+  for (const st of STATUSES) grandTotalByStatus[st] += aRepByStatus[st];
+
+  for (const [ssid, g] of selectedEntries) {
+    const info = DATA.sousCategoriesById.get(ssid);
+    for (const st of STATUSES) {
+      const m2 = weights.get(ssid) * grandTotalByStatus[st];
+      if (m2 > 0.005) {
+        result.lines.push({
+          sousCategorieId: ssid,
+          sousCategorieNom: info ? info.nom : `Sous-catégorie #${ssid}`,
+          categorieNom: info ? (DATA.categoriesById.get(info.categorieId) || '') : '',
+          code: info ? info.code : '',
+          status: st,
+          statusLabel: STATUS_LABEL[st],
+          m2,
+        });
+      }
+    }
+  }
+  result.totalOperat = result.lines.reduce((sum, l) => sum + l.m2, 0);
+  result.selected = selectedEntries.map(([ssid, g]) => ({
+    nom: (DATA.sousCategoriesById.get(ssid) || {}).nom || `Sous-catégorie #${ssid}`,
+    surface: g.total,
+    sharePct: (g.total / totalDirect) * 100,
+  }));
+  result.top1SharePct = top1Share * 100;
+  return result;
+}
+
+function activeBuildingsForSite(siteId) {
+  return Array.from(DATA.batimentsById.values()).filter((b) => b.site === siteId && b.actif);
+}
+
+function siteIdByName(name) {
+  for (const [id, nom] of DATA.sitesById.entries()) if (nom === name) return id;
+  return null;
+}
+
+function aggregateSite(siteId) {
+  const buildings = activeBuildingsForSite(siteId).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+  const buildingResults = buildings.map((b) => ({ building: b, result: classifyBuilding(b) }));
+
+  const lineKey = (l) => l.sousCategorieId + '|' + l.status;
+  const lines = new Map();
+  let horsPerimetreTotal = 0;
+  let totalSurfaceEfa = 0;
+  let nonClasseTotal = 0;
+  const warnings = [];
+  const noDominantBuildings = [];
+
+  for (const { building, result } of buildingResults) {
+    horsPerimetreTotal += result.horsPerimetreTotal;
+    totalSurfaceEfa += result.totalSurfaceBatiment;
+    nonClasseTotal += result.nonClasseTotal;
+    warnings.push(...result.warnings);
+    if (result.noDominantCategory) noDominantBuildings.push(building.nom);
+    for (const l of result.lines) {
+      const k = lineKey(l);
+      if (!lines.has(k)) {
+        lines.set(k, { sousCategorieNom: l.sousCategorieNom, categorieNom: l.categorieNom, code: l.code, status: l.status, statusLabel: l.statusLabel, m2: 0 });
+      }
+      lines.get(k).m2 += l.m2;
+    }
+  }
+
+  const totalOperat = Array.from(lines.values()).reduce((sum, l) => sum + l.m2, 0);
+  const totalByStatus = { CR: 0, C: 0, R: 0, N: 0 };
+  for (const l of lines.values()) totalByStatus[l.status] += l.m2;
+
+  return {
+    siteId,
+    siteNom: DATA.sitesById.get(siteId),
+    buildingResults,
+    lines: Array.from(lines.values()).sort((a, b) => (a.categorieNom + a.sousCategorieNom).localeCompare(b.categorieNom + b.sousCategorieNom, 'fr') || a.status.localeCompare(b.status)),
+    totalOperat, totalByStatus, horsPerimetreTotal, totalSurfaceEfa, nonClasseTotal,
+    warnings, noDominantBuildings,
+    nbBatiments: buildings.length,
+  };
+}
+
+/* ---------------------------------------------------------------------
+ * Rendu
+ * ------------------------------------------------------------------- */
+
+function fmt(v) {
+  return v.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderWarnings(warnings) {
+  if (!warnings.length) return '';
+  return `<div id="warnings">${warnings.map((w) => `<span class="w">${esc(w)}</span>`).join('')}</div>`;
+}
+
+function statusColumnsHeader() {
+  return STATUSES.map((st) => `<th class="num">${STATUS_LABEL[st]}</th>`).join('') + '<th class="num">Total</th>';
+}
+
+function linesTable(lines, totalOperat) {
+  // group by categorie, then sous-categorie, columns = 4 statuts + total
+  const byCat = new Map();
+  for (const l of lines) {
+    if (!byCat.has(l.categorieNom)) byCat.set(l.categorieNom, new Map());
+    const bySs = byCat.get(l.categorieNom);
+    if (!bySs.has(l.sousCategorieNom)) bySs.set(l.sousCategorieNom, { code: l.code, byStatus: {} });
+    bySs.get(l.sousCategorieNom).byStatus[l.status] = l.m2;
+  }
+
+  let rows = '';
+  for (const [catNom, bySs] of Array.from(byCat.entries()).sort((a, b) => a[0].localeCompare(b[0], 'fr'))) {
+    let catTotal = 0;
+    for (const info of bySs.values()) for (const st of STATUSES) catTotal += info.byStatus[st] || 0;
+    rows += `<tr class="catRow"><td class="lib" colspan="${STATUSES.length + 1}">${esc(catNom || '(catégorie inconnue)')}</td><td class="num">${fmt(catTotal)}</td></tr>`;
+    for (const [ssNom, info] of Array.from(bySs.entries()).sort((a, b) => a[0].localeCompare(b[0], 'fr'))) {
+      let ssTotal = 0;
+      const cells = STATUSES.map((st) => {
+        const v = info.byStatus[st] || 0;
+        ssTotal += v;
+        return `<td class="num">${v > 0.005 ? fmt(v) : '—'}</td>`;
+      }).join('');
+      rows += `<tr class="subRow"><td class="lib">${esc(ssNom)}${info.code ? ` <span class="code">${esc(info.code)}</span>` : ''}</td>${cells}<td class="num">${fmt(ssTotal)}</td></tr>`;
+    }
+  }
+  const totalsByStatus = STATUSES.map((st) => lines.filter((l) => l.status === st).reduce((s, l) => s + l.m2, 0));
+  rows += `<tr class="totalRow"><td class="lib">Total OPERAT</td>${totalsByStatus.map((v) => `<td class="num">${fmt(v)}</td>`).join('')}<td class="num">${fmt(totalOperat)}</td></tr>`;
+
+  return `<div class="tableWrap"><table>
+    <thead><tr><th>Sous-catégorie SCE OPERAT</th>${statusColumnsHeader()}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+function kpiRow(agg) {
+  const nonClasseKpi = agg.nonClasseTotal > 0.005
+    ? `<div class="kpi" style="background:#fde2e2;border-color:#e0554f"><div class="val" style="color:var(--bad)">${fmt(agg.nonClasseTotal)} m²</div><div class="lbl">Non classé — aucune catégorie dominante (à vérifier)</div></div>`
+    : '';
+  return `<div class="kpiRow">
+    <div class="kpi"><div class="val">${fmt(agg.totalOperat)} m²</div><div class="lbl">Surface OPERAT (hors périmètre exclu)</div></div>
+    <div class="kpi"><div class="val">${fmt(agg.totalByStatus.CR)} m²</div><div class="lbl">${STATUS_LABEL.CR}</div></div>
+    <div class="kpi"><div class="val">${fmt(agg.totalByStatus.C)} m²</div><div class="lbl">${STATUS_LABEL.C}</div></div>
+    <div class="kpi"><div class="val">${fmt(agg.totalByStatus.R + agg.totalByStatus.N)} m²</div><div class="lbl">${STATUS_LABEL.R} / ${STATUS_LABEL.N}</div></div>
+    <div class="kpi muted"><div class="val">${fmt(agg.horsPerimetreTotal)} m²</div><div class="lbl">Hors périmètre (info, exclu du total)</div></div>
+    <div class="kpi muted"><div class="val">${agg.nbBatiments}</div><div class="lbl">Bâtiments actifs pris en compte</div></div>
+    ${nonClasseKpi}
+  </div>`;
+}
+
+function renderOverview() {
+  const aggs = EFA_NAMES.map((name) => {
+    const siteId = siteIdByName(name);
+    return siteId != null ? aggregateSite(siteId) : null;
+  });
+
+  const grandTotal = aggs.reduce((sum, a) => sum + (a ? a.totalOperat : 0), 0);
+  const grandHorsPerimetre = aggs.reduce((sum, a) => sum + (a ? a.horsPerimetreTotal : 0), 0);
+  const grandNonClasse = aggs.reduce((sum, a) => sum + (a ? a.nonClasseTotal : 0), 0);
+  const grandWarnings = aggs.reduce((sum, a) => sum + (a ? a.warnings.length : 0), 0);
+  const grandBatiments = aggs.reduce((sum, a) => sum + (a ? a.nbBatiments : 0), 0);
+
+  const rows = EFA_NAMES.map((name, i) => {
+    const a = aggs[i];
+    if (!a) return `<tr><td class="lib">${esc(name)}</td><td colspan="8" style="color:var(--bad)">Site introuvable dans ${esc(TABLES.sites)}</td></tr>`;
+    return `<tr>
+      <td class="lib"><button class="efaLink" data-site="${a.siteId}">${esc(name)}</button></td>
+      <td class="num">${a.nbBatiments}</td>
+      <td class="num">${fmt(a.totalOperat)}</td>
+      <td class="num">${fmt(a.totalByStatus.CR)}</td>
+      <td class="num">${fmt(a.totalByStatus.C)}</td>
+      <td class="num">${fmt(a.totalByStatus.R)}</td>
+      <td class="num">${fmt(a.totalByStatus.N)}</td>
+      <td class="num">${fmt(a.horsPerimetreTotal)}</td>
+      <td class="num" style="${a.nonClasseTotal > 0.005 ? 'color:var(--bad);font-weight:700' : ''}">${a.nonClasseTotal > 0.005 ? fmt(a.nonClasseTotal) : '—'}</td>
+      <td class="num">${a.warnings.length || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="card">
+      <h2>Vue d'ensemble — 5 EFA</h2>
+      <div class="subhead">Cliquez sur le nom d'un EFA pour voir son détail (résultat par bâtiment, avertissements).</div>
+      <div class="kpiRow">
+        <div class="kpi"><div class="val">${fmt(grandTotal)} m²</div><div class="lbl">Surface OPERAT totale (5 EFA)</div></div>
+        <div class="kpi muted"><div class="val">${fmt(grandHorsPerimetre)} m²</div><div class="lbl">Hors périmètre (info)</div></div>
+        <div class="kpi muted"><div class="val">${grandBatiments}</div><div class="lbl">Bâtiments actifs</div></div>
+        <div class="kpi muted"><div class="val">${grandWarnings}</div><div class="lbl">Avertissements à vérifier</div></div>
+        ${grandNonClasse > 0.005 ? `<div class="kpi" style="background:#fde2e2;border-color:#e0554f"><div class="val" style="color:var(--bad)">${fmt(grandNonClasse)} m²</div><div class="lbl">Non classé — aucune catégorie dominante</div></div>` : ''}
+      </div>
+      <div class="tableWrap" style="margin-top:12px">
+        <table>
+          <thead><tr><th>EFA</th><th class="num">Bâtiments</th><th class="num">Total OPERAT</th><th class="num">${STATUS_LABEL.CR}</th><th class="num">${STATUS_LABEL.C}</th><th class="num">${STATUS_LABEL.R}</th><th class="num">${STATUS_LABEL.N}</th><th class="num">Hors périmètre</th><th class="num">Non classé</th><th class="num">Avert.</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function buildingDetailHtml(building, result) {
+  let inner = '';
+  if (result.noDominantCategory) {
+    inner += `<div class="noDominantNote">Aucune sous-catégorie dominante identifiable dans ce bâtiment (pas de surface en affectation directe) — ${fmt(result.totalSurfaceBatiment)} m² non classés, à vérifier manuellement.</div>`;
+  } else {
+    inner += `<div style="margin:6px 0">Sous-catégorie(s) retenue(s) comme dominante(s)${result.top1SharePct >= DOMINANT_THRESHOLD * 100 ? ' (règle des 70%)' : ' (règle des 2-3 catégories principales)'} : `
+      + result.selected.map((s) => `<span class="selectedTag">${esc(s.nom)} — ${round1(s.surface)} m² (${round1(s.sharePct)}%)</span>`).join('')
+      + `</div>`;
+    inner += linesTable(result.lines, result.totalOperat);
+  }
+  if (result.horsPerimetreTotal > 0.005) {
+    inner += `<div class="bMeta" style="margin-top:8px">Hors périmètre (structures non occupées, exclues du total OPERAT) : ${fmt(result.horsPerimetreTotal)} m²</div>`;
+  }
+  if (result.warnings.length) {
+    inner += renderWarnings(result.warnings);
+  }
+  return inner;
+}
+
+function renderEfaPage(siteId) {
+  const agg = aggregateSite(siteId);
+  const buildingsHtml = agg.buildingResults.map(({ building, result }) => {
+    const label = result.noDominantCategory
+      ? '<span style="color:var(--warn)">à vérifier — pas de catégorie dominante</span>'
+      : result.selected.map((s) => esc(s.nom)).join(' + ');
+    return `<details class="buildingRow">
+      <summary>
+        <span class="bName">${esc(building.nom)}</span>
+        <span class="bMeta">${esc(building.appellation || '')}</span>
+        <span class="bMeta">${fmt(result.totalSurfaceBatiment)} m² au total</span>
+        <span class="bMeta">→ ${label}</span>
+        ${result.warnings.length ? `<span class="bMeta" style="color:var(--warn)">⚠ ${result.warnings.length}</span>` : ''}
+      </summary>
+      <div class="buildingDetail">${buildingDetailHtml(building, result)}</div>
+    </details>`;
+  }).join('');
+
+  return `
+    <div class="card">
+      <h2>${esc(agg.siteNom)}</h2>
+      <div class="subhead">Résultat agrégé pour cet EFA — c'est ce total qui doit être renseigné dans OPERAT.</div>
+      ${kpiRow(agg)}
+      ${renderWarnings(agg.warnings)}
+      <div style="margin-top:12px">${linesTable(agg.lines, agg.totalOperat)}</div>
+    </div>
+    <div class="card">
+      <h2>Détail par bâtiment (${agg.nbBatiments})</h2>
+      <div class="subhead">Cliquez sur un bâtiment pour dérouler son détail et vérifier la classification retenue.</div>
+      ${buildingsHtml || '<div class="subhead">Aucun bâtiment actif pour cet EFA.</div>'}
+    </div>`;
+}
+
+function render() {
+  const content = document.getElementById('content');
+  if (!DATA) { content.innerHTML = '<div id="emptyState">Chargement…</div>'; return; }
+  if (DATA.loadErrors && DATA.loadErrors.length) {
+    content.innerHTML = `<div id="warnings">${DATA.loadErrors.map((e) => `<span class="w bad">${esc(e)}</span>`).join('')}</div>`;
+    return;
+  }
+  const sel = document.getElementById('efaSelect');
+  const siteId = sel.value ? Number(sel.value) : null;
+  content.innerHTML = siteId != null ? renderEfaPage(siteId) : renderOverview();
+
+  content.querySelectorAll('.efaLink').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      sel.value = btn.dataset.site;
+      onEfaChange();
+    });
+  });
+}
+
+function populateEfaSelect() {
+  const sel = document.getElementById('efaSelect');
+  sel.innerHTML = '<option value="">Vue d\'ensemble (tous les EFA)</option>';
+  for (const name of EFA_NAMES) {
+    const siteId = siteIdByName(name);
+    const opt = document.createElement('option');
+    opt.value = siteId != null ? String(siteId) : '';
+    opt.textContent = siteId != null ? name : `${name} (introuvable)`;
+    opt.disabled = siteId == null;
+    sel.appendChild(opt);
+  }
+}
+
+async function onEfaChange() {
+  const sel = document.getElementById('efaSelect');
+  render();
+  try { await grist.setOption('lastSiteId', sel.value); } catch (e) { /* pas bloquant */ }
+}
+
+document.getElementById('efaSelect').addEventListener('change', onEfaChange);
+document.getElementById('helpBtn').addEventListener('click', () => {
+  const content = document.getElementById('content');
+  const already = document.getElementById('helpCard');
+  if (already) { already.remove(); return; }
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.id = 'helpCard';
+  div.innerHTML = `<h2>Méthode de calcul</h2><div class="helpText">
+    <p>Ce widget agrège <b>BDD_Salles</b> par bâtiment puis par EFA (site), en
+    s'appuyant sur les colonnes déjà renseignées salle par salle :
+    <b>Categorie_SCE_OPERAT</b> et <b>SS_categorie_SCE_OPERAT</b>.</p>
+    <ul>
+      <li><b>Catégorie vide (0)</b> → hors périmètre (structures non occupées :
+      escaliers-vides, toitures, rampes…), exclu du total OPERAT, affiché à
+      part pour information.</li>
+      <li><b>Catégorie "${esc(NOM_CATEGORIE_A_REPARTIR)}"</b> → circulations,
+      sanitaires, locaux techniques… sans équivalent OPERAT propre, à
+      répartir dans les sous-catégories dominantes du bâtiment.</li>
+      <li><b>Autre catégorie</b> → affectation directe à sa sous-catégorie SCE
+      OPERAT.</li>
+    </ul>
+    <p><b>Règle de catégorie dominante</b>, appliquée bâtiment par bâtiment sur
+    la surface hors "à répartir" :</p>
+    <ul>
+      <li>si une sous-catégorie atteint <b>${Math.round(DOMINANT_THRESHOLD * 100)}%</b> ou plus de cette
+      surface, tout le bâtiment (y compris "à répartir") lui est affecté ;</li>
+      <li>sinon, les <b>${MAX_SELECTED} sous-catégories</b> les plus grandes sont
+      retenues, et 100% de la surface du bâtiment (y compris les catégories
+      minoritaires non retenues et le "à répartir") leur est répartie au
+      prorata de leurs surfaces respectives.</li>
+    </ul>
+    <p>La répartition est ensuite recalculée dans les mêmes proportions pour
+    chacun des 4 statuts thermiques (chauffée + rafraîchie / chauffée seule /
+    rafraîchie seule / non chauffée), à partir du statut thermique réel de
+    chaque salle.</p>
+    <p>Le calcul est fait <b>bâtiment par bâtiment</b> puis sommé au niveau
+    EFA — jamais directement sur l'agrégat de plusieurs bâtiments, dont la
+    composition de surfaces diffère à chaque fois.</p>
+    <p>Les bâtiments détruits ou dont la date de fin d'exploitation est
+    renseignée sont exclus. Les salles dont le Site diverge de celui de leur
+    bâtiment, celles à Catégorie SCE OPERAT invalide, et celles à catégorie
+    renseignée mais sans sous-catégorie, sont exclues du calcul et listées en
+    avertissement.</p>
+  </div>`;
+  content.prepend(div);
+});
+
+async function boot() {
+  grist.onOptions(async (options) => {
+    await loadData();
+    if (DATA && !DATA.loadErrors.length) {
+      populateEfaSelect();
+      const sel = document.getElementById('efaSelect');
+      const last = options && options.lastSiteId;
+      if (last && Array.from(sel.options).some((o) => o.value === String(last))) sel.value = String(last);
+    }
+    render();
+  });
+  grist.ready({ requiredAccess: 'full' });
+}
+
+boot();
+</script>
+</body>
+</html>
