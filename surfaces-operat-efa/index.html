@@ -643,6 +643,18 @@ function renderOverview() {
           <tbody>${rows}</tbody>
         </table>
       </div>
+    </div>
+    <div class="card">
+      <h2>Détail par EFA — catégories utilisées et surfaces par statut thermique</h2>
+      <div class="subhead">Pour chaque EFA, les sous-catégories SCE OPERAT effectivement utilisées avec leur surface en chauffée, chauffée + rafraîchie, rafraîchie et non chauffée.</div>
+      ${EFA_NAMES.map((name, i) => {
+        const a = aggs[i];
+        if (!a) return '';
+        return `<details class="buildingRow" open>
+          <summary><span class="bName">${esc(name)}</span><span class="bMeta">${fmt(a.totalOperat)} m² OPERAT au total</span></summary>
+          <div class="buildingDetail">${a.lines.length ? linesTable(a.lines, a.totalOperat) : '<div class="subhead">Aucune surface classée pour cet EFA.</div>'}</div>
+        </details>`;
+      }).join('')}
     </div>`;
 }
 
