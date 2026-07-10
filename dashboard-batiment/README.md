@@ -54,6 +54,14 @@ voir ci-dessous).
    l'impression. Grist ne donne pas accès aux widgets custom au nom de la page/vue
    qui les contient, ce bouton est donc le contournement : le titre choisi est
    mémorisé avec le widget (`grist.setOption`), donc persistant.
+9. Bouton **👁 Vue** : ouvre un panneau à cocher pour choisir quelles surfaces
+   (SUN, SUB, SPC, SHOB, SCE) sont affichées. Décocher un type le retire partout où
+   il apparaît : colonne du tableau "Surfaces par niveau", série du graphique en
+   barres empilées, ligne de légende explicative correspondante, colonne de la
+   ligne d'identité dans "Surfaces fonctionnelles du bâtiment", et tout indicateur
+   (KPI) qui en dépend (ex. décocher SUN masque aussi le ratio SUN/Poste et le
+   ratio SUN/SUB). Le choix est mémorisé avec le widget (`grist.setOption`), donc
+   persistant, comme le titre.
 
 Le widget n'a pas de bouton plein écran : Grist en fournit déjà un nativement
 dans l'en-tête de chaque panneau de widget (icône en haut à droite du panneau).
@@ -76,8 +84,9 @@ précis, chaque section a un id HTML stable, dans l'ordre du PDF de référence 
   la miniature elle-même n'étant pas interactive pour ne pas entrer en conflit avec le clic d'ouverture.
 - `#sec-reglementaire` — Informations réglementaires + Date visite/avis commission + Capacité d'accueil
 - `#sec-surfaces-totales` — Emprise au sol, une légende en italique rappelant la définition de chaque
-  acronyme (SUN/SUB/SPC/SHOB), le tableau Surfaces par niveau et un graphique en barres empilées (un
+  acronyme (SUN/SUB/SPC/SHOB/SCE), le tableau Surfaces par niveau et un graphique en barres empilées (un
   type de surface par colonne, les niveaux empilés du Sous-sol en bas au TT en haut) — écran uniquement.
+  Les colonnes/séries/légendes affichées dépendent du menu **👁 Vue** (voir ci-dessous).
 
 **Page 2** (`#page2`, saut de page forcé à l'impression)
 - `#sec-surfaces-fonctionnelles` — identité du bâtiment + blocs "Type de surface fonctionnelle"
@@ -91,6 +100,28 @@ L'indicateur SHON (colonne, ratio SUB/SHON, série du graphique) a été retiré
 (`BDD_Etages.Surface_SHON_m2_`) est saisi manuellement, et n'était pas renseigné pour le bâtiment
 testé. Si vous constatez qu'il l'est pour d'autres bâtiments, dites-le-moi, on pourra le réintégrer
 en le rendant simplement optionnel (masqué seulement quand vide) plutôt que retiré partout.
+
+### SCE ajoutée + menu **👁 Vue** pour choisir les surfaces affichées
+
+La SCE (surface de consommation d'énergie, utilisée pour OPERAT) est lue depuis
+`BDD_Etages.Surface_SCE`, calculée dans Grist sur le même principe que SUN/SUB/SPC/SHOB
+(somme des salles du bâtiment/étage dont le type d'usage a l'indicateur `SCE` coché). Elle
+s'ajoute comme 5e type de surface, avec sa propre légende explicative : « SCE — Surface de
+Consommation d'Énergie : comprend tous les locaux où il y a des consommations d'énergie
+(utilisé pour OPERAT) ».
+
+Comme toutes les surfaces ne sont pas utiles à tout le monde (ex. SUN), le bouton toolbar
+**👁 Vue** ouvre un panneau à cocher (une case par type : SUN, SUB, SPC, SHOB, SCE). Décocher
+un type le masque immédiatement partout où il apparaît :
+- colonne du tableau et série du graphique en barres empilées de "Surfaces par niveau" ;
+- la ligne de légende explicative correspondante ;
+- sa colonne dans la ligne d'identité de "Surfaces fonctionnelles du bâtiment" (uniquement
+  SUN/SUB/SPC, qui sont les seules à y figurer dans le PDF de référence) ;
+- tout indicateur (KPI) qui en dépend : décocher SUN masque le ratio SUN/Poste de travail et
+  le ratio SUN/SUB ; décocher SUB ou SPC masque le ratio correspondant.
+
+Ce choix est propre à chaque instance du widget et persistant (`grist.setOption`), comme le
+titre : il survit à un rafraîchissement de la page ou à la réouverture du document.
 
 ### SPC : acronyme non identifié avec certitude
 
@@ -134,7 +165,7 @@ pas dans le PDF) a été retirée.
 | Type établissement principal / secondaire (1)(2)(3) | 1er, 2e, 3e, 4e élément de `BDD_Batiments.Type_d_ERP2` (liste), code repris depuis `Table_Type_d_ERP` |
 | Catégorie d'établissement               | `BDD_Batiments.Categorie_d_ERP`                                            |
 | Date visite commission / Avis commission / Date du dernier avis commission | `BDD_Batiments.Date_de_visite_de_commission` / `AvisCommission` / `Date_du_dernier_avis` |
-| SUN/SUB/SPC/SHOB par niveau et total | Somme de `BDD_Etages.Surface_SUN_m2_` / `Surface_SUB_m2_` / `Surface_SP_m2_` / `Surface_SHOB_m2_2` (hors étages au Site incohérent) |
+| SUN/SUB/SPC/SHOB/SCE par niveau et total | Somme de `BDD_Etages.Surface_SUN_m2_` / `Surface_SUB_m2_` / `Surface_SP_m2_` / `Surface_SHOB_m2_2` / `Surface_SCE` (hors étages au Site incohérent) |
 | Photo du bâtiment                      | `BDD_Batiments.Photo_batiment` (pièce jointe)                              |
 | Carte de localisation                  | `BDD_Batiments.Latitude` / `Longitude`                                     |
 | Surfaces fonctionnelles (Administration, Enseignement, …) | `BDD_Salles` groupées par `Occupation`, filtrées sur `Type_d_usage.SUB = vrai` |
