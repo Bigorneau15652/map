@@ -179,6 +179,12 @@
   .twoCol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 860px) { .twoCol { grid-template-columns: 1fr; } }
 
+  /* Wider first column than .twoCol — used where the right-hand content is a
+     compact table that doesn't need half the row's width, freeing space for
+     a bigger chart on the left (e.g. the Site view's functional donut). */
+  .twoColWide { display: grid; grid-template-columns: 3fr 2fr; gap: 14px; }
+  @media (max-width: 860px) { .twoColWide { grid-template-columns: 1fr; } }
+
   .pageHeaderFlex { display: flex; gap: 14px; align-items: flex-start; }
   .pageHeaderText { flex: 1; min-width: 0; }
   .pageHeaderPhoto { flex: 0 0 33%; max-width: 33%; display: flex; flex-direction: column; gap: 10px; }
@@ -228,6 +234,7 @@
        narrower paper size is chosen — keeps the donut from being pushed
        below its table where it could overflow into the next section. */
     .twoCol { grid-template-columns: 1fr 1fr !important; }
+    .twoColWide { grid-template-columns: 3fr 2fr !important; }
     /* Number of KPI cards varies with the "Vue" selection, so let auto-fit
        (same rule as on screen) lay them out rather than forcing a fixed
        column count that would leave gaps when fewer are visible. */
@@ -433,9 +440,19 @@
           <thead><tr id="rowSiteSurfIdentityHead"><th>Numéro</th><th>Nom du site</th><th>Nombre de bâtiments</th></tr></thead>
           <tbody><tr id="rowSiteSurfIdentity"></tr></tbody>
         </table>
-        <div class="subhead" style="margin-top:10px; margin-bottom:2px">Surface SUB en m² par occupation fonctionnelle (site)</div>
-        <div class="chartWrap keep-print"><canvas id="siteFuncChart"></canvas></div>
-        <div id="siteFuncBlocks" style="margin-top:10px"></div>
+        <div class="twoColWide" style="margin-top:10px">
+          <div>
+            <div class="subhead" style="margin-bottom:2px">Surface SUB en m² par occupation fonctionnelle (site)</div>
+            <div class="chartWrap wide keep-print"><canvas id="siteFuncChart"></canvas></div>
+          </div>
+          <div>
+            <table class="data" id="siteFuncTable">
+              <thead><tr><th>Type de surface fonctionnelle</th><th>Surface m² SUB</th><th>Nbre de locaux</th></tr></thead>
+              <tbody></tbody>
+              <tfoot></tfoot>
+            </table>
+          </div>
+        </div>
       </div>
 
       <div class="card" id="sec-site-repartition-bureau">
@@ -825,7 +842,28 @@ function renderSiteFunctional(site, siteBats, kpi, siteSalles) {
   ].map(v => `<td>${escapeHtml(String(v ?? '—'))}</td>`).join('');
 
   const rows = computeFunctionalGroups(siteSalles);
-  renderFunctionalBlocks('siteFuncBlocks', 'siteFuncChart', rows, { legendPosition: 'bottom' });
+  drawDonutChart('siteFuncChart', {
+    labels: rows.map(([label]) => label),
+    data: rows.map(([, g]) => g.surface),
+  }, { legendPosition: 'bottom' });
+  renderFunctionalTable('siteFuncTable', rows);
+}
+
+// Site view only: one row per occupation category (Administration,
+// Enseignement, …) instead of the Bâtiment view's PDF-mirroring layout
+// (category names as column headers, grouped into blocks of 3) — with
+// potentially more categories once every bâtiment of a site is pooled
+// together, a plain row-per-category table stays compact and leaves the
+// donut next to it room to be bigger.
+function renderFunctionalTable(tableId, rows) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  const tfoot = document.querySelector(`#${tableId} tfoot`);
+  tbody.innerHTML = rows.map(([label, g]) =>
+    `<tr><td>${escapeHtml(label)}</td><td>${fmtNum(g.surface, 2)}</td><td>${g.count}</td></tr>`
+  ).join('');
+  const totalSurface = rows.reduce((a, [, g]) => a + g.surface, 0);
+  const totalCount = rows.reduce((a, [, g]) => a + g.count, 0);
+  tfoot.innerHTML = `<tr><td>Total</td><td>${fmtNum(totalSurface, 2)}</td><td>${totalCount}</td></tr>`;
 }
 
 function renderWarnings(bat, batSalles, batEtages, excludedSalles, excludedEtages) {
@@ -1229,6 +1267,23 @@ function destroyChart(id) {
   if (charts[id]) { charts[id].destroy(); delete charts[id]; }
 }
 
+// Chart.js can occasionally paint its very first frame before the browser has
+// finished laying out a container that was just switched from display:none —
+// most visible on the Site view's stacked bar chart (one dataset per
+// bâtiment): the bars get compressed into the wrong x-position instead of
+// spread across the categories, though the chart's internal geometry model is
+// already correct by the time you inspect it. It's a rendering race, not a
+// data or config bug (confirmed by comparing chart.getDatasetMeta() against
+// what was actually painted). Forcing one resize a frame later, once layout
+// has settled, reliably corrects it with no visible flicker when nothing was
+// actually wrong.
+function scheduleRepaint(canvasId) {
+  requestAnimationFrame(() => {
+    const chart = charts[canvasId];
+    if (chart) { chart.resize(); }
+  });
+}
+
 function drawBarChart(canvasId, data, opts) {
   const stacked = !!(opts && opts.stacked);
   // Suppress the legend explicitly when there are too many datasets to name
@@ -1247,6 +1302,7 @@ function drawBarChart(canvasId, data, opts) {
       scales: { x: { stacked }, y: { stacked, beginAtZero: true } },
     },
   });
+  scheduleRepaint(canvasId);
 }
 
 // Donut with % labels on each slice, mirroring the "Surface SUB en m² par
@@ -1281,6 +1337,7 @@ function drawDonutChart(canvasId, { labels, data }, opts) {
     },
     plugins: [window.ChartDataLabels],
   });
+  scheduleRepaint(canvasId);
 }
 
 // ---------------------------------------------------------------------------
