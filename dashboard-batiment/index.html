@@ -69,6 +69,10 @@
   button:hover { background: var(--accent-light); border-color: var(--accent); }
   #status { font-size: 11px; color: var(--text-muted); align-self: center; margin-left: auto; }
 
+  .modeGroup { display: flex; gap: 4px; }
+  .modeBtn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .modeBtn.active:hover { background: var(--accent); }
+
   .viewPanel {
     position: absolute; top: 100%; left: 0; margin-top: 4px;
     background: #fff; border: 1px solid var(--border); border-radius: 6px;
@@ -182,7 +186,7 @@
     width: 100%; height: auto; max-height: 260px; display: block;
     border-radius: 8px; border: 1px solid var(--border); object-fit: contain;
   }
-  #batMap { width: 100%; height: 200px; border-radius: 8px; border: 1px solid var(--border); }
+  #batMap, #siteMap { width: 100%; height: 200px; border-radius: 8px; border: 1px solid var(--border); }
   .clickToEnlarge { cursor: pointer; }
   .clickToEnlarge:hover { opacity: 0.9; }
   @media (max-width: 700px) { .pageHeaderFlex { flex-direction: column; } .pageHeaderPhoto { max-width: 100%; flex-direction: row; } }
@@ -207,7 +211,7 @@
 
   @media print {
     @page { size: A4 landscape; margin: 10mm; }
-    #toolbar, #warnings, #status { display: none !important; }
+    #toolbar, #warnings, #siteWarnings, #status { display: none !important; }
     /* Only the donut chart is part of the reference PDF (page 2, "Surfaces
        fonctionnelles") — other charts (floor bars) were added on top for the
        on-screen view and are hidden at print time to keep the 2-page layout. */
@@ -227,7 +231,7 @@
        photo (or a full-height map) must not push "Informations réglementaires"
        onto an extra page. */
     .pageHeaderPhoto img { max-height: 110px; }
-    #batMap { height: 110px; }
+    #batMap, #siteMap { height: 110px; }
     body { background: #fff; font-size: 9.5px; }
     #content { max-width: none; padding: 0; }
     .card { border: none; box-shadow: none; padding: 6px 0; margin-bottom: 6px; break-inside: avoid; }
@@ -236,6 +240,14 @@
     .kpi .value { font-size: 14px; }
     table.data th, table.data td { padding: 2px 5px; }
     .page-break { break-before: page; }
+    /* Browsers repeat a <tfoot> at the bottom of every printed page fragment
+       of a table by default (it's a "table-footer-group"), not just the
+       last one — with a short building-level table (~10 floors) this never
+       showed, but the site-level table (one row per bâtiment, up to several
+       dozen) can span pages, and the "Total" row was appearing twice with
+       the exact same (already-final) numbers. Demoting it to a plain row
+       group makes it print only once, where the markup actually places it. */
+    table.data tfoot { display: table-row-group; }
   }
 </style>
 </head>
@@ -246,9 +258,16 @@
     <label for="siteSelect">Site</label>
     <select id="siteSelect"><option value="">— choisir —</option></select>
   </div>
-  <div class="field">
+  <div class="field" id="batField">
     <label for="batSelect">Bâtiment</label>
     <select id="batSelect"><option value="">— choisir —</option></select>
+  </div>
+  <div class="field">
+    <label>&nbsp;</label>
+    <div class="modeGroup">
+      <button id="modeBatBtn" class="modeBtn active" title="Synthèse à l'échelle du bâtiment">🏢 Bâtiment</button>
+      <button id="modeSiteBtn" class="modeBtn" title="Synthèse agrégée à l'échelle du site">🏙️ Site</button>
+    </div>
   </div>
   <button id="refreshBtn" title="Recharger les données du document">⟳ Actualiser</button>
   <button id="printBtn" title="Imprimer / exporter en PDF">🖶 Imprimer</button>
@@ -263,7 +282,7 @@
 
 <div id="content">
   <div id="emptyState">Sélectionnez un site, puis un bâtiment, pour afficher le tableau de bord.</div>
-  <div id="dashboard" style="display:none">
+  <div id="dashboardBatiment" style="display:none">
 
     <div id="warnings"></div>
 
@@ -355,6 +374,84 @@
     </div>
 
   </div>
+
+  <div id="dashboardSite" style="display:none">
+
+    <div id="siteWarnings"></div>
+
+    <!-- ============================= PAGE 3 (Site) ============================= -->
+    <div id="page3">
+
+      <div class="pageHeaderFlex">
+        <div class="pageHeaderText">
+          <div class="card" id="sec-site">
+            <h2>Site</h2>
+            <table class="data">
+              <thead><tr><th>Numéro</th><th>Nom du site</th><th>Adresse</th><th>Numéro Chorus</th></tr></thead>
+              <tbody><tr id="rowSite"></tr></tbody>
+            </table>
+          </div>
+
+          <div class="card" id="sec-site-kpi">
+            <div class="kpiGrid" id="siteKpiGrid"></div>
+          </div>
+        </div>
+
+        <div class="pageHeaderPhoto">
+          <div id="siteMapWrap" class="clickToEnlarge" style="display:none">
+            <div id="siteMap"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="sec-site-surfaces-totales">
+        <h2>Surfaces totales et par bâtiment</h2>
+        <div class="subhead" id="siteEmpriseAuSol"></div>
+        <div class="surfaceDefs" id="siteSurfaceDefs"></div>
+        <div class="twoCol">
+          <div>
+            <table class="data" id="siteFloorTable">
+              <thead><tr id="siteFloorTableHead"><th></th></tr></thead>
+              <tbody></tbody>
+              <tfoot></tfoot>
+            </table>
+          </div>
+          <div class="chartWrap"><canvas id="siteFloorChart"></canvas></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============================= PAGE 4 (Site) ============================= -->
+    <div id="page4" class="page-break">
+
+      <div class="card" id="sec-site-surfaces-fonctionnelles">
+        <h2>Surfaces fonctionnelles Site</h2>
+        <table class="data">
+          <thead><tr id="rowSiteSurfIdentityHead"><th>Numéro</th><th>Nom du site</th><th>Nombre de bâtiments</th></tr></thead>
+          <tbody><tr id="rowSiteSurfIdentity"></tr></tbody>
+        </table>
+        <div class="twoCol" style="margin-top:10px">
+          <div id="siteFuncBlocks"></div>
+          <div>
+            <div class="subhead" style="margin-bottom:2px">Surface SUB en m² par occupation fonctionnelle (site)</div>
+            <div class="chartWrap keep-print"><canvas id="siteFuncChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="sec-site-repartition-bureau">
+        <h2>Répartition des surfaces de bureau et salles de cours (site)</h2>
+        <table class="data" id="siteOfficeTable">
+          <thead><tr><th></th><th></th><th>Surface m² SUB</th><th>Nombre</th></tr></thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+
+    </div>
+
+  </div>
 </div>
 
 <div id="lightbox" class="lightboxOverlay" style="display:none">
@@ -419,6 +516,9 @@ let charts = {};
 const els = {
   siteSelect: document.getElementById('siteSelect'),
   batSelect: document.getElementById('batSelect'),
+  batField: document.getElementById('batField'),
+  modeBatBtn: document.getElementById('modeBatBtn'),
+  modeSiteBtn: document.getElementById('modeSiteBtn'),
   refreshBtn: document.getElementById('refreshBtn'),
   printBtn: document.getElementById('printBtn'),
   titleBtn: document.getElementById('titleBtn'),
@@ -426,11 +526,18 @@ const els = {
   viewPanel: document.getElementById('viewPanel'),
   status: document.getElementById('status'),
   emptyState: document.getElementById('emptyState'),
-  dashboard: document.getElementById('dashboard'),
+  dashboardBatiment: document.getElementById('dashboardBatiment'),
+  dashboardSite: document.getElementById('dashboardSite'),
   warnings: document.getElementById('warnings'),
+  siteWarnings: document.getElementById('siteWarnings'),
 };
 
 const DEFAULT_TITLE = 'Tableau de bord Bâtiment';
+
+// 'batiment' shows page1/page2 (one building); 'site' shows page3/page4
+// (every building of the selected site aggregated together). Persisted per
+// widget via grist.setOption, like the title and the "Vue" selection.
+let mode = 'batiment';
 
 // ---------------------------------------------------------------------------
 // Surface types shown in "Surfaces totales et par niveau" (table + graphique)
@@ -529,15 +636,21 @@ function escapeHtml(s) {
 // ---------------------------------------------------------------------------
 // Rendering
 // ---------------------------------------------------------------------------
+function renderCurrentView() {
+  if (mode === 'site') { renderSiteDashboard(); } else { renderDashboard(); }
+}
+
 function renderDashboard() {
+  els.dashboardSite.style.display = 'none';
   const batId = Number(els.batSelect.value) || null;
   if (!batId) {
+    els.emptyState.textContent = 'Sélectionnez un site, puis un bâtiment, pour afficher le tableau de bord.';
     els.emptyState.style.display = '';
-    els.dashboard.style.display = 'none';
+    els.dashboardBatiment.style.display = 'none';
     return;
   }
   els.emptyState.style.display = 'none';
-  els.dashboard.style.display = '';
+  els.dashboardBatiment.style.display = '';
 
   const bat = batiments.find(b => b.id === batId);
   const allBatEtages = etages.filter(e => e.Batiment === batId);
@@ -562,7 +675,156 @@ function renderDashboard() {
   renderReglementaire(bat);
   renderFloors(batEtages);
   renderFunctional(bat, kpi, batSalles);
-  renderOfficeBreakdown(batSalles);
+  renderOfficeBreakdown(batSalles, '#officeTable');
+}
+
+// ---------------------------------------------------------------------------
+// Rendering — Site (aggregates every building of the selected site: same
+// surface types / Vue menu / KPIs / donut / office breakdown as the Bâtiment
+// view, but with "one row per bâtiment" instead of "one row per étage".
+// ---------------------------------------------------------------------------
+function renderSiteDashboard() {
+  els.dashboardBatiment.style.display = 'none';
+  const siteId = Number(els.siteSelect.value) || null;
+  if (!siteId) {
+    els.emptyState.textContent = 'Sélectionnez un site pour afficher la synthèse à l\'échelle du site.';
+    els.emptyState.style.display = '';
+    els.dashboardSite.style.display = 'none';
+    return;
+  }
+  els.emptyState.style.display = 'none';
+  els.dashboardSite.style.display = '';
+
+  const site = siteById[siteId];
+  const siteBats = batiments.filter(b => b.Site === siteId);
+  const batIds = new Set(siteBats.map(b => b.id));
+  const allSiteEtages = etages.filter(e => batIds.has(e.Batiment));
+  const allSiteSalles = salles.filter(s => batIds.has(s.Batiment));
+  // Same Site-consistency guard as at building scale: a room/floor row can be
+  // linked to a bâtiment of this site while its own Site field still points
+  // elsewhere (see README) — exclude those from the site totals too.
+  const excludedSalles = allSiteSalles.filter(s => s.Site && s.Site !== siteId);
+  const siteSalles = allSiteSalles.filter(s => !excludedSalles.includes(s));
+  const excludedEtages = allSiteEtages.filter(e => e.Site && e.Site !== siteId);
+  const siteEtages = allSiteEtages.filter(e => !excludedEtages.includes(e));
+
+  renderSiteWarnings(site, siteBats, excludedSalles, excludedEtages);
+  renderSiteInfo(site);
+  renderSiteMap(site);
+  const kpi = renderSiteKpis(site, siteBats, siteEtages, siteSalles);
+  renderSiteSurfaces(siteBats, siteEtages);
+  renderSiteFunctional(site, siteBats, kpi, siteSalles);
+  renderOfficeBreakdown(siteSalles, '#siteOfficeTable');
+}
+
+function renderSiteWarnings(site, siteBats, excludedSalles, excludedEtages) {
+  const warnings = [];
+  if (siteBats.length === 0) {
+    warnings.push(`Aucun bâtiment n'est rattaché à ce site dans <b>BDD_Batiments</b>.`);
+  }
+  if (excludedSalles.length > 0) {
+    const examples = excludedSalles.slice(0, 8).map(s => s.Numero || ('#' + s.id)).join(', ');
+    const more = excludedSalles.length > 8 ? `, et ${excludedSalles.length - 8} autre(s)` : '';
+    warnings.push(
+      `<b>${excludedSalles.length} local(-aux)</b> appartiennent à un bâtiment de ce site mais leur propre champ ` +
+      `« Site » indique un site différent : ils sont probablement mal rattachés et ont été exclus des totaux. ` +
+      `Numéros de local à vérifier dans <b>BDD_Salles</b> : ${escapeHtml(examples)}${escapeHtml(more)}.`
+    );
+  }
+  if (excludedEtages.length > 0) {
+    const details = excludedEtages.map(e => `« ${e.Etage || '?'} » (id_etage ${e.id_etage ?? e.id})`).join(', ');
+    warnings.push(
+      `<b>${excludedEtages.length} ligne(s) d'étage</b> appartiennent à un bâtiment de ce site mais leur propre champ ` +
+      `« Site » indique un site différent : ${escapeHtml(details)}. Elles ont été exclues du tableau ` +
+      `« Surfaces totales et par bâtiment » ci-dessous. Vérifiez leur colonne Site dans <b>BDD_Etages</b>.`
+    );
+  }
+  els.siteWarnings.innerHTML = warnings.map(w => `<div class="w">⚠️ ${w}</div>`).join('');
+}
+
+function renderSiteInfo(site) {
+  document.getElementById('rowSite').innerHTML = [
+    site.Numero, site.Nom, site.Adresse, site.Numero_Chorus,
+  ].map(v => `<td>${escapeHtml(v ?? '—')}</td>`).join('');
+}
+
+function renderSiteKpis(site, siteBats, siteEtages, siteSalles) {
+  const SUN = sum(siteEtages, e => e.Surface_SUN_m2_);
+  const SUB = sum(siteEtages, e => e.Surface_SUB_m2_);
+  const SPC = sum(siteEtages, e => e.Surface_SP_m2_);
+  const nbPostes = sum(siteSalles, s => s.Nb_de_postes_de_travail);
+
+  const ratioSunPoste = nbPostes > 0 ? SUN / nbPostes : null;
+  const ratioSunSub = SUB > 0 ? (SUN / SUB) * 100 : null;
+  const ratioSubSpc = SPC > 0 ? (SUB / SPC) * 100 : null;
+
+  const kpis = [
+    { label: 'Nombre de bâtiments', value: fmtNum(siteBats.length), cls: '', show: true },
+    { label: 'Nombre de postes de travail', value: fmtNum(nbPostes), cls: '', show: true },
+    { label: 'Nombre de places de stationnement', value: fmtNum(site.Nombre_de_places_de_stationnement), cls: '', show: true },
+    { label: 'Dont places PMR', value: fmtNum(site.Nombre_de_places_PMR), cls: '', show: true },
+    {
+      label: "Ratio d'occupation SUN/Poste de travail (cible 12m²)",
+      value: ratioSunPoste === null ? '—' : fmtNum(ratioSunPoste, 1),
+      cls: ratioSunPoste === null ? '' : (ratioSunPoste <= 15 ? 'ok' : ratioSunPoste <= 20 ? 'warn' : 'bad'),
+      show: visibleTypes.has('SUN'),
+    },
+    {
+      label: "Ratio d'optimisation de la capacité d'accueil SUN/SUB (cible > 67%)",
+      value: fmtPct(ratioSunSub),
+      cls: ratioSunSub === null ? '' : (ratioSunSub >= 67 ? 'ok' : ratioSunSub >= 55 ? 'warn' : 'bad'),
+      show: visibleTypes.has('SUN') && visibleTypes.has('SUB'),
+    },
+    {
+      label: "Ratio d'optimisation de la conception (SPC) SUB/SPC (cible > 85%)",
+      value: fmtPct(ratioSubSpc),
+      cls: ratioSubSpc === null ? '' : (ratioSubSpc >= 85 ? 'ok' : ratioSubSpc >= 70 ? 'warn' : 'bad'),
+      show: visibleTypes.has('SUB') && visibleTypes.has('SPC'),
+    },
+  ].filter(k => k.show);
+
+  document.getElementById('siteKpiGrid').innerHTML = kpis.map(k =>
+    `<div class="kpi ${k.cls}">
+       <div class="label">${escapeHtml(k.label)}</div>
+       <div class="value">${k.value}</div>
+     </div>`
+  ).join('');
+
+  const empriseTotal = sum(siteBats, b => b.Surface_emprise_au_sol_m2_);
+  document.getElementById('siteEmpriseAuSol').textContent =
+    `Emprise au sol totale : ${fmtNum(empriseTotal)} m²`;
+
+  return { SUN, SUB, SPC, nbPostes };
+}
+
+function renderSiteSurfaces(siteBats, siteEtages) {
+  const rows = [...siteBats].sort((a, b) => (a.Numero || 0) - (b.Numero || 0)).map(bat => {
+    const bEtages = siteEtages.filter(e => e.Batiment === bat.id);
+    const vals = {};
+    for (const t of SURFACE_TYPES) { vals[t.key] = sum(bEtages, e => e[t.etageField]); }
+    return { bat, vals };
+  });
+  return renderSurfacesBreakdown(
+    {
+      defs: 'siteSurfaceDefs', thead: 'siteFloorTableHead',
+      tbody: '#siteFloorTable tbody', tfoot: '#siteFloorTable tfoot',
+      chart: 'siteFloorChart', totalLabel: 'Total site en m²',
+    },
+    rows, r => formatBatLabel(r.bat), (r, t) => r.vals[t.key]
+  );
+}
+
+function renderSiteFunctional(site, siteBats, kpi, siteSalles) {
+  const identityCols = SURFACE_TYPES.filter(t => t.inIdentityRow && visibleTypes.has(t.key));
+  document.getElementById('rowSiteSurfIdentityHead').innerHTML =
+    '<th>Numéro</th><th>Nom du site</th><th>Nombre de bâtiments</th>' +
+    identityCols.map(t => `<th>${escapeHtml(t.label)}</th>`).join('');
+  document.getElementById('rowSiteSurfIdentity').innerHTML = [
+    site.Numero, site.Nom, siteBats.length, ...identityCols.map(t => fmtNum(kpi[t.key])),
+  ].map(v => `<td>${escapeHtml(String(v ?? '—'))}</td>`).join('');
+
+  const rows = computeFunctionalGroups(siteSalles);
+  renderFunctionalBlocks('siteFuncBlocks', 'siteFuncChart', rows, { legendPosition: 'bottom' });
 }
 
 function renderWarnings(bat, batSalles, batEtages, excludedSalles, excludedEtages) {
@@ -670,30 +932,46 @@ async function renderPhoto(bat) {
 // ---------------------------------------------------------------------------
 const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-let miniMap = null, miniMarker = null, currentLatLng = null;
+
+// Factory for the small static-looking preview map — used once for the
+// building's map (#batMap) and once for the site's map (#siteMap), each
+// keeping its own Leaflet instance/marker/current position.
+function createMiniMapController(divId) {
+  let map = null, marker = null, latLng = null;
+  return {
+    render(wrapEl, lat, lng) {
+      if (!lat || !lng || typeof L === 'undefined') {
+        wrapEl.style.display = 'none';
+        latLng = null;
+        return;
+      }
+      latLng = [lat, lng];
+      wrapEl.style.display = '';
+      if (!map) {
+        map = L.map(divId, {
+          zoomControl: false, dragging: false, scrollWheelZoom: false,
+          doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, tap: false,
+        });
+        L.tileLayer(OSM_TILE_URL, { attribution: OSM_ATTRIBUTION, maxZoom: 19 }).addTo(map);
+        marker = L.marker(latLng).addTo(map);
+      } else {
+        marker.setLatLng(latLng);
+      }
+      map.setView(latLng, 17);
+      setTimeout(() => map.invalidateSize(), 50);
+    },
+    getLatLng() { return latLng; },
+    invalidateSize() { if (map) { map.invalidateSize(); } },
+  };
+}
+const batMapCtrl = createMiniMapController('batMap');
+const siteMapCtrl = createMiniMapController('siteMap');
 
 function renderMap(bat) {
-  const wrap = document.getElementById('batMapWrap');
-  const lat = bat.Latitude, lng = bat.Longitude;
-  if (!lat || !lng || typeof L === 'undefined') {
-    wrap.style.display = 'none';
-    currentLatLng = null;
-    return;
-  }
-  currentLatLng = [lat, lng];
-  wrap.style.display = '';
-  if (!miniMap) {
-    miniMap = L.map('batMap', {
-      zoomControl: false, dragging: false, scrollWheelZoom: false,
-      doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, tap: false,
-    });
-    L.tileLayer(OSM_TILE_URL, { attribution: OSM_ATTRIBUTION, maxZoom: 19 }).addTo(miniMap);
-    miniMarker = L.marker(currentLatLng).addTo(miniMap);
-  } else {
-    miniMarker.setLatLng(currentLatLng);
-  }
-  miniMap.setView(currentLatLng, 17);
-  setTimeout(() => miniMap.invalidateSize(), 50);
+  batMapCtrl.render(document.getElementById('batMapWrap'), bat.Latitude, bat.Longitude);
+}
+function renderSiteMap(site) {
+  siteMapCtrl.render(document.getElementById('siteMapWrap'), site.Latitude, site.Longitude);
 }
 
 function formatDate(v) {
@@ -718,20 +996,46 @@ function renderReglementaire(bat) {
   ].map(v => `<td>${v}</td>`).join('');
 }
 
+// Shared by the Bâtiment view (rows = étages) and the Site view (rows = one
+// aggregate per bâtiment) — same Vue-menu-driven columns/captions/chart,
+// just a different row axis and value lookup.
+function renderSurfacesBreakdown(ids, rows, rowLabel, getValue) {
+  const cols = SURFACE_TYPES.filter(t => visibleTypes.has(t.key));
+
+  document.getElementById(ids.defs).innerHTML = cols.map(t => `<div>${t.caption}</div>`).join('');
+
+  const thead = document.getElementById(ids.thead);
+  const tbody = document.querySelector(ids.tbody);
+  const tfoot = document.querySelector(ids.tfoot);
+  thead.innerHTML = `<th></th>${cols.map(t => `<th>${escapeHtml(t.label)}</th>`).join('')}`;
+
+  tbody.innerHTML = rows.map(r =>
+    `<tr><td>${escapeHtml(rowLabel(r))}</td>` +
+    cols.map(t => `<td>${fmtNum(getValue(r, t))}</td>`).join('') +
+    `</tr>`
+  ).join('');
+
+  const totals = {};
+  for (const t of cols) { totals[t.key] = sum(rows, r => getValue(r, t)); }
+  tfoot.innerHTML = `<tr><td>${escapeHtml(ids.totalLabel)}</td>${cols.map(t => `<td>${fmtNum(totals[t.key])}</td>`).join('')}</tr>`;
+
+  drawBarChart(ids.chart, {
+    labels: cols.map(t => t.label),
+    datasets: rows.map((r, i) => ({
+      label: rowLabel(r),
+      data: cols.map(t => getValue(r, t) || 0),
+      backgroundColor: palette(i),
+    })),
+  }, { stacked: true });
+
+  return totals;
+}
+
 function renderFloors(batEtages) {
   const rows = [...batEtages].sort((a, b) => {
     const ka = floorSortKey(a.Etage), kb = floorSortKey(b.Etage);
     return ka[0] - kb[0] || (ka[1] > kb[1] ? 1 : ka[1] < kb[1] ? -1 : 0);
   });
-
-  const cols = SURFACE_TYPES.filter(t => visibleTypes.has(t.key));
-
-  document.getElementById('surfaceDefs').innerHTML = cols.map(t => `<div>${t.caption}</div>`).join('');
-
-  const thead = document.getElementById('floorTableHead');
-  const tbody = document.querySelector('#floorTable tbody');
-  const tfoot = document.querySelector('#floorTable tfoot');
-  thead.innerHTML = `<th></th>${cols.map(t => `<th>${escapeHtml(t.label)}</th>`).join('')}`;
 
   const labelCounts = {};
   for (const r of rows) { const l = r.Etage || '—'; labelCounts[l] = (labelCounts[l] || 0) + 1; }
@@ -740,30 +1044,18 @@ function renderFloors(batEtages) {
     return labelCounts[l] > 1 ? `${l} (id ${r.id_etage ?? r.id})` : l;
   };
 
-  tbody.innerHTML = rows.map(r =>
-    `<tr><td>${escapeHtml(rowLabel(r))}</td>` +
-    cols.map(t => `<td>${fmtNum(r[t.etageField])}</td>`).join('') +
-    `</tr>`
-  ).join('');
-
-  const totals = {};
-  for (const t of cols) { totals[t.key] = sum(rows, r => r[t.etageField]); }
-  tfoot.innerHTML = `<tr><td>Total bâtiment en m²</td>${cols.map(t => `<td>${fmtNum(totals[t.key])}</td>`).join('')}</tr>`;
-
   // Grouped by surface type on the X axis, one stacked bar per type with
   // floors piled bottom (Sous-sol) to top (TT) — `rows` is already sorted in
   // that order via floorSortKey above, and Chart.js stacks datasets in array
   // order with the first one at the bottom.
-  drawBarChart('floorChart', {
-    labels: cols.map(t => t.label),
-    datasets: rows.map((r, i) => ({
-      label: rowLabel(r),
-      data: cols.map(t => r[t.etageField] || 0),
-      backgroundColor: palette(i),
-    })),
-  }, { stacked: true });
-
-  return totals;
+  return renderSurfacesBreakdown(
+    {
+      defs: 'surfaceDefs', thead: 'floorTableHead',
+      tbody: '#floorTable tbody', tfoot: '#floorTable tfoot',
+      chart: 'floorChart', totalLabel: 'Total bâtiment en m²',
+    },
+    rows, rowLabel, (r, t) => r[t.etageField]
+  );
 }
 
 function renderKpis(bat, batEtages, batSalles) {
@@ -824,23 +1116,34 @@ function renderFunctional(bat, kpi, batSalles) {
     bat.Numero, bat.Appellation, bat.Nom, ...identityCols.map(t => fmtNum(kpi[t.key])),
   ].map(v => `<td>${escapeHtml(String(v ?? '—'))}</td>`).join('');
 
+  renderFunctionalBlocks('funcBlocks', 'funcChart', computeFunctionalGroups(batSalles));
+}
+
+// Rooms grouped by Occupation, restricted to SUB-counted rooms (as in the
+// source document) — shared by the Bâtiment view (one building's rooms) and
+// the Site view (every room of every building in the site, pooled together).
+function computeFunctionalGroups(salleRows) {
   const groups = {};
-  for (const s of batSalles) {
+  for (const s of salleRows) {
     const type = s.Type_d_usage ? typeById[s.Type_d_usage] : null;
-    if (!type || !type.SUB) { continue; } // only surfaces counted in SUB, as in the source document
+    if (!type || !type.SUB) { continue; }
     const occ = s.Occupation ? occById[s.Occupation] : null;
     const label = occ ? occ.Libelle : 'Non classé';
     if (!groups[label]) { groups[label] = { surface: 0, count: 0 }; }
     groups[label].surface += s.Surface_utile_m2_ || 0;
     groups[label].count += 1;
   }
-  const rows = Object.entries(groups).sort((a, b) => b[1].surface - a[1].surface);
+  return Object.entries(groups).sort((a, b) => b[1].surface - a[1].surface);
+}
 
-  // Mini-tables grouped exactly as in the reference PDF's "Type de surface
-  // fonctionnelle" blocks (category names as column headers). Any category
-  // present in the data but not part of the PDF's three named groups (e.g. a
-  // building with an extra "Vie Sociale" occupation) still gets shown, just
-  // folded into extra blocks of up to 3 columns rather than silently dropped.
+// Mini-tables grouped exactly as in the reference PDF's "Type de surface
+// fonctionnelle" blocks (category names as column headers), plus the donut
+// chart. Any category present in the data but not part of the PDF's three
+// named groups (e.g. an extra "Vie Sociale" occupation) still gets shown,
+// just folded into extra blocks of up to 3 columns rather than silently
+// dropped.
+function renderFunctionalBlocks(blocksElId, chartId, rows, chartOpts) {
+  const groups = Object.fromEntries(rows);
   const PDF_GROUPS = [
     ['Administration', 'Enseignement', 'Salles banalisées'],
     ['Documentation', 'Logistique et locaux techniques'],
@@ -862,18 +1165,18 @@ function renderFunctional(bat, kpi, batSalles) {
       </tbody>
     </table>`;
   }).join('');
-  document.getElementById('funcBlocks').innerHTML = blocksHtml;
+  document.getElementById(blocksElId).innerHTML = blocksHtml;
 
-  drawDonutChart('funcChart', {
+  drawDonutChart(chartId, {
     labels: rows.map(([label]) => label),
     data: rows.map(([, g]) => g.surface),
-  });
+  }, chartOpts);
 }
 
 // "Répartition des surfaces de bureau et salles de cours" — cross-tab of room type
 // (Bureau / Salle de cours) × Occupation, restricted to SUB-counted rooms, mirroring
 // the same table in the reference PDF.
-function renderOfficeBreakdown(batSalles) {
+function renderOfficeBreakdown(batSalles, tableSel) {
   const LABELS = { 'Bureau': 'Surface de bureau', 'Salle de cours': 'Salle de cours (salle destinée à des personnels tiers à l\'Administration)' };
   const groups = {};
   for (const s of batSalles) {
@@ -888,8 +1191,8 @@ function renderOfficeBreakdown(batSalles) {
   }
   const rows = Object.values(groups).sort((a, b) => b.surface - a.surface);
 
-  const tbody = document.querySelector('#officeTable tbody');
-  const tfoot = document.querySelector('#officeTable tfoot');
+  const tbody = document.querySelector(`${tableSel} tbody`);
+  const tfoot = document.querySelector(`${tableSel} tfoot`);
   tbody.innerHTML = rows.map(g =>
     `<tr><td>${escapeHtml(LABELS[g.typeLabel])}</td><td>${escapeHtml(g.occLabel)}</td><td>${fmtNum(g.surface, 2)}</td><td>${g.count}</td></tr>`
   ).join('');
@@ -928,9 +1231,14 @@ function drawBarChart(canvasId, data, opts) {
 }
 
 // Donut with % labels on each slice, mirroring the "Surface SUB en m² par
-// occupation fonctionnelle" chart from the reference PDF.
-function drawDonutChart(canvasId, { labels, data }) {
+// occupation fonctionnelle" chart from the reference PDF. legendPosition
+// defaults to 'right' (as in the PDF) but the Site view, which pools every
+// building's occupations together, can end up with more distinct categories
+// than fit in that narrow fixed-width column without clipping — 'bottom'
+// lets Chart.js wrap the legend across as many lines as needed instead.
+function drawDonutChart(canvasId, { labels, data }, opts) {
   destroyChart(canvasId);
+  const legendPosition = (opts && opts.legendPosition) || 'right';
   const ctx = document.getElementById(canvasId).getContext('2d');
   const total = data.reduce((a, v) => a + v, 0);
   charts[canvasId] = new Chart(ctx, {
@@ -943,7 +1251,7 @@ function drawDonutChart(canvasId, { labels, data }) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10.5 } } },
+        legend: { position: legendPosition, labels: { boxWidth: 12, font: { size: 10.5 } } },
         datalabels: {
           color: '#fff',
           font: { size: 11, weight: 'bold' },
@@ -959,24 +1267,40 @@ function drawDonutChart(canvasId, { labels, data }) {
 // ---------------------------------------------------------------------------
 // Events
 // ---------------------------------------------------------------------------
-els.siteSelect.addEventListener('change', () => { populateBatSelect(); renderDashboard(); });
-els.batSelect.addEventListener('change', renderDashboard);
+els.siteSelect.addEventListener('change', () => { populateBatSelect(); renderCurrentView(); });
+els.batSelect.addEventListener('change', () => { if (mode === 'batiment') { renderDashboard(); } });
 els.refreshBtn.addEventListener('click', async () => {
   const site = els.siteSelect.value, bat = els.batSelect.value;
   await loadAll();
   if (site) { els.siteSelect.value = site; }
   populateBatSelect();
   if (bat) { els.batSelect.value = bat; }
-  renderDashboard();
+  renderCurrentView();
   setStatus('Actualisé.');
 });
 els.printBtn.addEventListener('click', () => window.print());
-// The donut canvas / mini-map keep the pixel size they had on screen unless
+// The donut canvas / mini-maps keep the pixel size they had on screen unless
 // told to resize — without this they can overflow the smaller print layout.
 window.addEventListener('beforeprint', () => {
   Object.values(charts).forEach(c => c.resize());
-  if (miniMap) { miniMap.invalidateSize(); }
+  batMapCtrl.invalidateSize();
+  siteMapCtrl.invalidateSize();
 });
+
+// ---------------------------------------------------------------------------
+// Mode : "🏢 Bâtiment" (une fiche par bâtiment, pages 1-2) ou "🏙️ Site"
+// (agrégat de tous les bâtiments du site sélectionné, pages 3-4). Le menu
+// Bâtiment n'a pas de sens en mode Site, il est donc masqué.
+// ---------------------------------------------------------------------------
+function setMode(next) {
+  mode = next;
+  els.modeBatBtn.classList.toggle('active', mode === 'batiment');
+  els.modeSiteBtn.classList.toggle('active', mode === 'site');
+  els.batField.style.display = mode === 'site' ? 'none' : '';
+  renderCurrentView();
+}
+els.modeBatBtn.addEventListener('click', async () => { setMode('batiment'); await grist.setOption('mode', mode); });
+els.modeSiteBtn.addEventListener('click', async () => { setMode('site'); await grist.setOption('mode', mode); });
 
 // ---------------------------------------------------------------------------
 // Lightbox: click the photo or the map to open an enlarged version.
@@ -1004,7 +1328,12 @@ document.getElementById('batPhotoWrap').addEventListener('click', () => {
   if (img.src) { openLightboxImage(img.src); }
 });
 document.getElementById('batMapWrap').addEventListener('click', () => {
-  if (currentLatLng) { openLightboxMap(currentLatLng); }
+  const latLng = batMapCtrl.getLatLng();
+  if (latLng) { openLightboxMap(latLng); }
+});
+document.getElementById('siteMapWrap').addEventListener('click', () => {
+  const latLng = siteMapCtrl.getLatLng();
+  if (latLng) { openLightboxMap(latLng); }
 });
 document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
 document.getElementById('lightbox').addEventListener('click', (e) => { if (e.target.id === 'lightbox') { closeLightbox(); } });
@@ -1059,7 +1388,7 @@ els.viewPanel.addEventListener('change', async (e) => {
   if (cb.type !== 'checkbox') { return; }
   if (cb.checked) { visibleTypes.add(cb.dataset.type); } else { visibleTypes.delete(cb.dataset.type); }
   await grist.setOption('visibleTypes', [...visibleTypes]);
-  renderDashboard();
+  renderCurrentView();
 });
 
 // ---------------------------------------------------------------------------
@@ -1069,6 +1398,7 @@ grist.ready({ requiredAccess: 'full' });
 grist.onOptions((options) => {
   applyTitle(options && options.title);
   applyVisibleTypes(options && options.visibleTypes);
+  setMode((options && options.mode) === 'site' ? 'site' : 'batiment');
 });
 loadAll().catch(err => setStatus('Erreur de chargement : ' + err.message));
 

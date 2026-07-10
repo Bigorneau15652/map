@@ -67,7 +67,39 @@ Le widget n'a pas de bouton plein écran : Grist en fournit déjà un nativement
 dans l'en-tête de chaque panneau de widget (icône en haut à droite du panneau).
 Une première tentative d'ajouter un bouton équivalent dans le widget a été
 retirée : redondante avec celle de Grist, et l'API Fullscreen du navigateur est
-de toute façon bloquée à l'intérieur de l'iframe dans ce contexte.
+de toute façon bloquée à l'intérieur de l'iframe dans ce contexte. Ce même
+agrandissement natif de Grist s'applique aussi bien en mode Bâtiment qu'en
+mode Site (voir ci-dessous) — dans les deux cas, seule la carte a son propre
+agrandissement dédié (clic → lightbox), le reste de la page suit l'agrandissement
+du panneau Grist.
+
+## Deux échelles : Bâtiment et Site
+
+Le bouton **🏢 Bâtiment / 🏙️ Site** dans la barre d'outils bascule entre deux
+synthèses qui partagent exactement la même base (types de surface, menu Vue,
+mise en forme, impression) :
+
+- **🏢 Bâtiment** (pages 1-2, décrites ci-dessous) : la fiche d'un seul bâtiment,
+  sélectionné via le menu **Bâtiment**.
+- **🏙️ Site** (pages 3-4) : la même logique appliquée à l'échelle du site
+  sélectionné (menu **Bâtiment** masqué, non pertinent dans ce mode), en
+  agrégeant tous ses bâtiments. Concrètement : "Surfaces totales et par niveau"
+  devient "Surfaces totales et par bâtiment" (une ligne par bâtiment du site
+  au lieu d'une ligne par étage), "Surfaces fonctionnelles Bâtiment" devient
+  "Surfaces fonctionnelles Site" (locaux de tous les bâtiments du site regroupés
+  par occupation), etc. Les informations propres au site (`BDD_Sites` : Adresse,
+  Numéro Chorus, Nombre de places de stationnement, Nombre de places PMR,
+  Latitude/Longitude pour la carte) s'ajoutent en tête de page, le reste étant
+  agrégé depuis `BDD_Batiments`/`BDD_Etages`/`BDD_Salles` comme au niveau
+  bâtiment (même filtre de cohérence Site, voir plus bas).
+
+Le menu **👁 Vue** (quelles surfaces afficher) est partagé entre les deux modes :
+décocher SUN dans un mode le décoche aussi dans l'autre, sans avoir besoin de
+répéter la manipulation. Le bouton **🖶 Imprimer** imprime le mode actuellement
+affiché (2 pages A4 paysage pour un bâtiment ; pour un site avec beaucoup de
+bâtiments, le tableau "Surfaces totales et par bâtiment" peut s'étaler sur
+plusieurs pages — c'est attendu, contrairement au tableau par étage d'un
+bâtiment qui tient toujours sur une page).
 
 ## Structure de la page (stable d'une version à l'autre)
 
@@ -93,6 +125,24 @@ précis, chaque section a un id HTML stable, dans l'ordre du PDF de référence 
   (mêmes regroupements que le PDF) + le donut "Surface SUB en m² par occupation fonctionnelle"
   (affiché à l'écran **et** à l'impression, contrairement aux graphiques de la page 1)
 - `#sec-repartition-bureau` — tableau "Répartition des surfaces de bureau et salles de cours"
+
+**Page 3** (`#page3`, mode 🏙️ Site) — équivalent agrégé de la page 1
+- `#sec-site` + `#sec-site-kpi` — Numéro / Nom du site / Adresse / Numéro Chorus, et les indicateurs
+  du site (nombre de bâtiments, postes de travail, places de stationnement, places PMR, ratios), avec
+  la carte OpenStreetMap du site (`#siteMapWrap`, centrée sur `BDD_Sites.Latitude`/`Longitude`) à droite —
+  pas de photo au niveau site (`BDD_Sites` n'a pas de champ pièce jointe équivalent à `Photo_batiment`)
+- `#sec-site-surfaces-totales` — Emprise au sol totale, même légende SUN/SUB/SPC/SHOB/SCE, tableau
+  "Surfaces totales et par bâtiment" (une ligne par bâtiment du site, au lieu d'une ligne par étage) et
+  son graphique en barres empilées — même mécanique que la page 1, mêmes colonnes pilotées par **👁 Vue**
+
+**Page 4** (`#page4`, mode 🏙️ Site, saut de page forcé à l'impression) — équivalent agrégé de la page 2
+- `#sec-site-surfaces-fonctionnelles` — identité du site + mêmes blocs "Type de surface fonctionnelle"
+  et donut, mais calculés sur les locaux de **tous** les bâtiments du site regroupés ensemble (pas
+  bâtiment par bâtiment) ; la légende du donut passe en position "bas" plutôt que "droite" comme sur
+  la page 2, car regrouper plusieurs bâtiments fait souvent apparaître plus de catégories d'occupation
+  que n'en tient la colonne étroite de la légende à droite sans tronquer du texte
+- `#sec-site-repartition-bureau` — même tableau "Répartition des surfaces de bureau et salles de cours",
+  calculé sur l'ensemble des locaux du site
 
 ### SHON retirée
 
@@ -170,6 +220,16 @@ pas dans le PDF) a été retirée.
 | Carte de localisation                  | `BDD_Batiments.Latitude` / `Longitude`                                     |
 | Surfaces fonctionnelles (Administration, Enseignement, …) | `BDD_Salles` groupées par `Occupation`, filtrées sur `Type_d_usage.SUB = vrai` |
 | Répartition des surfaces de bureau et salles de cours | `BDD_Salles` filtrées sur `Type_d_usage.Libellé` ∈ {Bureau, Salle de cours} et `SUB = vrai`, groupées par Occupation |
+
+**Mode 🏙️ Site (pages 3-4) uniquement :**
+
+| Intitulé                               | Source dans Grist                                                        |
+|-----------------------------------------|---------------------------------------------------------------------------|
+| Numéro / Nom du site / Adresse / Numéro Chorus | `BDD_Sites.Numero` / `Nom` / `Adresse` / `Numero_Chorus`             |
+| Nombre de places de stationnement / Dont places PMR | `BDD_Sites.Nombre_de_places_de_stationnement` / `Nombre_de_places_PMR` |
+| Carte de localisation du site           | `BDD_Sites.Latitude` / `Longitude`                                        |
+| Nombre de bâtiments                     | Décompte de `BDD_Batiments` dont `Site` = le site sélectionné             |
+| Toutes les surfaces (par bâtiment, fonctionnelles, ratios) | Mêmes colonnes/calculs qu'en mode Bâtiment, mais agrégés sur l'ensemble des bâtiments du site (voir section "Deux échelles" plus haut) |
 
 Les cibles affichées sur les indicateurs (SUN/poste ≤ 12-15-20 m², SUN/SUB > 67 %,
 SUB/SPC > 85 %) pilotent uniquement le code couleur vert/orange/rouge ; ajustez les
