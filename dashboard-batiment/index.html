@@ -206,6 +206,12 @@
   .lightboxClose:hover { background: rgba(255,255,255,.3); }
 
   .chartWrap { position: relative; height: 220px; }
+  .chartWrap.wide { height: 340px; }
+
+  .swatch {
+    display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+    margin-right: 6px; vertical-align: middle;
+  }
 
   .page-break { break-before: page; }
 
@@ -408,16 +414,12 @@
         <h2>Surfaces totales et par bâtiment</h2>
         <div class="subhead" id="siteEmpriseAuSol"></div>
         <div class="surfaceDefs" id="siteSurfaceDefs"></div>
-        <div class="twoCol">
-          <div>
-            <table class="data" id="siteFloorTable">
-              <thead><tr id="siteFloorTableHead"><th></th></tr></thead>
-              <tbody></tbody>
-              <tfoot></tfoot>
-            </table>
-          </div>
-          <div class="chartWrap"><canvas id="siteFloorChart"></canvas></div>
-        </div>
+        <div class="chartWrap wide"><canvas id="siteFloorChart"></canvas></div>
+        <table class="data" id="siteFloorTable" style="margin-top:10px">
+          <thead><tr id="siteFloorTableHead"><th></th></tr></thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
       </div>
 
     </div>
@@ -431,13 +433,9 @@
           <thead><tr id="rowSiteSurfIdentityHead"><th>Numéro</th><th>Nom du site</th><th>Nombre de bâtiments</th></tr></thead>
           <tbody><tr id="rowSiteSurfIdentity"></tr></tbody>
         </table>
-        <div class="twoCol" style="margin-top:10px">
-          <div id="siteFuncBlocks"></div>
-          <div>
-            <div class="subhead" style="margin-bottom:2px">Surface SUB en m² par occupation fonctionnelle (site)</div>
-            <div class="chartWrap keep-print"><canvas id="siteFuncChart"></canvas></div>
-          </div>
-        </div>
+        <div class="subhead" style="margin-top:10px; margin-bottom:2px">Surface SUB en m² par occupation fonctionnelle (site)</div>
+        <div class="chartWrap keep-print"><canvas id="siteFuncChart"></canvas></div>
+        <div id="siteFuncBlocks" style="margin-top:10px"></div>
       </div>
 
       <div class="card" id="sec-site-repartition-bureau">
@@ -804,13 +802,16 @@ function renderSiteSurfaces(siteBats, siteEtages) {
     for (const t of SURFACE_TYPES) { vals[t.key] = sum(bEtages, e => e[t.etageField]); }
     return { bat, vals };
   });
+  const colors = computeBuildingColors(rows, r => r.vals.SUB || 0);
   return renderSurfacesBreakdown(
     {
       defs: 'siteSurfaceDefs', thead: 'siteFloorTableHead',
       tbody: '#siteFloorTable tbody', tfoot: '#siteFloorTable tfoot',
       chart: 'siteFloorChart', totalLabel: 'Total site en m²',
+      showSwatch: true,
     },
-    rows, r => formatBatLabel(r.bat), (r, t) => r.vals[t.key]
+    rows, r => formatBatLabel(r.bat), (r, t) => r.vals[t.key],
+    { getColor: (r, i) => colors[i], chartOpts: { legend: false } }
   );
 }
 
@@ -999,8 +1000,10 @@ function renderReglementaire(bat) {
 // Shared by the Bâtiment view (rows = étages) and the Site view (rows = one
 // aggregate per bâtiment) — same Vue-menu-driven columns/captions/chart,
 // just a different row axis and value lookup.
-function renderSurfacesBreakdown(ids, rows, rowLabel, getValue) {
+function renderSurfacesBreakdown(ids, rows, rowLabel, getValue, opts) {
   const cols = SURFACE_TYPES.filter(t => visibleTypes.has(t.key));
+  const getColor = (opts && opts.getColor) || ((r, i) => palette(i));
+  const swatch = (r, i) => (ids.showSwatch ? `<span class="swatch" style="background:${getColor(r, i)}"></span>` : '');
 
   document.getElementById(ids.defs).innerHTML = cols.map(t => `<div>${t.caption}</div>`).join('');
 
@@ -1009,8 +1012,8 @@ function renderSurfacesBreakdown(ids, rows, rowLabel, getValue) {
   const tfoot = document.querySelector(ids.tfoot);
   thead.innerHTML = `<th></th>${cols.map(t => `<th>${escapeHtml(t.label)}</th>`).join('')}`;
 
-  tbody.innerHTML = rows.map(r =>
-    `<tr><td>${escapeHtml(rowLabel(r))}</td>` +
+  tbody.innerHTML = rows.map((r, i) =>
+    `<tr><td>${swatch(r, i)}${escapeHtml(rowLabel(r))}</td>` +
     cols.map(t => `<td>${fmtNum(getValue(r, t))}</td>`).join('') +
     `</tr>`
   ).join('');
@@ -1024,9 +1027,9 @@ function renderSurfacesBreakdown(ids, rows, rowLabel, getValue) {
     datasets: rows.map((r, i) => ({
       label: rowLabel(r),
       data: cols.map(t => getValue(r, t) || 0),
-      backgroundColor: palette(i),
+      backgroundColor: getColor(r, i),
     })),
-  }, { stacked: true });
+  }, Object.assign({ stacked: true }, opts && opts.chartOpts));
 
   return totals;
 }
@@ -1210,12 +1213,28 @@ const PALETTE = [
 ];
 function palette(i) { return PALETTE[i % PALETTE.length]; }
 
+// Site view only: with one stacked-bar segment per bâtiment (up to several
+// dozen on a large site), giving every one of them its own hue makes both the
+// chart and the table's colour swatches unreadable. Small bâtiments (< 500 m²
+// SUB) are pooled under a single grey instead, so only bâtiments large enough
+// to matter visually get a distinct colour.
+const SMALL_BUILDING_GREY = '#a0aec0';
+const SMALL_BUILDING_THRESHOLD_M2 = 500;
+function computeBuildingColors(rows, sizeM2) {
+  let i = 0;
+  return rows.map(r => (sizeM2(r) < SMALL_BUILDING_THRESHOLD_M2) ? SMALL_BUILDING_GREY : palette(i++));
+}
+
 function destroyChart(id) {
   if (charts[id]) { charts[id].destroy(); delete charts[id]; }
 }
 
 function drawBarChart(canvasId, data, opts) {
   const stacked = !!(opts && opts.stacked);
+  // Suppress the legend explicitly when there are too many datasets to name
+  // usefully (e.g. one per bâtiment at site scale) — a swatch-per-row already
+  // does that job in the accompanying table instead.
+  const showLegend = (opts && opts.legend === false) ? false : data.datasets.length > 1;
   destroyChart(canvasId);
   const ctx = document.getElementById(canvasId).getContext('2d');
   charts[canvasId] = new Chart(ctx, {
@@ -1224,7 +1243,7 @@ function drawBarChart(canvasId, data, opts) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: data.datasets.length > 1 }, datalabels: { display: false } },
+      plugins: { legend: { display: showLegend }, datalabels: { display: false } },
       scales: { x: { stacked }, y: { stacked, beginAtZero: true } },
     },
   });
