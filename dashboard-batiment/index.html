@@ -144,6 +144,7 @@
   table.data th:nth-child(2), table.data td:nth-child(2) { text-align: left; }
   table.data thead th { color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
   table.data tfoot td { font-weight: 700; border-top: 2px solid var(--border); border-bottom: none; }
+  table.data tr.subtotal td { font-weight: 600; background: #fafbfc; border-top: 1px solid var(--border); }
 
   /* Mini-tables mirroring the PDF's "Type de surface fonctionnelle" blocks:
      category names as column headers (transposed vs. the other data tables),
@@ -378,7 +379,7 @@
       <div class="card" id="sec-repartition-bureau">
         <h2>Répartition des surfaces de bureau et salles de cours</h2>
         <table class="data" id="officeTable">
-          <thead><tr><th></th><th></th><th>Surface m² SUB</th><th>Nombre</th></tr></thead>
+          <thead><tr><th>Catégories</th><th>Type de local</th><th>Surface m² SUB</th><th>Nombre</th></tr></thead>
           <tbody></tbody>
           <tfoot></tfoot>
         </table>
@@ -458,7 +459,7 @@
       <div class="card" id="sec-site-repartition-bureau">
         <h2>Répartition des surfaces de bureau et salles de cours (site)</h2>
         <table class="data" id="siteOfficeTable">
-          <thead><tr><th></th><th></th><th>Surface m² SUB</th><th>Nombre</th></tr></thead>
+          <thead><tr><th>Catégories</th><th>Type de local</th><th>Surface m² SUB</th><th>Nombre</th></tr></thead>
           <tbody></tbody>
           <tfoot></tfoot>
         </table>
@@ -1215,14 +1216,19 @@ function renderFunctionalBlocks(blocksElId, chartId, rows, chartOpts) {
 }
 
 // "Répartition des surfaces de bureau et salles de cours" — cross-tab of room type
-// (Bureau / Salle de cours) × Occupation, restricted to SUB-counted rooms, mirroring
-// the same table in the reference PDF.
-function renderOfficeBreakdown(batSalles, tableSel) {
-  const LABELS = { 'Bureau': 'Surface de bureau', 'Salle de cours': 'Salle de cours (salle destinée à des personnels tiers à l\'Administration)' };
+// (Bureau / Salle de cours) × Occupation, restricted to SUB-counted rooms. Grouped
+// by "Type de local" (Salle de cours rows together, then Surface de bureau rows
+// together), each block closed by its own subtotal, with "Catégories" (the
+// Occupation) as the first column.
+const OFFICE_TYPE_LABELS = { 'Bureau': 'Surface de bureau', 'Salle de cours': 'Salle de cours (salle destinée à des personnels tiers à l\'Administration)' };
+const OFFICE_SUBTOTAL_LABELS = { 'Bureau': 'Sous-total Surface de bureau', 'Salle de cours': 'Sous-total Salle de cours' };
+const OFFICE_TYPE_ORDER = ['Salle de cours', 'Bureau'];
+
+function renderOfficeBreakdown(salleRows, tableSel) {
   const groups = {};
-  for (const s of batSalles) {
+  for (const s of salleRows) {
     const type = s.Type_d_usage ? typeById[s.Type_d_usage] : null;
-    if (!type || !type.SUB || !LABELS[type.Libelle]) { continue; }
+    if (!type || !type.SUB || !OFFICE_TYPE_LABELS[type.Libelle]) { continue; }
     const occ = s.Occupation ? occById[s.Occupation] : null;
     const occLabel = occ ? occ.Libelle : 'Non classé';
     const key = type.Libelle + '||' + occLabel;
@@ -1230,16 +1236,25 @@ function renderOfficeBreakdown(batSalles, tableSel) {
     groups[key].surface += s.Surface_utile_m2_ || 0;
     groups[key].count += 1;
   }
-  const rows = Object.values(groups).sort((a, b) => b.surface - a.surface);
+  const allRows = Object.values(groups);
 
-  const tbody = document.querySelector(`${tableSel} tbody`);
-  const tfoot = document.querySelector(`${tableSel} tfoot`);
-  tbody.innerHTML = rows.map(g =>
-    `<tr><td>${escapeHtml(LABELS[g.typeLabel])}</td><td>${escapeHtml(g.occLabel)}</td><td>${fmtNum(g.surface, 2)}</td><td>${g.count}</td></tr>`
-  ).join('');
-  const totalSurface = rows.reduce((a, g) => a + g.surface, 0);
-  const totalCount = rows.reduce((a, g) => a + g.count, 0);
-  tfoot.innerHTML = `<tr><td colspan="2">Total</td><td>${fmtNum(totalSurface, 2)}</td><td>${totalCount}</td></tr>`;
+  let bodyHtml = '';
+  for (const typeLabel of OFFICE_TYPE_ORDER) {
+    const rows = allRows.filter(g => g.typeLabel === typeLabel).sort((a, b) => b.surface - a.surface);
+    if (rows.length === 0) { continue; }
+    bodyHtml += rows.map(g =>
+      `<tr><td>${escapeHtml(g.occLabel)}</td><td>${escapeHtml(OFFICE_TYPE_LABELS[g.typeLabel])}</td><td>${fmtNum(g.surface, 2)}</td><td>${g.count}</td></tr>`
+    ).join('');
+    const subtotalSurface = sum(rows, g => g.surface);
+    const subtotalCount = rows.reduce((a, g) => a + g.count, 0);
+    bodyHtml += `<tr class="subtotal"><td colspan="2">${escapeHtml(OFFICE_SUBTOTAL_LABELS[typeLabel])}</td><td>${fmtNum(subtotalSurface, 2)}</td><td>${subtotalCount}</td></tr>`;
+  }
+  document.querySelector(`${tableSel} tbody`).innerHTML = bodyHtml;
+
+  const totalSurface = sum(allRows, g => g.surface);
+  const totalCount = allRows.reduce((a, g) => a + g.count, 0);
+  document.querySelector(`${tableSel} tfoot`).innerHTML =
+    `<tr><td colspan="2">Total</td><td>${fmtNum(totalSurface, 2)}</td><td>${totalCount}</td></tr>`;
 }
 
 // ---------------------------------------------------------------------------
