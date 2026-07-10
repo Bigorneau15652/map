@@ -69,6 +69,15 @@
   button:hover { background: var(--accent-light); border-color: var(--accent); }
   #status { font-size: 11px; color: var(--text-muted); align-self: center; margin-left: auto; }
 
+  .viewPanel {
+    position: absolute; top: 100%; left: 0; margin-top: 4px;
+    background: #fff; border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 12px; box-shadow: 0 4px 12px rgba(0,0,0,.15); z-index: 20;
+    white-space: nowrap;
+  }
+  .viewPanel label { display: block; font-size: 12.5px; color: #1a202c; padding: 3px 0; cursor: pointer; }
+  .viewPanel input { margin-right: 6px; }
+
   #content { padding: 14px; max-width: 1100px; margin: 0 auto; }
   #emptyState { padding: 60px 20px; text-align: center; color: var(--text-muted); }
 
@@ -209,7 +218,10 @@
        narrower paper size is chosen — keeps the donut from being pushed
        below its table where it could overflow into the next section. */
     .twoCol { grid-template-columns: 1fr 1fr !important; }
-    .kpiGrid { grid-template-columns: repeat(5, 1fr) !important; }
+    /* Number of KPI cards varies with the "Vue" selection, so let auto-fit
+       (same rule as on screen) lay them out rather than forcing a fixed
+       column count that would leave gaps when fewer are visible. */
+    .kpiGrid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; }
     /* Cap the photo and map tightly at print time — page 1's vertical budget is
        much tighter in landscape than the on-screen view, and a tall/portrait
        photo (or a full-height map) must not push "Informations réglementaires"
@@ -241,6 +253,11 @@
   <button id="refreshBtn" title="Recharger les données du document">⟳ Actualiser</button>
   <button id="printBtn" title="Imprimer / exporter en PDF">🖶 Imprimer</button>
   <button id="titleBtn" title="Changer le titre affiché à l'impression / dans l'onglet">✎ Titre</button>
+  <div class="field" style="position:relative">
+    <label>&nbsp;</label>
+    <button id="viewBtn" title="Choisir les surfaces à afficher">👁 Vue</button>
+    <div id="viewPanel" class="viewPanel" style="display:none"></div>
+  </div>
   <div id="status"></div>
 </div>
 
@@ -293,16 +310,11 @@
       <div class="card" id="sec-surfaces-totales">
         <h2>Surfaces totales et par niveau</h2>
         <div class="subhead" id="empriseAuSol"></div>
-        <div class="surfaceDefs">
-          <div><b>SUN</b> — Surface Utile Nette : surface réellement exploitable (postes de travail, espaces d'activité), hors circulations, sanitaires et locaux techniques.</div>
-          <div><b>SUB</b> — Surface Utile Brute : surface intérieure hors éléments structuraux, circulations comprises ; base de calcul du loyer en bail commercial.</div>
-          <div><b>SPC</b> — acronyme non normalisé dans le mesurage tertiaire ; vraisemblablement apparenté à la SDP (Surface de Plancher, en vigueur depuis 2012).</div>
-          <div><b>SHOB</b> — Surface Hors Œuvre Brute : ancienne surface brute murs compris, utilisée jusqu'en 2012 pour les droits à construire, remplacée depuis par la SDP.</div>
-        </div>
+        <div class="surfaceDefs" id="surfaceDefs"></div>
         <div class="twoCol">
           <div>
             <table class="data" id="floorTable">
-              <thead><tr><th></th><th>SUN</th><th>SUB</th><th>SPC</th><th>SHOB</th></tr></thead>
+              <thead><tr id="floorTableHead"><th></th></tr></thead>
               <tbody></tbody>
               <tfoot></tfoot>
             </table>
@@ -319,7 +331,7 @@
       <div class="card" id="sec-surfaces-fonctionnelles">
         <h2>Surfaces fonctionnelles Bâtiment</h2>
         <table class="data">
-          <thead><tr><th>Numéro</th><th>Appelation</th><th>Nom du bâtiment</th><th>SUN</th><th>SUB</th><th>SPC</th></tr></thead>
+          <thead><tr id="rowSurfIdentityHead"><th>Numéro</th><th>Appelation</th><th>Nom du bâtiment</th></tr></thead>
           <tbody><tr id="rowSurfIdentity"></tr></tbody>
         </table>
         <div class="twoCol" style="margin-top:10px">
@@ -410,6 +422,8 @@ const els = {
   refreshBtn: document.getElementById('refreshBtn'),
   printBtn: document.getElementById('printBtn'),
   titleBtn: document.getElementById('titleBtn'),
+  viewBtn: document.getElementById('viewBtn'),
+  viewPanel: document.getElementById('viewPanel'),
   status: document.getElementById('status'),
   emptyState: document.getElementById('emptyState'),
   dashboard: document.getElementById('dashboard'),
@@ -417,6 +431,36 @@ const els = {
 };
 
 const DEFAULT_TITLE = 'Tableau de bord Bâtiment';
+
+// ---------------------------------------------------------------------------
+// Surface types shown in "Surfaces totales et par niveau" (table + graphique)
+// and, for SUN/SUB/SPC only, in the "Surfaces fonctionnelles" identity row —
+// all selectable/hideable via the "Vue" menu, persisted with grist.setOption.
+// ---------------------------------------------------------------------------
+const SURFACE_TYPES = [
+  {
+    key: 'SUN', label: 'SUN', etageField: 'Surface_SUN_m2_', inIdentityRow: true,
+    caption: "<b>SUN</b> — Surface Utile Nette : surface réellement exploitable (postes de travail, espaces d'activité), hors circulations, sanitaires et locaux techniques.",
+  },
+  {
+    key: 'SUB', label: 'SUB', etageField: 'Surface_SUB_m2_', inIdentityRow: true,
+    caption: "<b>SUB</b> — Surface Utile Brute : surface intérieure hors éléments structuraux, circulations comprises ; base de calcul du loyer en bail commercial.",
+  },
+  {
+    key: 'SPC', label: 'SPC', etageField: 'Surface_SP_m2_', inIdentityRow: true,
+    caption: "<b>SPC</b> — acronyme non normalisé dans le mesurage tertiaire ; vraisemblablement apparenté à la SDP (Surface de Plancher, en vigueur depuis 2012).",
+  },
+  {
+    key: 'SHOB', label: 'SHOB', etageField: 'Surface_SHOB_m2_2', inIdentityRow: false,
+    caption: "<b>SHOB</b> — Surface Hors Œuvre Brute : ancienne surface brute murs compris, utilisée jusqu'en 2012 pour les droits à construire, remplacée depuis par la SDP.",
+  },
+  {
+    key: 'SCE', label: 'SCE', etageField: 'Surface_SCE', inIdentityRow: false,
+    caption: "<b>SCE</b> — Surface de Consommation d'Énergie : comprend tous les locaux où il y a des consommations d'énergie (utilisé pour OPERAT).",
+  },
+];
+const ALL_SURFACE_KEYS = SURFACE_TYPES.map(t => t.key);
+let visibleTypes = new Set(ALL_SURFACE_KEYS);
 
 function setStatus(msg) { els.status.textContent = msg || ''; }
 
@@ -680,14 +724,14 @@ function renderFloors(batEtages) {
     return ka[0] - kb[0] || (ka[1] > kb[1] ? 1 : ka[1] < kb[1] ? -1 : 0);
   });
 
+  const cols = SURFACE_TYPES.filter(t => visibleTypes.has(t.key));
+
+  document.getElementById('surfaceDefs').innerHTML = cols.map(t => `<div>${t.caption}</div>`).join('');
+
+  const thead = document.getElementById('floorTableHead');
   const tbody = document.querySelector('#floorTable tbody');
   const tfoot = document.querySelector('#floorTable tfoot');
-  const cols = [
-    ['SUN', 'Surface_SUN_m2_'],
-    ['SUB', 'Surface_SUB_m2_'],
-    ['SPC', 'Surface_SP_m2_'],
-    ['SHOB', 'Surface_SHOB_m2_2'],
-  ];
+  thead.innerHTML = `<th></th>${cols.map(t => `<th>${escapeHtml(t.label)}</th>`).join('')}`;
 
   const labelCounts = {};
   for (const r of rows) { const l = r.Etage || '—'; labelCounts[l] = (labelCounts[l] || 0) + 1; }
@@ -698,27 +742,28 @@ function renderFloors(batEtages) {
 
   tbody.innerHTML = rows.map(r =>
     `<tr><td>${escapeHtml(rowLabel(r))}</td>` +
-    cols.map(([, key]) => `<td>${fmtNum(r[key])}</td>`).join('') +
+    cols.map(t => `<td>${fmtNum(r[t.etageField])}</td>`).join('') +
     `</tr>`
   ).join('');
 
-  const totals = cols.map(([, key]) => sum(rows, r => r[key]));
-  tfoot.innerHTML = `<tr><td>Total bâtiment en m²</td>${totals.map(t => `<td>${fmtNum(t)}</td>`).join('')}</tr>`;
+  const totals = {};
+  for (const t of cols) { totals[t.key] = sum(rows, r => r[t.etageField]); }
+  tfoot.innerHTML = `<tr><td>Total bâtiment en m²</td>${cols.map(t => `<td>${fmtNum(totals[t.key])}</td>`).join('')}</tr>`;
 
-  // Grouped by surface type on the X axis (SUN/SUB/SPC/SHOB), one stacked
-  // bar per type with floors piled bottom (Sous-sol) to top (TT) — `rows` is
-  // already sorted in that order via floorSortKey above, and Chart.js stacks
-  // datasets in array order with the first one at the bottom.
+  // Grouped by surface type on the X axis, one stacked bar per type with
+  // floors piled bottom (Sous-sol) to top (TT) — `rows` is already sorted in
+  // that order via floorSortKey above, and Chart.js stacks datasets in array
+  // order with the first one at the bottom.
   drawBarChart('floorChart', {
-    labels: cols.map(([label]) => label),
+    labels: cols.map(t => t.label),
     datasets: rows.map((r, i) => ({
       label: rowLabel(r),
-      data: cols.map(([, key]) => r[key] || 0),
+      data: cols.map(t => r[t.etageField] || 0),
       backgroundColor: palette(i),
     })),
   }, { stacked: true });
 
-  return { SUN: totals[0], SUB: totals[1], SPC: totals[2], SHOB: totals[3] };
+  return totals;
 }
 
 function renderKpis(bat, batEtages, batSalles) {
@@ -732,25 +777,30 @@ function renderKpis(bat, batEtages, batSalles) {
   const ratioSunSub = SUB > 0 ? (SUN / SUB) * 100 : null;
   const ratioSubSpc = SPC > 0 ? (SUB / SPC) * 100 : null;
 
+  // A ratio is only shown while every surface type it depends on is visible —
+  // a ratio built on a hidden surface no longer means anything on its own.
   const kpis = [
-    { label: 'Nombre de postes de travail', value: fmtNum(nbPostes), cls: '' },
-    { label: "Effectif personnel (administratif, technique, enseignants,…)", value: '—', cls: '' },
+    { label: 'Nombre de postes de travail', value: fmtNum(nbPostes), cls: '', show: true },
+    { label: "Effectif personnel (administratif, technique, enseignants,…)", value: '—', cls: '', show: true },
     {
       label: "Ratio d'occupation SUN/Poste de travail (cible 12m²)",
       value: ratioSunPoste === null ? '—' : fmtNum(ratioSunPoste, 1),
       cls: ratioSunPoste === null ? '' : (ratioSunPoste <= 15 ? 'ok' : ratioSunPoste <= 20 ? 'warn' : 'bad'),
+      show: visibleTypes.has('SUN'),
     },
     {
       label: "Ratio d'optimisation de la capacité d'accueil SUN/SUB (cible > 67%)",
       value: fmtPct(ratioSunSub),
       cls: ratioSunSub === null ? '' : (ratioSunSub >= 67 ? 'ok' : ratioSunSub >= 55 ? 'warn' : 'bad'),
+      show: visibleTypes.has('SUN') && visibleTypes.has('SUB'),
     },
     {
       label: "Ratio d'optimisation de la conception (SPC) SUB/SPC (cible > 85%)",
       value: fmtPct(ratioSubSpc),
       cls: ratioSubSpc === null ? '' : (ratioSubSpc >= 85 ? 'ok' : ratioSubSpc >= 70 ? 'warn' : 'bad'),
+      show: visibleTypes.has('SUB') && visibleTypes.has('SPC'),
     },
-  ];
+  ].filter(k => k.show);
 
   document.getElementById('kpiGrid').innerHTML = kpis.map(k =>
     `<div class="kpi ${k.cls}">
@@ -766,8 +816,12 @@ function renderKpis(bat, batEtages, batSalles) {
 }
 
 function renderFunctional(bat, kpi, batSalles) {
+  const identityCols = SURFACE_TYPES.filter(t => t.inIdentityRow && visibleTypes.has(t.key));
+  document.getElementById('rowSurfIdentityHead').innerHTML =
+    '<th>Numéro</th><th>Appelation</th><th>Nom du bâtiment</th>' +
+    identityCols.map(t => `<th>${escapeHtml(t.label)}</th>`).join('');
   document.getElementById('rowSurfIdentity').innerHTML = [
-    bat.Numero, bat.Appellation, bat.Nom, fmtNum(kpi.SUN), fmtNum(kpi.SUB), fmtNum(kpi.SPC),
+    bat.Numero, bat.Appellation, bat.Nom, ...identityCols.map(t => fmtNum(kpi[t.key])),
   ].map(v => `<td>${escapeHtml(String(v ?? '—'))}</td>`).join('');
 
   const groups = {};
@@ -975,10 +1029,47 @@ els.titleBtn.addEventListener('click', async () => {
 });
 
 // ---------------------------------------------------------------------------
+// "Vue" : quelles surfaces (SUN/SUB/SPC/SHOB/SCE) afficher dans "Surfaces
+// totales et par niveau" (tableau + graphique + légendes) et, pour SUN/SUB/SPC,
+// dans la ligne d'identité de "Surfaces fonctionnelles Bâtiment". Persisté par
+// widget via grist.setOption, comme le titre.
+// ---------------------------------------------------------------------------
+els.viewPanel.innerHTML = SURFACE_TYPES.map(t =>
+  `<label><input type="checkbox" data-type="${t.key}" checked> ${escapeHtml(t.label)}</label>`
+).join('');
+
+function applyVisibleTypes(keys) {
+  visibleTypes = new Set(Array.isArray(keys) && keys.length ? keys : ALL_SURFACE_KEYS);
+  els.viewPanel.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.checked = visibleTypes.has(cb.dataset.type);
+  });
+}
+
+els.viewBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  els.viewPanel.style.display = els.viewPanel.style.display === 'none' ? 'block' : 'none';
+});
+document.addEventListener('click', (e) => {
+  if (els.viewPanel.style.display !== 'none' && e.target !== els.viewBtn && !els.viewPanel.contains(e.target)) {
+    els.viewPanel.style.display = 'none';
+  }
+});
+els.viewPanel.addEventListener('change', async (e) => {
+  const cb = e.target;
+  if (cb.type !== 'checkbox') { return; }
+  if (cb.checked) { visibleTypes.add(cb.dataset.type); } else { visibleTypes.delete(cb.dataset.type); }
+  await grist.setOption('visibleTypes', [...visibleTypes]);
+  renderDashboard();
+});
+
+// ---------------------------------------------------------------------------
 // Grist init
 // ---------------------------------------------------------------------------
 grist.ready({ requiredAccess: 'full' });
-grist.onOptions((options) => { applyTitle(options && options.title); });
+grist.onOptions((options) => {
+  applyTitle(options && options.title);
+  applyVisibleTypes(options && options.visibleTypes);
+});
 loadAll().catch(err => setStatus('Erreur de chargement : ' + err.message));
 
 })();
