@@ -262,7 +262,7 @@
 
       <!-- Catégories -->
       <div class="sec">
-        <div class="sh" onclick="tog(this)">🏷 <span class="sh-label">Catégories <span id="cbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span></span><span class="arr">▾</span></div>
+        <div class="sh" onclick="tog(this)">🗃️ <span class="sh-label">Catégories <span id="cbadge" style="font-weight:400;font-size:10px;color:#888;margin-left:4px"></span></span><span class="arr">▾</span></div>
         <div class="sb">
           <div id="cl"><div class="nc">Configurez les tables Grist via ⚙️</div></div>
           <div id="add-cat-row">
@@ -270,9 +270,9 @@
             <button onclick="addCat()" title="Ajouter une catégorie">+ Ajouter</button>
           </div>
           <div class="cumr">
-            <input type="checkbox" id="cumchk" checked style="cursor:pointer;accent-color:#1a3a5c" onchange="APP.useCumul=this.checked;document.getElementById('cumsw').style.opacity=this.checked?'1':'0.3';refresh()">
+            <input type="checkbox" id="cumchk" checked style="cursor:pointer;accent-color:#1a3a5c" onchange="onCumulChange(this.checked)">
             <label for="cumchk" style="cursor:pointer">Cumul :</label>
-            <div class="cumv" id="cumsw" title="Couleur si plusieurs catégories sur un même bâtiment"><input type="color" id="cumc" value="#f39c12" oninput="APP.cumulColor=this.value;cumsw.style.background=this.value;refresh()"></div>
+            <div class="cumv" id="cumsw" title="Couleur si plusieurs catégories sur un même bâtiment"><input type="color" id="cumc" value="#f39c12" oninput="onCumulColorChange(this.value)"></div>
             <span style="color:#777;font-size:10px">couleur si bât. dans plusieurs catégories</span>
           </div>
         </div>
@@ -1015,6 +1015,28 @@ function loadConfig(opts){
     activeBaseId=opts.baseLayer;
     if(map)setBaseLayer(activeBaseId);
   }
+  if(opts?.cumulUse!==undefined) APP.useCumul=!!opts.cumulUse;
+  if(opts?.cumulColor) APP.cumulColor=opts.cumulColor;
+  syncCumulUI();
+}
+
+function syncCumulUI(){
+  document.getElementById('cumchk').checked=APP.useCumul;
+  document.getElementById('cumsw').style.opacity=APP.useCumul?'1':'0.3';
+  document.getElementById('cumc').value=APP.cumulColor;
+  document.getElementById('cumsw').style.background=APP.cumulColor;
+}
+function onCumulChange(checked){
+  APP.useCumul=checked;
+  document.getElementById('cumsw').style.opacity=checked?'1':'0.3';
+  refresh();
+  patchOptions({cumulUse:APP.useCumul,cumulColor:APP.cumulColor}).catch(e=>console.warn(e.message));
+}
+function onCumulColorChange(hex){
+  APP.cumulColor=hex;
+  document.getElementById('cumsw').style.background=hex;
+  refresh();
+  patchOptions({cumulUse:APP.useCumul,cumulColor:APP.cumulColor}).catch(e=>console.warn(e.message));
 }
 
 function normName(s){return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
