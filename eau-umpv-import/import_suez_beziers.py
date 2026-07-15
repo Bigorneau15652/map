@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Import daily water consumption for the Béziers site (SUEZ / toutsurmoneau.fr)
-into the shared Grist "Releves_Journaliers" table.
+into the "Releves_Journaliers" Grist table.
+
+Column names match the existing REPORT__EAU.grist document convention
+(Site / Nom_du_CPT as plain Choice values, not a separate reference table).
 
 Meant to run unattended (e.g. from a scheduled GitHub Actions workflow). All
 configuration comes from environment variables so no secret ever needs to be
@@ -18,13 +21,14 @@ Optional:
                       one meter (toutsurmoneau raises an error telling you so)
   SUEZ_PROVIDER_URL  Alternate provider base URL, for non-SUEZ-branded portals
                       built on the same platform
-  GRIST_SERVER       Grist server base URL (default: https://docs.getgrist.com)
+  GRIST_SERVER       Grist server base URL (default: https://grist.numerique.gouv.fr,
+                      matching the org this document already lives on)
   LOOKBACK_DAYS       How many days back to (re-)fetch and upsert on each run,
                       to catch data SUEZ publishes late (default: 40)
-  SITE_NAME           Site label as it appears in the Grist "Sites" table
-                      (default: "Beziers")
-  COMPTEUR_ID         Meter label as it appears in the Grist "Compteurs" table
-                      (default: "BEZ-01")
+  SITE_NAME           Value written to the "Site" column (default: "Beziers") -
+                      must be added to that column's Choice list in Grist
+  NOM_DU_CPT          Value written to the "Nom_du_CPT" column (default: "CPT1"),
+                      matching the CPT1/CPT2/CPT3 convention already in use
 """
 import asyncio
 import datetime
@@ -35,10 +39,10 @@ import toutsurmoneau
 
 from common.grist_upsert import env, push_records
 
-GRIST_SERVER_DEFAULT = "https://docs.getgrist.com"
+GRIST_SERVER_DEFAULT = "https://grist.numerique.gouv.fr"
 LOOKBACK_DAYS_DEFAULT = 40
 SITE_NAME_DEFAULT = "Beziers"
-COMPTEUR_ID_DEFAULT = "BEZ-01"
+NOM_DU_CPT_DEFAULT = "CPT1"
 
 
 async def fetch_measures(username: str, password: str, meter_id: str, provider_url: str,
@@ -58,7 +62,7 @@ async def fetch_measures(username: str, password: str, meter_id: str, provider_u
         return await client.async_telemetry(mode="daily", date_begin=date_begin, date_end=date_end)
 
 
-def to_grist_records(measures: list, site_name: str, compteur_id: str) -> list:
+def to_grist_records(measures: list, site_name: str, nom_du_cpt: str) -> list:
     records = []
     for m in measures:
         index_m3 = m.get("index")
@@ -71,13 +75,13 @@ def to_grist_records(measures: list, site_name: str, compteur_id: str) -> list:
                                          tzinfo=datetime.timezone.utc).timestamp())
         fields = {
             "Date": date_ts,
-            "Compteur_ID": compteur_id,
+            "Nom_du_CPT": nom_du_cpt,
             "Site": site_name,
             "Source": "SUEZ",
             "Volume_L": round(volume_m3 * 1000) if volume_m3 is not None else None,
             "Index_m3": index_m3,
         }
-        records.append({"require": {"Date": date_ts, "Compteur_ID": compteur_id}, "fields": fields})
+        records.append({"require": {"Date": date_ts, "Nom_du_CPT": nom_du_cpt}, "fields": fields})
     return records
 
 
@@ -93,14 +97,14 @@ def main() -> None:
     grist_server = env("GRIST_SERVER", required=False, default=GRIST_SERVER_DEFAULT)
 
     site_name = env("SITE_NAME", required=False, default=SITE_NAME_DEFAULT)
-    compteur_id = env("COMPTEUR_ID", required=False, default=COMPTEUR_ID_DEFAULT)
+    nom_du_cpt = env("NOM_DU_CPT", required=False, default=NOM_DU_CPT_DEFAULT)
     lookback_days = int(env("LOOKBACK_DAYS", required=False, default=str(LOOKBACK_DAYS_DEFAULT)))
 
     today = datetime.date.today()
     date_begin = today - datetime.timedelta(days=lookback_days)
 
     measures = asyncio.run(fetch_measures(username, password, meter_id, provider_url, date_begin, today))
-    records = to_grist_records(measures, site_name, compteur_id)
+    records = to_grist_records(measures, site_name, nom_du_cpt)
     push_records(grist_server, grist_doc_id, grist_table_id, grist_api_key, records)
 
 

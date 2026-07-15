@@ -1,14 +1,19 @@
-# Suivi consommation d'eau UMPV (5 sites) → Grist
+# Suivi consommation d'eau UMPV → Grist
 
-5 sites, 2 fournisseurs d'eau, un seul document Grist :
+Ce dossier alimente **votre document Grist existant** (`REPORT__EAU`, sur
+`grist.numerique.gouv.fr`, org `dpmi-umpv`) avec une nouvelle table
+`Releves_Journaliers` à maille journalière, en complément de la table
+`Consommations` déjà en place (saisie manuelle, maille semestrielle, avec
+coût en €). On ne remplace rien de ce qui existe.
 
 | Site | Fournisseur | Portail | État de l'import auto |
 |---|---|---|---|
 | Béziers | SUEZ | toutsurmoneau.fr | ✅ en place (`import_suez_beziers.py`) |
-| Route de Mende | Régie des Eaux 3M | ael.regiedeseaux3m.fr | ⏳ à construire, voir plus bas |
-| Boutonnet | Régie des Eaux 3M | ael.regiedeseaux3m.fr | ⏳ à construire |
-| Saint-Charles | Régie des Eaux 3M | ael.regiedeseaux3m.fr | ⏳ à construire |
-| Saint-Louis | Régie des Eaux 3M | ael.regiedeseaux3m.fr | ⏳ à construire |
+| Route de Mende | Régie des Eaux 3M | ael.regiedeseaux3m.fr | ⏳ en cours (reconnaissance) |
+| Boutonnet | Régie des Eaux 3M | ael.regiedeseaux3m.fr | ⏳ en cours |
+| Saint-Charles | Régie des Eaux 3M | ael.regiedeseaux3m.fr | ⏳ en cours |
+| Saint-Louis | Régie des Eaux 3M | ael.regiedeseaux3m.fr | ⏳ en cours |
+| Du Guesclin | ? | ? | ⚠️ présent dans `Consommations` mais jamais mentionné à date — à clarifier |
 
 ⚠️ Ce sont des portails **eau**, pas énergie : les données importées sont des
 volumes d'eau (litres/m³), pas de l'électricité ni du gaz.
@@ -21,12 +26,13 @@ interrogés (accès non officiel, "meilleur effort" — le site peut changer et
 casser l'import, ce n'est pas garanti contractuellement). Les scripts ne font
 que relire vos propres données de consommation.
 
-Chaque site pousse ses relevés quotidiens dans **une seule table Grist
-partagée** (`Releves_Journaliers`), avec des colonnes `Site` et `Compteur_ID`
-pour pouvoir tout comparer (par site, par mois, d'une année sur l'autre) sans
-avoir 5 documents séparés. Voir `grist-eau-umpv-template.xlsx` dans ce
-dossier pour un modèle prêt à importer dans Grist (structure des tables,
-détails dans le premier onglet "Lisez-moi" du fichier).
+`Releves_Journaliers` reprend volontairement les **mêmes conventions de
+colonnes** que votre table `Consommations` existante (`Site` et `Nom_du_CPT`
+en simples colonnes Choice — pas de table de référence séparée), pour rester
+cohérent avec ce que vous avez déjà et pouvoir comparer facilement les deux.
+Voir `ajout-releves-journaliers.xlsx` dans ce dossier pour le fichier à
+importer dans votre document existant (onglet "Lisez-moi" = instructions
+détaillées).
 
 L'automatisation tourne sur **GitHub Actions**, gratuitement (quota très
 largement suffisant pour un import nocturne de quelques secondes par site).
@@ -37,10 +43,14 @@ Aucun n8n, aucun serveur à louer.
 Utilise la librairie open source [`toutsurmoneau`](https://github.com/laurent-martin/py-mon-eau)
 (la même que l'intégration Home Assistant "Suez Water").
 
-### 1. Table Grist
+### 1. Ajouter la table à votre document Grist
 
-Utilisez la table `Releves_Journaliers` du modèle XLSX fourni (colonnes
-`Date`, `Compteur_ID`, `Site`, `Source`, `Volume_L`, `Index_m3`).
+Importez `ajout-releves-journaliers.xlsx` **dans le document existant**
+(pas un nouveau document) — voir son onglet "Lisez-moi" pour la marche à
+suivre exacte et les types de colonnes à régler après import. Vous devrez
+notamment ajouter `"Beziers"` à la liste de choix de la colonne `Site`
+(actuellement : Boutonnet, Du Guesclin, Route de Mende, Saint-Charles,
+Saint-Louis).
 
 ### 2. Secrets GitHub à ajouter
 
@@ -50,14 +60,16 @@ Utilisez la table `Releves_Journaliers` du modèle XLSX fourni (colonnes
 |---|---|
 | `SUEZ_USERNAME` | Identifiant toutsurmoneau.fr |
 | `SUEZ_PASSWORD` | Mot de passe toutsurmoneau.fr |
-| `GRIST_API_KEY` | Clé API Grist (avatar → *Paramètres du compte* → *API key*) |
-| `GRIST_DOC_ID` | Id du document, dans l'URL `https://docs.getgrist.com/<DOC_ID>/...` |
-| `GRIST_TABLE_ID` | Id de la table de relevés (ex: `Releves_Journaliers`) |
-| `GRIST_SERVER` | *(optionnel)* seulement si Grist auto-hébergé |
-| `SUEZ_METER_ID` | *(optionnel)* seulement si le compte a plusieurs compteurs |
+| `GRIST_API_KEY` | Clé API Grist (avatar → *Paramètres du compte* → *API key*, sur grist.numerique.gouv.fr) |
+| `GRIST_DOC_ID` | Id du document, dans l'URL `https://grist.numerique.gouv.fr/o/dpmi-umpv/<DOC_ID>/...` |
+| `GRIST_TABLE_ID` | Id de la table de relevés (normalement `Releves_Journaliers`) |
+| `GRIST_SERVER` | *(optionnel)* seulement si différent de `https://grist.numerique.gouv.fr` (déjà la valeur par défaut du script) |
+| `SUEZ_METER_ID` | *(optionnel)* seulement si le compte SUEZ a plusieurs compteurs |
 
 Ne mettez **jamais** ces valeurs en clair dans le code : les secrets GitHub
-Actions sont chiffrés et jamais affichés dans les logs.
+Actions sont chiffrés et jamais affichés dans les logs, ni récupérables par
+qui que ce soit après coup (voir aussi la question de la visibilité du dépôt
+plus bas).
 
 ### 3. Lancer
 
@@ -66,9 +78,9 @@ Le workflow `.github/workflows/eau-umpv-import.yml` tourne chaque nuit à
 l'onglet **Actions** → *Import UMPV water consumption into Grist* → *Run
 workflow*. Il réimporte les 40 derniers jours à chaque fois et **met à jour**
 les lignes existantes au lieu d'en créer des doublons (upsert sur
-`Date`+`Compteur_ID`) — utile car SUEZ publie parfois en retard.
+`Date`+`Nom_du_CPT`) — utile car SUEZ publie parfois en retard.
 
-## Route de Mende / Boutonnet / Saint-Charles / Saint-Louis (Régie des Eaux 3M) — à construire
+## Route de Mende / Boutonnet / Saint-Charles / Saint-Louis (Régie des Eaux 3M) — en cours
 
 Contrairement à SUEZ, il n'existe **aucune librairie ou intégration Home
 Assistant connue** pour `ael.regiedeseaux3m.fr` — impossible de réutiliser du
@@ -114,23 +126,24 @@ d'ici, ce sont les sélecteurs/libellés réels d'`ael.regiedeseaux3m.fr`.
 Une fois fonctionnel, le script rejoindra le même workflow
 `eau-umpv-import.yml` (un job `import-regie3m` par site, ou un seul job qui
 boucle sur les 4 sites x leurs compteurs), avec la même politique d'upsert
-dans `Releves_Journaliers`.
+dans `Releves_Journaliers`, en réutilisant les colonnes `Site`/`Nom_du_CPT`
+déjà en place.
 
 ### Fréquence de récupération automatique
 
 - **Béziers (SUEZ)** : nocturne (déjà en place). Inutile d'interroger plus
   souvent — SUEZ ne publie qu'une valeur par jour, parfois avec 1-2 jours de
   retard (compensé par la fenêtre de réimport de 40 jours).
-- **Régie des Eaux 3M** : dépendra de ce que le portail publie réellement.
-  S'il s'agit de compteurs classiques (relevé manuel/périodique), ce sera
-  probablement aussi une valeur par jour au mieux → import nocturne, comme
-  Béziers. S'il s'agit de compteurs communicants ("télérelevés", avec un
-  historique horaire), on pourra viser une fréquence plus fine — mais je ne
-  peux le confirmer qu'une fois le portail inspecté (option A ou B ci-dessus).
-  Dans tous les cas, "quasi temps réel" n'est pas réaliste avec ce genre de
-  portail web (pas de webhook, pas de flux poussé) : on reste sur du
-  interrogation périodique (polling), gratuit, au pire toutes les heures si
-  la donnée elle-même est assez fine pour que ça vaille le coup.
+- **Régie des Eaux 3M** : dépendra de ce que le portail publie réellement. Le
+  fait que `Consommations` soit aujourd'hui alimentée à la main, deux fois
+  par an, via un formulaire, suggère que la Régie 3M ne fournit peut-être pas
+  de relevé en libre-service à maille fine — mais je ne le saurai qu'après
+  la reconnaissance du portail (ci-dessus). Si c'est le cas, on restera sur
+  un import nocturne comme Béziers ; si les compteurs sont télérelevés
+  (historique horaire), on pourra viser plus fin. Dans tous les cas, "quasi
+  temps réel" n'est pas réaliste avec ce genre de portail web (pas de
+  webhook, pas de flux poussé) : on reste sur du interrogation périodique
+  (polling), gratuit.
 
 ## Tester en local (optionnel)
 
