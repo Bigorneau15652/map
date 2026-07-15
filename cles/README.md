@@ -39,41 +39,80 @@ pas surcharger la vue par défaut), elles peuvent être ajoutées normalement
 puis masquées dans les vues où elles ne sont pas utiles — Grist affiche
 les colonnes masquées par vue, pas par table.
 
-## 2. Nomenclature des clés SP — `Nomenclature_cles_SP.xlsx`
+## 2. Nomenclature des clés — `Nomenclature_cles.xlsx`
 
-Les 4 fichiers XLSX fournis (exports du logiciel du serrurier, un fichier
-par système SP) sont des mises en page d'impression : en-têtes de
-page/chantier répétés toutes les ~46 lignes, cellules fusionnées sur
-plusieurs colonnes, pages d'historique de commandes et de signatures
-mêlées aux données. Ils ont été reconstitués en tableaux exploitables.
+Les fichiers XLSX fournis (exports du logiciel du serrurier, un fichier
+par système de clé ou par chantier) sont des mises en page d'impression :
+en-têtes de page/chantier répétés toutes les ~46 lignes, cellules
+fusionnées sur plusieurs colonnes, pages d'historique de commandes et de
+signatures mêlées aux données. Ils ont été reconstitués en tableaux
+exploitables. Avec le fichier `303_2028_D02028.xlsx` (7 onglets), **les 7
+types de clé actuellement suivis dans `Organigramme_Cles` sont maintenant
+tous couverts** : SP1, SP2, SP3, SP (G02642), 303, SURF, VIP St Charles.
 
-Le classeur `Nomenclature_cles_SP.xlsx` contient :
-- **Synthèse** : totaux par système de clé, avec le nombre de lignes déjà
-  présentes dans `Organigramme_Cles` et le nombre de lignes trouvées dans
-  le fichier source mais absentes de Grist.
-- **SP1 / SP2 / SP3 / SP_G02642** : une ligne par porte/cylindre
-  (désignation locale, repère porte, n° de variure, nb de clés, référence
-  cylindre, type O/V, longueur en mm, passes). Les lignes surlignées en
-  jaune ne sont pas encore dans `Organigramme_Cles`.
+Le classeur `Nomenclature_cles.xlsx` contient :
+- **Synthèse** : totaux par système/combinaison, avec le nombre de lignes
+  déjà présentes dans `Organigramme_Cles` et le nombre de lignes trouvées
+  dans le fichier source mais absentes de Grist.
+- **SP1 / SP2 / SP3 / SP_G02642 / 303 / SURF** : format CISA SP (désignation
+  locale, repère porte, n° de variure, nb de clés, référence cylindre,
+  type O/V, longueur en mm, passes). `303` regroupe les deux combinaisons
+  trouvées dans le fichier : `D02028` (onglet "Table 1") et `D02066`
+  (onglet "Feuil1", ~2000 lignes, sans étiquette de combinaison visible
+  mais dont le contenu correspond à 99.9% à ce qui est déjà importé sous
+  `D02066` — c'est donc bien la même combinaison).
+- **VIP_St_Charles** : format Vachette VIP, différent du format CISA SP
+  (colonnes Ligne/Fonct/Qté/Désignation produit/Numérotation/Variure/Lot/
+  Repère/Désignation locale). Combine les onglets `SC1` (plan 598331),
+  `SC2` (plan 598331-ext) et `SC2-2` (un bon de commande du 12/09/2017,
+  plan 598331, qui corrige/complète certaines portes — colonne "Onglet
+  source" pour distinguer). Le rapprochement avec Grist se fait sur le
+  n° de variure plutôt que sur la référence cylindre, car cette dernière
+  est parfois tronquée dans les données déjà importées.
+- **Bât_L_recles_2017** : table à part trouvée dans le même fichier,
+  hors format nomenclature — voir section 4.
+
+Les lignes surlignées en jaune ne sont pas encore dans `Organigramme_Cles`.
 
 Écart constaté avec le contenu actuel de `Organigramme_Cles` :
 
-| Type de clé | Lignes reconstituées | Déjà dans Grist | À ajouter |
-|---|---|---|---|
-| SP1 | 408 | 389 | **19** |
-| SP2 | 523 | 522 | **1** |
-| SP3 | 144 | 144 | 0 |
-| SP (G02642) | 5 | 5 | 0 |
+| Type de clé | Combinaison | Lignes reconstituées | Déjà dans Grist | À ajouter |
+|---|---|---|---|---|
+| SP1 | G01214 | 408 | 389 | **19** |
+| SP2 | G01623 | 523 | 522 | **1** |
+| SP3 | G04883 | 144 | 144 | 0 |
+| SP (G02642) | G02642 | 5 | 5 | 0 |
+| 303 | D02028 | 61 | 61 | 0 |
+| 303 | D02066 | 1185 | 1103 | **82** |
+| SURF | V00812 | 116 | 116 | 0 |
+| VIP St Charles | 598331 | 263 | 256 | **7** |
+| VIP St Charles | 598331-ext | 127 | 127 | 0 |
 
 Les 19 lignes SP1 manquantes correspondent à une plage contiguë de portes
 (repères 130 à 139 et 173 à 176, plus la porte 5) — probablement une page
-du document source qui n'avait pas été importée à l'origine. Elles sont
-identifiables directement dans l'onglet SP1 (fond jaune, colonne "Statut
-dans Grist").
+du document source qui n'avait pas été importée à l'origine. Les 82 lignes
+303/D02066 et les 7 lignes VIP St Charles manquantes suivent le même
+constat : identifiables directement dans les onglets correspondants (fond
+jaune, colonne "Statut dans Grist").
 
-## 3. Suite
+## 3. Bât L — reclé Agence Comptable (2017)
 
-Les autres nomenclatures de clés (303, SURF, VIP St Charles — déjà
-partiellement présentes dans `Organigramme_Cles`, 303 avec 1156 lignes,
-SURF 116, VIP St Charles 402) pourront être passées par la même méthode
-dès que les fichiers XLSX correspondants seront fournis.
+L'onglet `Bât L` n'est pas une nomenclature mais une table de suivi de
+chantier : remplacement de barillets pour l'agence comptable du bâtiment
+L (R+2), daté du 24/01/2017. Elle liste, porte par porte, l'ancien
+barillet (référençant les anciens systèmes SP2/303) et son remplaçant.
+**Le nouveau système de barillet s'appelle `K070258`** et n'existe dans
+aucun des 7 types de clé actuellement suivis dans `Organigramme_Cles` —
+si ces portes du bâtiment L ont bien été recléées, la référence à utiliser
+pour elles n'est plus celle de `Organigramme_Cles` mais celle de cet
+onglet `Bât_L_recles_2017`. À vérifier avec vous si ce chantier a été
+généralisé à d'autres salles/bâtiments, auquel cas il faudrait
+probablement créer un 8ᵉ type de clé.
+
+## 4. Suite
+
+Les 7 types de clé actuellement suivis dans `Organigramme_Cles` sont
+désormais tous couverts. S'il existe des systèmes de clé supplémentaires
+non encore présents dans Grist (par ex. un système propre au bâtiment L
+recléé en 2017), la même méthode pourra être appliquée dès que les
+fichiers XLSX correspondants seront fournis.
