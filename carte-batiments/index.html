@@ -594,13 +594,14 @@ function renderMap(){
       // part = [outerRing, ...holeRings] — Leaflet natively renders subsequent rings as holes
       const latlngRings=part.map(ring=>ring.map(([px,py])=>pxToLatLng(px,py,currentSite)));
       const poly=L.polygon(latlngRings, style);
-      poly.bindTooltip(`<b>${code}</b>`+(b?`<br><span style="font-size:10px;color:#666">${b.nomComplet||''}</span>`:''),{sticky:true,opacity:0.9});
+      const catNames=b?APP.cats.filter(cc=>b.catIds.includes(cc._id)&&cc.active).map(cc=>cc.nom).join(', '):'';
+      poly.bindTooltip(`<b>${b?b.bat:code}</b>`+(catNames?`<br><span style="font-size:10px;color:#666">Catégorie : ${catNames}</span>`:''),{sticky:true,opacity:0.9});
       poly.on({
         mouseover(e){
           e.target.setStyle({weight:2.4,color:'#111'});e.target.bringToFront();
           const cats=b?APP.cats.filter(cc=>b.catIds.includes(cc._id)&&cc.active).map(cc=>cc.nom).join(', '):'';
           const tip=document.getElementById('tip');
-          tip.innerHTML=`<b>${b?b.nomComplet:code}</b>`+(cats?`<br><span style="font-size:10px;color:#666">${cats}</span>`:'');
+          tip.innerHTML=`<b>${b?b.bat:code}</b>`+(cats?`<br><span style="font-size:10px;color:#666">Catégorie : ${cats}</span>`:'');
           tip.classList.add('show');
         },
         mouseout(e){ poly.setStyle(style); document.getElementById('tip').classList.remove('show'); },
