@@ -590,7 +590,8 @@ function kpiRow(agg) {
     <div class="kpi"><div class="val">${fmt(agg.totalOperat)} m²</div><div class="lbl">Surface OPERAT (hors périmètre exclu)</div></div>
     <div class="kpi"><div class="val">${fmt(agg.totalByStatus.CR)} m²</div><div class="lbl">${STATUS_LABEL.CR}</div></div>
     <div class="kpi"><div class="val">${fmt(agg.totalByStatus.C)} m²</div><div class="lbl">${STATUS_LABEL.C}</div></div>
-    <div class="kpi"><div class="val">${fmt(agg.totalByStatus.R + agg.totalByStatus.N)} m²</div><div class="lbl">${STATUS_LABEL.R} / ${STATUS_LABEL.N}</div></div>
+    <div class="kpi"><div class="val">${fmt(agg.totalByStatus.R)} m²</div><div class="lbl">${STATUS_LABEL.R}</div></div>
+    <div class="kpi"><div class="val">${fmt(agg.totalByStatus.N)} m²</div><div class="lbl">${STATUS_LABEL.N}</div></div>
     <div class="kpi muted"><div class="val">${fmt(agg.horsPerimetreTotal)} m²</div><div class="lbl">Hors périmètre (info, exclu du total)</div></div>
     <div class="kpi muted"><div class="val">${agg.nbBatiments}</div><div class="lbl">Bâtiments actifs pris en compte</div></div>
     ${nonClasseKpi}
