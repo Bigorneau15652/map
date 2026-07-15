@@ -1,4 +1,4 @@
-name: Import SUEZ water consumption into Grist
+name: Import UMPV water consumption into Grist
 
 on:
   schedule:
@@ -7,7 +7,8 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  import:
+  import-beziers:
+    name: Beziers (SUEZ)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,9 +18,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r suez-eau-import/requirements.txt
+        run: pip install -r eau-umpv-import/requirements.txt
 
       - name: Run import
+        working-directory: eau-umpv-import
         env:
           SUEZ_USERNAME: ${{ secrets.SUEZ_USERNAME }}
           SUEZ_PASSWORD: ${{ secrets.SUEZ_PASSWORD }}
@@ -28,4 +30,11 @@ jobs:
           GRIST_DOC_ID: ${{ secrets.GRIST_DOC_ID }}
           GRIST_TABLE_ID: ${{ secrets.GRIST_TABLE_ID }}
           GRIST_SERVER: ${{ secrets.GRIST_SERVER }}
-        run: python suez-eau-import/import_suez.py
+        run: python import_suez_beziers.py
+
+  # import-regie3m:
+  #   Site: Route de Mende / Boutonnet / Saint-Charles / Saint-Louis (Regie des
+  #   Eaux 3M, https://ael.regiedeseaux3m.fr). Not wired up yet: this portal
+  #   has no known open-source client, and needs either a HAR export of the
+  #   login + consumption pages, or a few rounds of trial-and-error against
+  #   real Action run logs, to build reliably. See eau-umpv-import/README.md.
