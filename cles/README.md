@@ -22,7 +22,7 @@ commentaire libre) :
 
 | Ordre | colId | Label | Type | Rôle |
 |---|---|---|---|---|
-| après `Materiaux` | `Cle_TypeCle` | Type de clé | Choice (SP1, SP2, SP3, SP (G02642), 303, SURF, VIP St Charles, …) | Système de clé qui ouvre cette porte |
+| après `Materiaux` | `Cle_TypeCle` | Type de clé | Choice (SP1, SP2, SP3, SP (G02642), 303, SURF, VIP St Charles, Atrium - ALPHA, Atrium - SERIAL XP, Béziers, …) | Système de clé qui ouvre cette porte |
 | | `Cle_RepereOrganigramme` | Repère porte (organigramme clés) | Text | Le repère du serrurier pour cette porte — à saisir une fois lors du rapprochement terrain, sert de clé de rapprochement |
 | | `ReferenceCylindre` | Référence cylindre (barillet) | Formula (Any) | `=Organigramme_Cles.lookupOne(Type_de_cle=$Cle_TypeCle, Repere_porte=$Cle_RepereOrganigramme).Cyl_REF` — se remplit automatiquement dès que les deux colonnes précédentes sont saisies |
 
@@ -109,10 +109,67 @@ onglet `Bât_L_recles_2017`. À vérifier avec vous si ce chantier a été
 généralisé à d'autres salles/bâtiments, auquel cas il faudrait
 probablement créer un 8ᵉ type de clé.
 
-## 4. Suite
+## 4. Atrium (BRICARD, site Route de Mende)
 
-Les 7 types de clé actuellement suivis dans `Organigramme_Cles` sont
-désormais tous couverts. S'il existe des systèmes de clé supplémentaires
-non encore présents dans Grist (par ex. un système propre au bâtiment L
-recléé en 2017), la même méthode pourra être appliquée dès que les
-fichiers XLSX correspondants seront fournis.
+Nouveau bâtiment (`Bâtiment ATRIUM`, id 66, site Route de Mende) : aucune
+ligne encore dans `Organigramme_Cles`. Les 2 fichiers `.xlsm` fournis ne
+sont **pas** un brouillon et sa version finale d'un même organigramme,
+mais **deux systèmes de clé distincts et complémentaires** pour le même
+bâtiment (confirmé par le contenu des fichiers : gammes de cylindre,
+numéros de schéma et portes couvertes totalement différents) :
+- `Atrium_ALPHA` : organigramme **non protégé** (passe général courant),
+  gamme BRICARD ALPHA, n° de schéma 2MN92B, 150 portes/cylindres.
+- `Atrium_SerialXP` : organigramme **protégé** (zones sensibles), gamme
+  BRICARD SERIAL XP, n° de schéma "CREATION T57J", 66 portes/cylindres.
+
+Ces deux fichiers Excel sont natifs (pas d'impression/scan), donc fiables
+à 100% — pas de risque de mauvaise lecture.
+
+Comme il s'agit d'un nouveau bâtiment, il faudra un (ou deux) nouveau(x)
+`Type_de_cle` dans `Organigramme_Cles` — proposition : `Atrium - ALPHA`
+et `Atrium - SERIAL XP`.
+
+## 5. Béziers (BRICARD, PDF scanné)
+
+Nouveau site (`Béziers`, id 2) : aucune ligne encore dans
+`Organigramme_Cles`. **Le PDF est lisible** : ce n'est pas un document de
+150 pages mais un scan/fax de **11 pages** (le compteur de pages annoncé
+par l'outil comptait autre chose — la lecture réelle du fichier en donne
+11). Il combine plusieurs documents de nature différente :
+
+- **Pages 1-2** : un inventaire simple et propre, **imprimé** (référence
+  de clé / localisation / nombre de clés), sans la référence technique du
+  cylindre. Entièrement fiable — transcrit dans l'onglet
+  `Beziers_Inventaire` (108 lignes).
+- **Pages 3-11** : plusieurs fax de schémas de combinaison BRICARD
+  officiels (« Schéma de combinaison »), datés de 1998 à 2005, provenant
+  de plusieurs agences BRICARD (Montpellier, Toulouse) — ce sont ces
+  pages qui donnent la référence technique du cylindre (colonne REF.).
+  Certaines sont **imprimées** (fiables à 100%), d'autres **entièrement
+  manuscrites** (risque réel de mauvaise lecture d'un chiffre, ce qui est
+  sensible pour une référence de sécurité physique).
+
+Par prudence, `Beziers_REF_cylindres` ne contient que les **10 lignes
+retrouvées sur des pages imprimées** (schéma AJC7, marquages RC01-RC07 et
+80/81/82, référence cylindre "2 330 071" / "2 333 071"). Les pages
+manuscrites restantes (schémas AJE9 et VA37D, plus un bâtiment
+« extension » distinct daté de 1998 signé HARTIMASSO) contiennent
+d'autres références cylindre pour le reste de l'inventaire (les portes
+`LT01` à `LT22`, les bureaux, etc.) mais n'ont pas été retranscrites ici.
+
+**Comment voulez-vous procéder pour ces pages manuscrites ?**
+- je fais une transcription "au mieux" avec une colonne "à vérifier" pour
+  chaque valeur lue sur une page manuscrite (rapide, mais vous devrez
+  recontrôler ces valeurs avant tout usage) ;
+- ou vous les ressaisissez vous-même à partir des pages scannées (plus
+  sûr, mais plus de travail de votre côté) — vous pouvez me dire quelles
+  pages précisément si vous préférez ne resaisir qu'une partie.
+
+## 6. Suite
+
+Les 7 types de clé déjà suivis dans `Organigramme_Cles`, plus les 2
+systèmes Atrium et l'inventaire Béziers, sont désormais couverts. Reste
+en attente : la transcription fiable des pages manuscrites du PDF
+Béziers (voir section 5), et la confirmation du chantier de reclé du
+bâtiment L (voir section 3 : sera-t-il généralisé, auquel cas il faudra
+un 8ᵉ type de clé "K070258" ?).
