@@ -1,0 +1,40 @@
+name: Regie 3M portal discovery (manual, diagnostic only)
+
+# Manual-dispatch only - this is a reconnaissance run against
+# ael.regiedeseaux3m.fr to figure out its login form and API shape, not a
+# production import. See eau-umpv-import/README.md, section "Regie des Eaux
+# 3M". Not scheduled on purpose: it logs in with real credentials each time,
+# no need to do that on a timer while the scraper itself doesn't exist yet.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r eau-umpv-import/requirements.txt
+
+      - name: Install Playwright browser
+        run: python -m playwright install --with-deps chromium
+
+      - name: Run discovery
+        working-directory: eau-umpv-import
+        env:
+          REGIE3M_USERNAME: ${{ secrets.REGIE3M_USERNAME }}
+          REGIE3M_PASSWORD: ${{ secrets.REGIE3M_PASSWORD }}
+        run: python discover_regie3m.py
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regie3m-discover-output
+          path: eau-umpv-import/discover-output/
+          retention-days: 7

@@ -78,39 +78,43 @@ l'environnement dans lequel ces scripts sont préparés n'a pas accès à ce sit
 (politique réseau restreinte à quelques domaines connus) : impossible de
 l'inspecter directement d'ici.
 
-Deux façons de débloquer ça, au choix :
+**Approche retenue : itération via les logs GitHub Actions.** Un premier
+script `discover_regie3m.py` est déjà en place : il pilote un vrai navigateur
+(Playwright) pour se connecter, tente de repérer les champs identifiant/mot
+de passe et le bouton de connexion par plusieurs heuristiques (type de champ,
+libellé, placeholder), essaie de cliquer sur un lien "consommation /
+historique", et surtout **capture tous les appels d'API JSON** vus pendant la
+session (URL, méthode, statut, extrait du corps de réponse) — c'est ça qui va
+révéler la vraie structure du site. À chaque étape il continue même en cas
+d'échec partiel pour maximiser les diagnostics récupérés (captures d'écran +
+HTML + `api-calls.json` + `log.txt`).
 
-**A. Export HAR (le plus rapide, une seule itération)**
-1. Connectez-vous à https://ael.regiedeseaux3m.fr/ dans Chrome/Firefox.
-2. Ouvrez les outils développeur (F12) → onglet **Réseau/Network** → cochez
-   "Preserve log".
-3. Allez sur la page d'historique de consommation d'un compteur.
-4. Clic droit dans la liste des requêtes → **Save all as HAR** (ou l'icône de
-   téléchargement en haut de l'onglet Réseau).
-5. Partagez ce fichier HAR (ou juste les requêtes vers des URLs contenant
-   `login`, `conso`, `compteur`, `historique`, `api`) — **retirez/masquez
-   votre mot de passe en clair s'il apparaît dans le corps d'une requête**,
-   je n'ai besoin que des noms de champs et de la structure, pas de vos
-   identifiants réels.
+Sa mécanique (détection de champs, soumission, capture réseau, navigation par
+texte) a été testée contre une fausse page de connexion locale avant d'être
+committée — ce qui n'a pas pu être vérifié, faute d'accès au vrai site
+d'ici, ce sont les sélecteurs/libellés réels d'`ael.regiedeseaux3m.fr`.
 
-Avec ça, j'écris et livre un script `import_regie3m.py` directement
-fonctionnel.
+### Mise en place
 
-**B. Itération via les logs GitHub Actions (sans manipulation technique de votre côté)**
-1. Ajoutez déjà les secrets `REGIE3M_USERNAME` / `REGIE3M_PASSWORD` dans le
-   dépôt.
-2. J'écris un scraper "meilleur effort" basé sur un navigateur automatisé
-   (Playwright) qui reproduit un vrai login (remplit le formulaire, clique,
-   navigue), puis je le fais tourner comme job GitHub Actions.
-3. Je lis les logs d'exécution (échecs, sélecteurs introuvables) pour corriger
-   et relancer, jusqu'à ce que ça fonctionne — compter 2 à 4 allers-retours,
-   chacun demandant votre feu vert avant de relancer (car ça utilise vos
-   vrais identifiants).
+1. Ajoutez les secrets `REGIE3M_USERNAME` / `REGIE3M_PASSWORD` dans le dépôt
+   (**Settings → Secrets and variables → Actions**).
+2. Lancez le workflow **Regie 3M portal discovery (manual, diagnostic
+   only)** depuis l'onglet **Actions** (déclenchement manuel uniquement,
+   jamais planifié — pas de raison de retenter un login automatiquement tant
+   que le scraper n'est pas fini).
+3. Une fois le run terminé, il produit un artefact `regie3m-discover-output`
+   (captures d'écran avant/après connexion, HTML de la page, et surtout
+   `api-calls.json`) que je récupère et lis pour écrire l'extraction réelle
+   des données — remplaçant les heuristiques génériques de
+   `discover_regie3m.py` par le vrai endpoint de consommation.
+4. Cela prendra probablement 2 à 4 allers-retours (relance après chaque
+   correctif), chacun avec votre feu vert avant de relancer puisque ça
+   utilise vos vrais identifiants.
 
-Une fois un des deux chemins choisi, le déploiement rejoindra le même
-workflow `eau-umpv-import.yml` (un job `import-regie3m` par site ou un seul
-job qui boucle sur les 4 sites x leurs compteurs), avec la même politique
-d'upsert dans `Releves_Journaliers`.
+Une fois fonctionnel, le script rejoindra le même workflow
+`eau-umpv-import.yml` (un job `import-regie3m` par site, ou un seul job qui
+boucle sur les 4 sites x leurs compteurs), avec la même politique d'upsert
+dans `Releves_Journaliers`.
 
 ### Fréquence de récupération automatique
 
