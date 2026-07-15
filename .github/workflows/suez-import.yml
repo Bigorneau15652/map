@@ -1,0 +1,31 @@
+name: Import SUEZ water consumption into Grist
+
+on:
+  schedule:
+    # Every night at 05:17 UTC (off-the-hour to avoid GitHub's cron rush).
+    - cron: "17 5 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r suez-eau-import/requirements.txt
+
+      - name: Run import
+        env:
+          SUEZ_USERNAME: ${{ secrets.SUEZ_USERNAME }}
+          SUEZ_PASSWORD: ${{ secrets.SUEZ_PASSWORD }}
+          SUEZ_METER_ID: ${{ secrets.SUEZ_METER_ID }}
+          GRIST_API_KEY: ${{ secrets.GRIST_API_KEY }}
+          GRIST_DOC_ID: ${{ secrets.GRIST_DOC_ID }}
+          GRIST_TABLE_ID: ${{ secrets.GRIST_TABLE_ID }}
+          GRIST_SERVER: ${{ secrets.GRIST_SERVER }}
+        run: python suez-eau-import/import_suez.py
