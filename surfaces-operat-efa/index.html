@@ -172,6 +172,39 @@
     margin: 1px 3px 1px 0;
   }
 
+  /* Chapitres repliables ("Sous-catégorie SCE OPERAT", "Détail par bâtiment...") :
+     même habillage que les h2 de .card, mais cliquables pour replier/déplier. */
+  details.section { margin: 0; }
+  details.section > summary {
+    list-style: none;
+    cursor: pointer;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--accent);
+    margin: 0 0 10px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  details.section > summary::-webkit-details-marker { display: none; }
+  details.section > summary::before { content: '▾'; font-size: 11px; color: var(--text-muted); }
+  details.section:not([open]) > summary::before { content: '▸'; }
+  details.section:not([open]) > summary { margin-bottom: 0; border-bottom: none; }
+
+  @media print {
+    #toolbar { display: none; }
+    body { background: #fff; font-size: 11.5px; }
+    #content { max-width: none; padding: 0; }
+    .card { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
+    .tableWrap { overflow-x: visible; }
+    table { font-size: 10.5px; }
+    details.buildingRow { break-inside: avoid; }
+    .efaLink { text-decoration: none; color: inherit; }
+  }
+
 </style>
 </head>
 <body>
@@ -181,6 +214,7 @@
       <select id="efaSelect"></select>
     </div>
     <button id="helpBtn" type="button">❓ Méthode de calcul</button>
+    <button id="printBtn" type="button">🖶️ Imprimer / Export PDF</button>
   </div>
   <div id="content">
     <div id="emptyState">Chargement…</div>
@@ -702,12 +736,17 @@ function renderEfaPage(siteId) {
       <div class="subhead">Résultat agrégé pour cet EFA — c'est ce total qui doit être renseigné dans OPERAT.</div>
       ${kpiRow(agg)}
       ${renderWarnings(agg.warnings)}
-      <div style="margin-top:12px">${linesTable(agg.lines, agg.totalOperat)}</div>
+      <details class="section" open style="margin-top:12px">
+        <summary>Sous-catégorie SCE OPERAT</summary>
+        ${linesTable(agg.lines, agg.totalOperat)}
+      </details>
     </div>
     <div class="card">
-      <h2>Détail par bâtiment (${agg.nbBatiments})</h2>
-      <div class="subhead">Cliquez sur un bâtiment pour dérouler son détail et vérifier la classification retenue.</div>
-      ${buildingsHtml || '<div class="subhead">Aucun bâtiment actif pour cet EFA.</div>'}
+      <details class="section" open>
+        <summary>Détail par bâtiment (${agg.nbBatiments})</summary>
+        <div class="subhead">Cliquez sur un bâtiment pour dérouler son détail et vérifier la classification retenue.</div>
+        ${buildingsHtml || '<div class="subhead">Aucun bâtiment actif pour cet EFA.</div>'}
+      </details>
     </div>`;
 }
 
@@ -750,6 +789,20 @@ async function onEfaChange() {
 }
 
 document.getElementById('efaSelect').addEventListener('change', onEfaChange);
+document.getElementById('printBtn').addEventListener('click', () => {
+  // Les <details> repliés (chapitres, bâtiments) ne rendent pas leur contenu :
+  // on les ouvre le temps de l'impression/export PDF pour que rien ne manque
+  // sur le papier, puis on restaure l'état d'affichage écran ensuite.
+  const content = document.getElementById('content');
+  const closedDetails = Array.from(content.querySelectorAll('details:not([open])'));
+  closedDetails.forEach((d) => { d.open = true; });
+  const restore = () => {
+    closedDetails.forEach((d) => { d.open = false; });
+    window.removeEventListener('afterprint', restore);
+  };
+  window.addEventListener('afterprint', restore);
+  window.print();
+});
 document.getElementById('helpBtn').addEventListener('click', () => {
   const content = document.getElementById('content');
   const already = document.getElementById('helpCard');
