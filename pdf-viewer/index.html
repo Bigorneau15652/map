@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PDF Viewer v8</title>
+  <title>PDF Viewer v9</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -19,19 +19,21 @@
     }
     #empty svg { opacity: .3; }
 
-    /* ── Écran bloqué (X-Frame-Options) ────────────────────── */
-    #blocked {
+    /* ── Liste de boutons (multi-PDF) ───────────────────────── */
+    #multilist {
       display: none; flex-direction: column;
       align-items: center; justify-content: center;
-      height: 100%; gap: 12px; padding: 24px; text-align: center;
+      height: 100%; gap: 10px; padding: 24px; overflow-y: auto;
     }
-    #openbtn {
+    #multilist .pdf-btn {
       display: inline-flex; align-items: center; gap: 8px;
       background: #2980b9; color: #fff; border: none; border-radius: 7px;
-      padding: 11px 20px; font-size: 14px; font-weight: 700; cursor: pointer;
+      padding: 10px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
       box-shadow: 0 2px 8px rgba(0,0,0,.18); transition: background .15s;
+      width: 100%; max-width: 320px; text-align: left; word-break: break-word;
     }
-    #openbtn:hover { background: #3498db; }
+    #multilist .pdf-btn:hover { background: #3498db; }
+    #multilist .pdf-btn svg { flex-shrink: 0; }
 
     /* ── Iframe PDF ─────────────────────────────────────────── */
     #frame { display: none; width: 100%; height: 100%; border: none; }
@@ -97,18 +99,10 @@
   <span id="emptymsg">Sélectionnez une ligne dans le tableau</span>
 </div>
 
-<!-- État bloqué (X-Frame-Options) : bouton proéminent -->
-<div id="blocked">
-  <p id="blockedname" style="font-size:12px;color:#666;margin-bottom:4px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
-  <button id="openbtn">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-      <path d="M15 3h6v6M9 21H3v-6M21 3l-9 9M3 21l9-9"/>
-    </svg>
-    Ouvrir dans une fenêtre séparée
-  </button>
-</div>
+<!-- Liste de boutons multi-PDF -->
+<div id="multilist"></div>
 
-<!-- Visionneuse intégrée -->
+<!-- Visionneuse intégrée (PDF même origine) -->
 <iframe id="frame" allowfullscreen></iframe>
 
 <!-- Bouton agrandissement (overlay) -->
@@ -124,7 +118,7 @@
   <div id="box">
     <h3>⚙ Paramètres — PDF Viewer</h3>
     <div class="row">
-      <label>Colonne PDF</label>
+      <label>Colonne PDF (URLs)</label>
       <div class="rf">
         <select id="csel"><option value="">— sélectionner —</option></select>
         <button id="bref" title="Recharger colonnes">⟳</button>
@@ -137,9 +131,13 @@
         <option value="attachment">Pièce jointe Grist</option>
       </select>
     </div>
+    <div class="row">
+      <label>Colonne Noms (optionnel)</label>
+      <select id="cnamesel"><option value="">— aucune —</option></select>
+    </div>
     <div id="hint">
-      💡 Liste vide ? Dans Grist, panneau de droite → <strong>Données</strong>
-      → sélectionnez votre table, puis ↺
+      💡 Multi-PDF : séparez les URLs par des sauts de ligne dans la cellule.
+      La colonne Noms suit le même ordre (une ligne = un nom).
     </div>
     <div id="cfgerr"></div>
     <div class="acts">
@@ -151,18 +149,20 @@
 
 <script>
 const WIN_NAME = 'grist-pdf-viewer';
-const st = { col: null, type: 'url', url: null, cols: [] };
+const st = { col: null, nameCol: null, type: 'url', url: null, cols: [] };
 
-const frame    = document.getElementById('frame');
-const empty    = document.getElementById('empty');
-const emptymsg = document.getElementById('emptymsg');
-const blocked  = document.getElementById('blocked');
-const popbtn   = document.getElementById('popbtn');
-const openbtn  = document.getElementById('openbtn');
-const ov       = document.getElementById('ov');
-const csel     = document.getElementById('csel');
-const ctype    = document.getElementById('ctype');
-const cfgerr   = document.getElementById('cfgerr');
+const frame     = document.getElementById('frame');
+const empty     = document.getElementById('empty');
+const emptymsg  = document.getElementById('emptymsg');
+const multilist = document.getElementById('multilist');
+const popbtn    = document.getElementById('popbtn');
+const ov        = document.getElementById('ov');
+const csel      = document.getElementById('csel');
+const cnamesel  = document.getElementById('cnamesel');
+const ctype     = document.getElementById('ctype');
+const cfgerr    = document.getElementById('cfgerr');
+
+const ICON_OPEN = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-9 9M3 21l9-9"/></svg>`;
 
 function isSameOrigin(url) {
   try { return new URL(url).origin === location.origin; } catch { return false; }
@@ -175,65 +175,87 @@ function openPopup(url) {
   const h = screen.height > 900  ? 860  : screen.height - 100;
   const l = Math.max(0, (screen.width  - w) / 2);
   const t = Math.max(0, (screen.height - h) / 2);
+  const features = `width=${w},height=${h},left=${l},top=${t},resizable=yes`;
   if (viewerWin && !viewerWin.closed) {
     try { viewerWin.location.href = url; } catch(e) {
-      viewerWin = window.open(url, WIN_NAME, `width=${w},height=${h},left=${l},top=${t},resizable=yes`);
+      viewerWin = window.open(url, WIN_NAME, features);
     }
     viewerWin.focus();
   } else {
-    viewerWin = window.open(url, WIN_NAME, `width=${w},height=${h},left=${l},top=${t},resizable=yes`);
+    viewerWin = window.open(url, WIN_NAME, features);
     if (viewerWin) viewerWin.focus();
   }
 }
 
+// ── Utilitaire : extraire un label lisible depuis une URL ─────────────────────
+function labelFromUrl(url) {
+  try {
+    const decoded = decodeURIComponent(url.split('/').pop().split('?')[0]);
+    if (decoded && decoded.length > 0) return decoded;
+  } catch {}
+  // Fallback : les 40 premiers caractères de l'URL
+  return url.length > 40 ? url.slice(0, 40) + '…' : url;
+}
+
+// ── Parsing multi-valeur (séparateur : saut de ligne) ─────────────────────────
+function splitLines(v) {
+  if (!v) return [];
+  return String(v).split('\n').map(s => s.trim()).filter(Boolean);
+}
+
 // ── Affichage des états ───────────────────────────────────────────────────────
+function hideAll() {
+  empty.style.display      = 'none';
+  multilist.style.display  = 'none';
+  frame.classList.remove('visible');
+  popbtn.classList.remove('visible');
+  frame.src = '';
+}
+
 function showEmpty(msg) {
   st.url = null;
-  frame.src = ''; frame.classList.remove('visible');
-  empty.style.display = 'flex'; emptymsg.textContent = msg;
-  blocked.style.display = 'none';
-  popbtn.classList.remove('visible');
+  hideAll();
+  empty.style.display = 'flex';
+  emptymsg.textContent = msg;
 }
 
 function showPDF(url) {
-  empty.style.display = 'none';
-  blocked.style.display = 'none';
+  hideAll();
   frame.classList.add('visible');
   popbtn.classList.add('visible');
-
-  // Détection X-Frame-Options : si le serveur bloque l'iframe,
-  // le navigateur navigue vers about:blank et déclenche load
   frame.onload = () => {
     try {
-      const href = frame.contentWindow.location.href;
-      // Si about:blank alors que l'on attendait un vrai PDF → bloqué
-      if (href === 'about:blank') {
-        showBlocked(url);
-      }
-      // Si href accessible et valide → même origine, OK
-    } catch {
-      // SecurityError = contenu cross-origin chargé avec succès → OK
-    }
+      if (frame.contentWindow.location.href === 'about:blank') showButtons([url], []);
+    } catch { /* cross-origin OK */ }
   };
-
   frame.src = url;
+  st.url = url;
 }
 
-function showBlocked(url) {
-  frame.src = ''; frame.classList.remove('visible');
-  popbtn.classList.remove('visible');
-  empty.style.display = 'none';
-  blocked.style.display = 'flex';
-  const name = decodeURIComponent(url.split('/').pop().split('?')[0]) || url;
-  document.getElementById('blockedname').textContent = name;
-  openbtn.onclick = () => openPopup(url);
-  // Si la fenêtre popup est déjà ouverte, on met à jour directement
+// Affiche N boutons (un par PDF)
+function showButtons(urls, names) {
+  hideAll();
+  multilist.innerHTML = '';
+  urls.forEach((url, i) => {
+    const label = (names[i] && names[i].trim()) ? names[i].trim() : labelFromUrl(url);
+    const btn = document.createElement('button');
+    btn.className = 'pdf-btn';
+    btn.innerHTML = ICON_OPEN + label;
+    btn.onclick = () => {
+      openPopup(url);
+      // Mise à jour du popup si déjà ouvert sur ce même bouton
+    };
+    multilist.appendChild(btn);
+  });
+  multilist.style.display = 'flex';
+
+  // Si popup déjà ouvert, mettre à jour vers le premier lien automatiquement
   if (viewerWin && !viewerWin.closed) {
-    try { viewerWin.location.href = url; viewerWin.focus(); } catch(e) {}
+    try { viewerWin.location.href = urls[0]; viewerWin.focus(); } catch(e) {}
   }
 }
 
-// ── Boutons popup ─────────────────────────────────────────────────────────────
+// ── Bouton agrandir (PDF iframe) ──────────────────────────────────────────────
 popbtn.addEventListener('click', () => { if (st.url) openPopup(st.url); });
 
 // ── Grist ─────────────────────────────────────────────────────────────────────
@@ -242,7 +264,6 @@ grist.ready({ requiredAccess: 'read table', onEditOptions: openModal });
 let lastRow = null;
 let recordReceived = false;
 
-// Si onRecord ne se déclenche pas en 4s → le widget n'est pas lié à une table
 setTimeout(() => {
   if (!recordReceived) {
     showEmpty('⚠ Liez ce widget à votre table : panneau droite → Données → sélectionnez votre table');
@@ -254,29 +275,49 @@ function processRow(row) {
   const v = row[st.col];
   if (!v) { showEmpty('Valeur vide pour cette ligne'); return; }
 
-  let url;
+  // Pièces jointes Grist
   if (st.type === 'attachment') {
     const ids = Array.isArray(v) ? v.filter(n => typeof n === 'number') : [];
     if (!ids.length) { showEmpty('Aucune pièce jointe'); return; }
-    url = location.origin + '/api/attachments/' + ids[0] + '/download';
-  } else {
-    url = String(v).trim();
+    if (ids.length === 1) {
+      const url = location.origin + '/api/attachments/' + ids[0] + '/download';
+      st.url = url; showPDF(url);
+    } else {
+      const urls  = ids.map(id => location.origin + '/api/attachments/' + id + '/download');
+      const names = st.nameCol ? splitLines(row[st.nameCol]) : [];
+      showButtons(urls, names);
+    }
+    return;
   }
 
-  st.url = url;
-  if (isSameOrigin(url)) {
-    showPDF(url);
+  // URLs texte (une ou plusieurs, séparées par \n)
+  const urls = splitLines(v);
+  if (!urls.length) { showEmpty('Valeur vide pour cette ligne'); return; }
+
+  const names = st.nameCol ? splitLines(row[st.nameCol] || '') : [];
+
+  if (urls.length === 1) {
+    const url = urls[0];
+    st.url = url;
+    if (isSameOrigin(url)) {
+      showPDF(url);
+    } else {
+      // Un seul lien externe → un bouton
+      showButtons([url], names);
+    }
   } else {
-    showBlocked(url);
+    // Plusieurs liens → liste de boutons
+    showButtons(urls, names);
   }
 }
 
 grist.onOptions(o => {
-  if (o?.col)  st.col  = o.col;
-  if (o?.type) st.type = o.type;
+  if (o?.col)     st.col     = o.col;
+  if (o?.type)    st.type    = o.type;
+  if ('nameCol' in (o||{})) st.nameCol = o.nameCol || null;
   ctype.value = st.type || 'url';
   rebuild();
-  if (lastRow) processRow(lastRow); // retraite la ligne courante si config change
+  if (lastRow) processRow(lastRow);
 });
 
 grist.onRecords(rows => {
@@ -299,9 +340,11 @@ document.getElementById('bno').onclick  = closeModal;
 ov.addEventListener('click', e => { if (e.target === ov) closeModal(); });
 document.getElementById('bref').onclick = e => { e.stopPropagation(); loadCols(); };
 document.getElementById('bok').onclick  = () => {
-  if (!csel.value) { showCfgErr('Sélectionnez une colonne.'); return; }
-  st.col = csel.value; st.type = ctype.value;
-  grist.setOptions({ col: st.col, type: st.type });
+  if (!csel.value) { showCfgErr('Sélectionnez une colonne PDF.'); return; }
+  st.col     = csel.value;
+  st.type    = ctype.value;
+  st.nameCol = cnamesel.value || null;
+  grist.setOptions({ col: st.col, type: st.type, nameCol: st.nameCol });
   closeModal();
 };
 
@@ -310,30 +353,36 @@ async function loadCols() {
   csel.innerHTML = '<option value="">Chargement...</option>';
   cfgerr.style.display = 'none';
 
-  // Toujours tenter fetchSelectedTable (plus fiable)
   try {
     const data = await grist.docApi.fetchSelectedTable();
     const cols = Object.keys(data).filter(k => k !== 'id');
     if (cols.length) { st.cols = cols; rebuild(); csel.disabled = false; return; }
   } catch { /* pas encore lié */ }
 
-  // Fallback : colonnes reçues via onRecords
   if (st.cols.length) { rebuild(); csel.disabled = false; return; }
 
-  // Rien : afficher l'aide
-  showCfgErr('Aucune colonne. Dans Grist, panneau droite > Donnees > selectionnez votre table, puis cliquez le bouton Recharger.');
+  showCfgErr('Aucune colonne. Dans Grist, panneau droite > Données > sélectionnez votre table, puis ⟳.');
   csel.innerHTML = '<option value="">— sélectionner —</option>';
   csel.disabled = false;
 }
 
 function rebuild() {
-  const prev = csel.value || st.col;
-  csel.innerHTML = '<option value="">— sélectionner —</option>';
+  const prevCol  = csel.value     || st.col;
+  const prevName = cnamesel.value || st.nameCol;
+
+  csel.innerHTML     = '<option value="">— sélectionner —</option>';
+  cnamesel.innerHTML = '<option value="">— aucune —</option>';
+
   st.cols.forEach(c => {
-    const o = document.createElement('option');
-    o.value = c; o.textContent = c;
-    if (c === prev) o.selected = true;
-    csel.appendChild(o);
+    const o1 = document.createElement('option');
+    o1.value = c; o1.textContent = c;
+    if (c === prevCol) o1.selected = true;
+    csel.appendChild(o1);
+
+    const o2 = document.createElement('option');
+    o2.value = c; o2.textContent = c;
+    if (c === prevName) o2.selected = true;
+    cnamesel.appendChild(o2);
   });
   ctype.value = st.type || 'url';
 }
