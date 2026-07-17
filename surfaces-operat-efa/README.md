@@ -23,36 +23,52 @@ dans la grille Grist ; le widget recalculera au prochain rafraîchissement.
 
 ## Logique de calcul
 
-### Trois cas par salle, selon `Categorie_SCE_OPERAT`
+### Quatre cas par salle, selon `Categorie_SCE_OPERAT`
 
 - **Catégorie vide (id 0)** → **hors périmètre** : structures non occupées
   (escaliers-vides, toitures, rampes, aires de manœuvre, vérandas…). Exclues
   du total OPERAT, affichées à part pour information.
 - **Catégorie "À répartir"** → circulations, sanitaires, locaux techniques
   "occupants"… qui n'ont pas d'équivalent OPERAT propre. Redistribuées dans
-  les sous-catégories dominantes du bâtiment (voir plus bas).
-- **Toute autre catégorie** → affectation directe à sa
+  les sous-catégories dominantes **"utilisées"** du bâtiment (voir plus bas).
+- **Catégorie "Local vacant"** → locaux réellement inoccupés. Toujours
+  affichée avec sa propre surface, telle quelle, dans le total OPERAT du
+  bâtiment. Cette catégorie ne participe **jamais** à la règle de catégorie
+  dominante et ne reçoit donc jamais de surface redistribuée depuis une
+  autre catégorie (voir plus bas).
+- **Toute autre catégorie** ("utilisée") → affectation directe à sa
   `SS_categorie_SCE_OPERAT`. Une salle avec une catégorie renseignée mais
   sans sous-catégorie est exclue et signalée (donnée incomplète).
 
 ### Règle de catégorie dominante (par bâtiment, jamais au niveau EFA)
 
-Sur la surface en affectation directe uniquement (hors "à répartir") :
+Sur la surface des catégories **"utilisées"** en affectation directe
+uniquement (hors "à répartir" et hors "Local vacant") :
 
 1. Si une sous-catégorie atteint **70%** ou plus de cette surface, **tout le
    bâtiment** (y compris "à répartir" et les autres sous-catégories
-   minoritaires) lui est affecté intégralement.
-2. Sinon, les **3 sous-catégories les plus grandes** sont retenues (même si
-   aucune n'atteint 30%, ou si plus de 3 en dépassent 30% : la règle des
-   pourcentages sert à motiver le choix, mais la sélection reste toujours
-   plafonnée aux 3 plus grandes). **100% de la surface du bâtiment** — y
-   compris les catégories non retenues et le "à répartir" — leur est
-   redistribuée au prorata de leurs surfaces directes respectives.
-3. Si aucune sous-catégorie n'est affectée en direct dans un bâtiment (cas
-   rare : un local technique isolé, poste EDF, chaufferie…), aucune règle ne
-   peut s'appliquer : ce cas est signalé nommément et sa surface apparaît
-   dans un total **"Non classé"** séparé plutôt que d'être compté ou perdu
-   silencieusement.
+   "utilisées" minoritaires) lui est affecté intégralement.
+2. Sinon, les **3 sous-catégories "utilisées" les plus grandes** sont
+   retenues (même si aucune n'atteint 30%, ou si plus de 3 en dépassent 30% :
+   la règle des pourcentages sert à motiver le choix, mais la sélection
+   reste toujours plafonnée aux 3 plus grandes). La surface du bâtiment
+   restant à classer — catégories "utilisées" non retenues + "à répartir",
+   mais **jamais** "Local vacant" — leur est redistribuée au prorata de
+   leurs surfaces directes respectives.
+3. Si aucune sous-catégorie "utilisée" n'est affectée en direct dans un
+   bâtiment (cas rare : un local technique isolé, poste EDF, chaufferie…),
+   aucune règle ne peut s'appliquer au "à répartir" restant : ce cas est
+   signalé nommément et sa surface apparaît dans un total **"Non classé"**
+   séparé plutôt que d'être compté ou perdu silencieusement. "Local vacant",
+   lui, reste classé tel quel dans ce cas — ce n'est pas une anomalie.
+
+**Exemple concret** (EFA Saint-Louis) : une bibliothèque de 40 m²
+("Culture et spectacles") dans un bâtiment autrement composé de bureaux, de
+salles de cours et de locaux vacants ne fait pas partie des 3 catégories
+"utilisées" dominantes retenues — sa surface est répartie au prorata entre
+les catégories "utilisées" retenues (salles de cours, bureaux…), jamais vers
+"Local vacant", même si "Local vacant" est la plus grande surface directe du
+bâtiment.
 
 Le calcul est fait **bâtiment par bâtiment** puis sommé au niveau EFA — une
 répartition au prorata sur l'agrégat de plusieurs bâtiments n'aurait pas de
@@ -64,9 +80,10 @@ sens, chaque bâtiment ayant sa propre composition de surfaces.
 ligne séparée : Chauffée + rafraîchie, Chauffée (seule), Rafraîchie (seule),
 Non chauffée / non rafraîchie. La redistribution ci-dessus est recalculée
 séparément pour chaque statut, avec les mêmes poids (proportion de chaque
-sous-catégorie retenue dans la surface totale du bâtiment), appliqués au
-total de ce statut pour tout le bâtiment (affectation directe + "à répartir",
-hors périmètre exclu).
+sous-catégorie "utilisée" retenue dans la surface totale "utilisée" du
+bâtiment), appliqués au total de ce statut pour les catégories "utilisées" +
+"à répartir" (hors périmètre exclu). "Local vacant" garde son propre statut
+thermique réel, indépendamment de cette redistribution.
 
 ### Ce qui est exclu du calcul, et pourquoi
 
