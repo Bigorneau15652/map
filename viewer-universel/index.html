@@ -172,6 +172,7 @@
       <button class="tb-btn" id="btn-fit" title="Recadrer la vue">⊡ Ajuster</button>
       <button class="tb-btn" id="btn-zoom-room" title="Centrer sur la pièce sélectionnée" style="display:none">◎ Pièce</button>
       <button class="tb-btn" id="btn-config" title="Configuration">⚙ Config</button>
+      <button class="tb-btn" id="btn-popup" title="Ouvrir dans une fenêtre flottante (2ᵉ écran)">🗗 Fenêtre</button>
       <span id="format-badge">—</span>
     </div>
 
@@ -1183,6 +1184,9 @@ async function load360(url) {
 ═══════════════════════════════════════════════════════════ */
 async function loadFile(url, roomId, record) {
   if (!url) { showEmpty(); return; }
+  state.lastUrl = url;
+  state.lastRoomId = roomId;
+  broadcastToPopup();
   const fmt = detectFormat(url, record);
   try {
     if (fmt === 'dxf')    await loadDXF(url, roomId);
@@ -1314,62 +1318,113 @@ function toggle360ColRow() {
 }
 $('cfg-360-detect').addEventListener('change', toggle360ColRow);
 
-grist.ready({ requiredAccess: 'read table' });
+/* ═══════════════════════════════════════════════════════════
+   FENÊTRE FLOTTANTE (2ᵉ écran) — même principe que le PDF Viewer :
+   le widget embarqué dans Grist reste la seule source de vérité (c'est
+   lui qui reçoit les événements Grist) ; il ouvre une fenêtre séparée qui
+   charge ce même fichier avec ?popup=1, et la tient à jour en temps réel
+   via postMessage à chaque changement de ligne dans Grist.
+═══════════════════════════════════════════════════════════ */
+const isPopup = new URLSearchParams(location.search).get('popup') === '1';
+let popupWin = null;
 
-grist.onOptions((options) => {
-  state.config = options || {};
-  applyConfigToUI();
-});
+function openViewerPopup() {
+  if (popupWin && !popupWin.closed) { popupWin.focus(); return; }
+  const popupUrl = location.origin + location.pathname + '?popup=1';
+  popupWin = window.open(popupUrl, 'viewer-universel-popup', 'width=1100,height=850,resizable=yes');
+}
 
-grist.onRecord((record) => {
-  state.currentRecord = record;
+function broadcastToPopup() {
+  if (isPopup || !popupWin || popupWin.closed) return;
+  popupWin.postMessage({
+    type: 'VIEWER_LOAD',
+    url: state.lastUrl,
+    roomId: state.lastRoomId,
+    roomName: state.dxf.highlightName,
+    config: state.config,
+  }, '*');
+}
 
-  // Extract column names from the record (most reliable method)
-  const keys = Object.keys(record).filter(k => k !== 'id' && !k.startsWith('_'));
-  if (keys.length > 0 && gristColumns.length === 0) {
-    gristColumns = keys.map(k => ({ id: k, label: k }));
-    populateConfigSelects();
+if (isPopup) {
+  // ── Mode fenêtre flottante : aucune connexion à Grist, on écoute le widget parent ──
+  document.title = 'Viewer SI Patrimoine — Fenêtre flottante';
+  $('btn-config').style.display = 'none';
+  $('btn-popup').style.display = 'none';
+
+  window.addEventListener('message', (e) => {
+    if (!e.data || e.data.type !== 'VIEWER_LOAD') return;
+    state.config = e.data.config || {};
+    state.dxf.highlightName = e.data.roomName || null;
+    loadFile(e.data.url, e.data.roomId, {});
+  });
+
+  if (window.opener) {
+    try { window.opener.postMessage({ type: 'VIEWER_POPUP_READY' }, '*'); } catch (e) {}
+  }
+} else {
+  // ── Mode widget Grist normal ──
+  $('btn-popup').addEventListener('click', openViewerPopup);
+  window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'VIEWER_POPUP_READY') broadcastToPopup();
+  });
+
+  grist.ready({ requiredAccess: 'read table' });
+
+  grist.onOptions((options) => {
+    state.config = options || {};
     applyConfigToUI();
-  }
+  });
 
-  if (!state.config.colUrl) {
-    // Not configured yet — show a friendly hint instead of forcing the panel open
-    showEmpty();
-    $('empty').innerHTML = `
-      <div class="icon">⚙</div>
-      <div>Widget non configuré</div>
-      <div style="font-size:11px;color:var(--accent);cursor:pointer" onclick="$('btn-config').click()">
-        Cliquez sur ⚙ Config pour sélectionner la colonne fichier
-      </div>`;
-    return;
-  }
+  grist.onRecord((record) => {
+    state.currentRecord = record;
 
-  const rawVal = record[state.config.colUrl];
-  const url    = resolveUrl(rawVal);
+    // Extract column names from the record (most reliable method)
+    const keys = Object.keys(record).filter(k => k !== 'id' && !k.startsWith('_'));
+    if (keys.length > 0 && gristColumns.length === 0) {
+      gristColumns = keys.map(k => ({ id: k, label: k }));
+      populateConfigSelects();
+      applyConfigToUI();
+    }
 
-  // Aucune URL exploitable pour cette ligne → on montre pourquoi (diagnostic)
-  if (!url) {
-    const esc = s => String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
-    showEmpty();
-    $('empty').innerHTML = `
-      <div class="icon">🔍</div>
-      <div>Aucune URL pour cette ligne</div>
-      <div style="font-size:10px;max-width:380px;text-align:left;color:var(--text-muted);
-                  background:rgba(0,0,0,.25);padding:8px 10px;border-radius:6px;margin-top:8px;
-                  word-break:break-all;line-height:1.5">
-        <b>Diagnostic</b><br>
-        Colonne choisie : <b>${esc(state.config.colUrl)}</b><br>
-        Valeur brute de la cellule : ${esc(JSON.stringify(rawVal))}<br>
-        Ligne (id Grist) : ${esc(record.id)}<br>
-        Colonnes disponibles : ${esc(Object.keys(record).filter(k=>!k.startsWith('_')).join(', '))}
-      </div>`;
-    return;
-  }
+    if (!state.config.colUrl) {
+      // Not configured yet — show a friendly hint instead of forcing the panel open
+      showEmpty();
+      $('empty').innerHTML = `
+        <div class="icon">⚙</div>
+        <div>Widget non configuré</div>
+        <div style="font-size:11px;color:var(--accent);cursor:pointer" onclick="$('btn-config').click()">
+          Cliquez sur ⚙ Config pour sélectionner la colonne fichier
+        </div>`;
+      return;
+    }
 
-  const roomId = state.config.colRoom ? record[state.config.colRoom] : null;
-  state.dxf.highlightName = state.config.colName ? record[state.config.colName] : null;
-  loadFile(url, roomId, record);
-});
+    const rawVal = record[state.config.colUrl];
+    const url    = resolveUrl(rawVal);
+
+    // Aucune URL exploitable pour cette ligne → on montre pourquoi (diagnostic)
+    if (!url) {
+      const esc = s => String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+      showEmpty();
+      $('empty').innerHTML = `
+        <div class="icon">🔍</div>
+        <div>Aucune URL pour cette ligne</div>
+        <div style="font-size:10px;max-width:380px;text-align:left;color:var(--text-muted);
+                    background:rgba(0,0,0,.25);padding:8px 10px;border-radius:6px;margin-top:8px;
+                    word-break:break-all;line-height:1.5">
+          <b>Diagnostic</b><br>
+          Colonne choisie : <b>${esc(state.config.colUrl)}</b><br>
+          Valeur brute de la cellule : ${esc(JSON.stringify(rawVal))}<br>
+          Ligne (id Grist) : ${esc(record.id)}<br>
+          Colonnes disponibles : ${esc(Object.keys(record).filter(k=>!k.startsWith('_')).join(', '))}
+        </div>`;
+      return;
+    }
+
+    const roomId = state.config.colRoom ? record[state.config.colRoom] : null;
+    state.dxf.highlightName = state.config.colName ? record[state.config.colName] : null;
+    loadFile(url, roomId, record);
+  });
+}
 
 /* ═══════════════════════════════════════════════════════════
    CONFIG PANEL
