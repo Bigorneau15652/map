@@ -92,7 +92,7 @@
 
   .cardsWrap {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 16px;
     background: #ffffff;
     border: 1px solid var(--border);
@@ -101,8 +101,11 @@
     border-radius: 0 0 6px 6px;
   }
 
-  .card { flex: 2 1 320px; min-width: 0; }
-  .gesCard { flex: 1 1 240px; }
+  /* Always side by side (never stacked), whatever the panel width — sizes
+     shrink instead of wrapping, see the media queries below for narrow
+     panels. */
+  .card { flex: 3 1 0; min-width: 0; }
+  .gesCard { flex: 2 1 0; }
 
   .capTop, .capBottom {
     font-size: 12px;
@@ -168,20 +171,6 @@
     overflow-wrap: anywhere;
   }
 
-  .infoBoxes { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
-  .infoBox {
-    flex: 1 1 260px;
-    background: #0e8a4d;
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 10px 12px;
-    border-radius: 6px;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    line-height: 1.35;
-  }
-
   #settingsPanel {
     background: #fff;
     border: 1px solid var(--border);
@@ -237,14 +226,27 @@
 
   @media (max-width: 480px) {
     #pageHeader { font-size: 15px; padding: 10px 12px; }
-    .cardsWrap { padding: 10px; gap: 12px; }
-    .valueSlot { flex-basis: 78px; width: 78px; }
-    .gesCard .valueSlot { flex-basis: 62px; width: 62px; }
-    .capTop, .capBottom { margin-left: 82px; }
-    .gesCard .capTop, .gesCard .capBottom { margin-left: 66px; }
-    .row.active .bar { font-size: 16px; padding: 5px 12px; }
-    .valueBox .num { font-size: 14px; }
-    .bar { font-size: 12px; padding: 3px 8px; }
+    .cardsWrap { padding: 10px; gap: 8px; }
+    .valueSlot { flex-basis: 66px; width: 66px; padding-right: 2px; }
+    .gesCard .valueSlot { flex-basis: 52px; width: 52px; }
+    .capTop, .capBottom { margin-left: 70px; font-size: 11px; }
+    .gesCard .capTop, .gesCard .capBottom { margin-left: 56px; }
+    .row.active .bar { font-size: 15px; padding: 4px 10px; }
+    .valueBox .num { font-size: 13px; }
+    .valueBox .unit { font-size: 9px; }
+    .bar { font-size: 11px; padding: 3px 6px; }
+    .gesHeader { font-size: 12px; padding: 5px 8px; }
+  }
+
+  @media (max-width: 360px) {
+    .valueSlot { flex-basis: 48px; width: 48px; }
+    .gesCard .valueSlot { flex-basis: 40px; width: 40px; }
+    .capTop, .capBottom { margin-left: 52px; }
+    .gesCard .capTop, .gesCard .capBottom { margin-left: 44px; }
+    .valueBox .num { font-size: 11px; }
+    .valueBox .unit { font-size: 8px; }
+    .row.active .bar { font-size: 13px; padding: 3px 8px; }
+    .bar { font-size: 10px; padding: 2px 5px; }
   }
 </style>
 </head>
@@ -295,16 +297,6 @@
         <div class="rows" id="gesRows"></div>
         <div class="capBottom">émissions de CO2 très importantes</div>
       </section>
-    </div>
-    <div class="infoBoxes">
-      <div class="infoBox">
-        Le niveau de consommation énergétique dépend de l'isolation du logement
-        et de la performance des équipements.
-      </div>
-      <div class="infoBox">
-        Le niveau d'émissions dépend principalement des types d'énergies
-        utilisées (bois, électricité, gaz, fioul, etc.).
-      </div>
     </div>
   </div>
 
