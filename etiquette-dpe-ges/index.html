@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Étiquette DPE / GES</title>
+<script>
+  // index.html?demo=1 charge un mock minimal de l'API Grist (mock-grist.js)
+  // à la place du vrai grist-plugin-api.js, pour pouvoir tester ce fichier
+  // (rendu des étiquettes, panneau de seuils) sans document Grist réel.
+  (function () {
+    var demo = /(?:^|[?&])demo=1(?:&|$)/.test(location.search);
+    if (demo) {
+      document.write('<script src="mock-grist.js"><\/script>');
+    } else {
+      document.write('<script src="https://docs.getgrist.com/grist-plugin-api.js"><\/script>');
+    }
+  })();
+</script>
+<style>
+  :root {
+    /* Opt out of UA dark-mode form-control styling: without this a <select>/
+       <button>/<input> with an explicit white background but no explicit
+       text color can render white-on-white in a dark-themed browser/OS.
+       See /CLAUDE.md. */
+    color-scheme: light;
+    --border: #d7dde5;
+    --text-muted: #5b6472;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #16202b;
+    background: #f4f6f8;
+    font-size: 14px;
+  }
+
+  /* Toolbar: intentionally NOT position:sticky — a sticky in-widget toolbar
+     combined with narrow/short Grist widget panels has previously caused
+     content to be unreadable until hover. See /CLAUDE.md. Keep it static. */
+  #toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 12px;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+  }
+  #toolbar .spacer { flex: 1 1 auto; }
+  #toolbar button {
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #94a3b8;
+    background: #fff;
+    color: #16202b;
+    cursor: pointer;
+  }
+  #toolbar button:hover { background: #eef2f6; }
+  #toolbar .hint { font-size: 12px; color: var(--text-muted); white-space: normal; overflow-wrap: anywhere; }
+
+  /* Actionable banner shown when columns aren't mapped / value isn't usable.
+     Strong solid contrast, no reliance on hover, wraps instead of clipping. */
+  #banner {
+    margin: 10px 12px 0;
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: #7a1f1f;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  #banner a, #banner b { color: #ffffff; }
+
+  #app { padding: 12px; max-width: 980px; margin: 0 auto; }
+
+  #pageHeader {
+    background: #0e8a4d;
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 12px 16px;
+    border-radius: 6px 6px 0 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .cardsWrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-top: none;
+    padding: 16px;
+    border-radius: 0 0 6px 6px;
+  }
+
+  .card { flex: 2 1 320px; min-width: 0; }
+  .gesCard { flex: 1 1 240px; }
+
+  .capTop, .capBottom {
+    font-size: 12px;
+    font-weight: 700;
+    margin: 0 0 6px 116px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .capTop { color: #0e8a4d; }
+  .capBottom { color: #c62828; margin: 6px 0 0 116px; }
+  .gesCard .capTop, .gesCard .capBottom { color: #486a8a; margin-left: 96px; }
+
+  .rows { display: flex; flex-direction: column; gap: 4px; }
+  .row { display: flex; align-items: stretch; min-height: 30px; }
+  .valueSlot {
+    flex: 0 0 110px;
+    width: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 4px;
+  }
+  .gesCard .valueSlot { flex-basis: 90px; width: 90px; }
+  .lane { flex: 1 1 auto; display: flex; }
+  .bar {
+    display: flex;
+    align-items: center;
+    padding: 4px 10px;
+    font-weight: 700;
+    font-size: 14px;
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .row.active { min-height: 46px; }
+  .row.active .bar { font-size: 22px; padding: 6px 20px; }
+  .row.active .valueSlot .valueBox {
+    border: 3px solid #16202b;
+    border-right: none;
+    background: #ffffff;
+    color: #16202b;
+    padding: 4px 8px;
+    border-radius: 6px 0 0 6px;
+    text-align: right;
+    line-height: 1.15;
+    font-weight: 700;
+  }
+  .row.active .lane .bar { border: 3px solid #16202b; border-left: none; border-radius: 0 4px 4px 0; }
+  .valueBox .num { font-size: 18px; display: block; }
+  .valueBox .unit { font-size: 10px; font-weight: 600; display: block; color: var(--text-muted); }
+
+  .gesHeader {
+    font-size: 13px;
+    font-weight: 700;
+    color: #274a6e;
+    background: #eaf2fb;
+    border: 1px solid #b8d3ec;
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 10px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .infoBoxes { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+  .infoBox {
+    flex: 1 1 260px;
+    background: #0e8a4d;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 12px;
+    border-radius: 6px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+  }
+
+  #settingsPanel {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 10px 12px 0;
+    padding: 12px;
+  }
+  #settingsPanel h3 { margin: 0 0 8px; font-size: 14px; }
+  #settingsPanel .settingsGrid { display: flex; flex-wrap: wrap; gap: 18px; }
+  #settingsPanel .scaleCol { flex: 1 1 260px; min-width: 220px; }
+  #settingsPanel .thRow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  #settingsPanel .thRow label { flex: 0 0 60px; font-size: 12px; color: var(--text-muted); }
+  #settingsPanel input[type="number"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 5px 7px;
+    border: 1px solid #94a3b8;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #16202b;
+    font-size: 13px;
+  }
+  #settingsPanel .unit { font-size: 12px; color: var(--text-muted); flex: 0 0 auto; }
+  #settingsPanel .actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  #settingsPanel button {
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #94a3b8;
+    background: #fff;
+    color: #16202b;
+    cursor: pointer;
+  }
+  #settingsPanel button.primary { background: #0e8a4d; border-color: #0e8a4d; color: #ffffff; }
+  #settingsPanel .error {
+    color: #ffffff;
+    background: #7a1f1f;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 8px;
+    border-radius: 4px;
+    margin-top: 8px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  #settingsPanel .note {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 480px) {
+    #pageHeader { font-size: 15px; padding: 10px 12px; }
+    .cardsWrap { padding: 10px; gap: 12px; }
+    .valueSlot { flex-basis: 78px; width: 78px; }
+    .gesCard .valueSlot { flex-basis: 62px; width: 62px; }
+    .capTop, .capBottom { margin-left: 82px; }
+    .gesCard .capTop, .gesCard .capBottom { margin-left: 66px; }
+    .row.active .bar { font-size: 16px; padding: 5px 12px; }
+    .valueBox .num { font-size: 14px; }
+    .bar { font-size: 12px; padding: 3px 8px; }
+  }
+</style>
+</head>
+<body>
+  <div id="toolbar">
+    <span class="hint">Étiquette DPE / GES</span>
+    <span class="spacer"></span>
+    <button id="btnSettings" type="button">⚙ Seuils des classes</button>
+  </div>
+
+  <div id="settingsPanel" hidden>
+    <h3>Seuils de passage d'une classe à l'autre</h3>
+    <p class="note">
+      Une classe correspond à « valeur ≤ seuil affiché ». La classe G s'applique
+      au-delà du dernier seuil (F). Valeurs préremplies : barème réglementaire du
+      DPE résidentiel en vigueur depuis juillet 2021 — vérifiez qu'il correspond
+      bien à votre cas d'usage, ces seuils sont entièrement modifiables.
+    </p>
+    <div class="settingsGrid">
+      <div class="scaleCol" id="dpeSettingsCol">
+        <strong>Consommation d'énergie primaire (kWh/m²/an)</strong>
+      </div>
+      <div class="scaleCol" id="gesSettingsCol">
+        <strong>Émissions de GES (kg CO2eq/m²/an)</strong>
+      </div>
+    </div>
+    <div id="settingsError"></div>
+    <div class="actions">
+      <button class="primary" id="btnSaveThresholds" type="button">Enregistrer</button>
+      <button id="btnResetThresholds" type="button">Réinitialiser aux valeurs par défaut</button>
+      <button id="btnCloseSettings" type="button">Fermer</button>
+    </div>
+  </div>
+
+  <div id="banner" hidden></div>
+
+  <div id="app">
+    <div id="pageHeader">Performance énergétique et climatique</div>
+    <div class="cardsWrap">
+      <section class="card">
+        <div class="capTop">logement extrêmement performant</div>
+        <div class="rows" id="dpeRows"></div>
+        <div class="capBottom">logement extrêmement peu performant</div>
+      </section>
+      <section class="card gesCard">
+        <div class="gesHeader">* Dont émissions de gaz à effet de serre</div>
+        <div class="capTop">peu d'émissions de CO2</div>
+        <div class="rows" id="gesRows"></div>
+        <div class="capBottom">émissions de CO2 très importantes</div>
+      </section>
+    </div>
+    <div class="infoBoxes">
+      <div class="infoBox">
+        Le niveau de consommation énergétique dépend de l'isolation du logement
+        et de la performance des équipements.
+      </div>
+      <div class="infoBox">
+        Le niveau d'émissions dépend principalement des types d'énergies
+        utilisées (bois, électricité, gaz, fioul, etc.).
+      </div>
+    </div>
+  </div>
+
+<script>
+'use strict';
+
+var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+
+var DEFAULT_DPE_EDGES = [70, 110, 180, 250, 330, 420];
+var DEFAULT_GES_EDGES = [6, 11, 30, 50, 70, 100];
+
+var DPE_COLORS = ['#1f9d4c', '#78c044', '#c3d92a', '#ffe000', '#f5a623', '#f0701a', '#e2231a'];
+var GES_COLORS = ['#d7e9f7', '#b0d0ea', '#86b5db', '#5c98c8', '#3c74a2', '#26507a', '#12253f'];
+
+// Increasing bar widths (%), shortest for A, full width for G — mirrors the
+// reference DPE/GES label shape.
+var BAR_WIDTHS = LETTERS.map(function (_, i) { return 36 + i * ((100 - 36) / (LETTERS.length - 1)); });
+
+var state = {
+  record: null,
+  mapped: null,
+  thresholds: { dpe: DEFAULT_DPE_EDGES.slice(), ges: DEFAULT_GES_EDGES.slice() },
+};
+
+function contrastText(hex) {
+  var c = hex.replace('#', '');
+  var r = parseInt(c.substring(0, 2), 16);
+  var g = parseInt(c.substring(2, 4), 16);
+  var b = parseInt(c.substring(4, 6), 16);
+  var lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.62 ? '#16202b' : '#ffffff';
+}
+
+function classifyIndex(value, edges) {
+  if (value === null || value === undefined || value === '' || isNaN(value)) return -1;
+  for (var i = 0; i < edges.length; i++) {
+    if (value <= edges[i]) return i;
+  }
+  return edges.length;
+}
+
+function fmtNumber(v) {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  var rounded = Math.round(v * 10) / 10;
+  return String(rounded).replace('.', ',');
+}
+
+function renderScale(containerEl, opts) {
+  // opts: { value, edges, colors, unit }
+  var activeIndex = classifyIndex(opts.value, opts.edges);
+  containerEl.innerHTML = '';
+  LETTERS.forEach(function (letter, i) {
+    var row = document.createElement('div');
+    row.className = 'row' + (i === activeIndex ? ' active' : '');
+
+    var valueSlot = document.createElement('div');
+    valueSlot.className = 'valueSlot';
+    if (i === activeIndex) {
+      var box = document.createElement('div');
+      box.className = 'valueBox';
+      box.innerHTML =
+        '<span class="num">' + fmtNumber(opts.value) + '</span>' +
+        '<span class="unit">' + opts.unit + '</span>';
+      valueSlot.appendChild(box);
+    }
+    row.appendChild(valueSlot);
+
+    var lane = document.createElement('div');
+    lane.className = 'lane';
+    var bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.width = BAR_WIDTHS[i] + '%';
+    bar.style.background = opts.colors[i];
+    bar.style.color = contrastText(opts.colors[i]);
+    bar.textContent = letter;
+    lane.appendChild(bar);
+    row.appendChild(lane);
+
+    containerEl.appendChild(row);
+  });
+}
+
+function showBanner(msg) {
+  var el = document.getElementById('banner');
+  if (!msg) { el.hidden = true; el.textContent = ''; return; }
+  el.hidden = false;
+  el.textContent = msg;
+}
+
+function render() {
+  var mapped = state.mapped;
+  var consumption = mapped ? toNumber(mapped.Consommation) : null;
+  var emissions = mapped ? toNumber(mapped.Emissions) : null;
+
+  if (!mapped) {
+    showBanner('Configurez les colonnes dans les paramètres du widget : ouvrez le panneau ' +
+      'de droite de Grist (icône ⚙ en haut du widget), onglet « Colonnes », et associez ' +
+      '« Consommation énergie primaire » et « Émissions de GES » aux colonnes de votre table.');
+  } else if (consumption === null && emissions === null) {
+    showBanner('Aucune valeur numérique trouvée dans les colonnes mappées pour la ligne ' +
+      'sélectionnée : vérifiez que les colonnes choisies contiennent bien des nombres ' +
+      '(kWh/m²/an et kg CO2eq/m²/an).');
+  } else {
+    showBanner(null);
+  }
+
+  renderScale(document.getElementById('dpeRows'), {
+    value: consumption, edges: state.thresholds.dpe, colors: DPE_COLORS, unit: 'kWh/m²/an',
+  });
+  renderScale(document.getElementById('gesRows'), {
+    value: emissions, edges: state.thresholds.ges, colors: GES_COLORS, unit: 'kg CO2/m²/an',
+  });
+}
+
+function toNumber(v) {
+  if (v === null || v === undefined || v === '') return null;
+  var n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'));
+  return isNaN(n) ? null : n;
+}
+
+// ---------- Settings panel ----------
+
+function buildThresholdInputs(colEl, idPrefix, unit) {
+  colEl.querySelectorAll('.thRow').forEach(function (n) { n.remove(); });
+  for (var i = 0; i < LETTERS.length - 1; i++) {
+    var row = document.createElement('div');
+    row.className = 'thRow';
+    var label = document.createElement('label');
+    label.textContent = LETTERS[i] + ' ≤';
+    label.setAttribute('for', idPrefix + i);
+    var input = document.createElement('input');
+    input.type = 'number';
+    input.id = idPrefix + i;
+    input.step = 'any';
+    var unitSpan = document.createElement('span');
+    unitSpan.className = 'unit';
+    unitSpan.textContent = unit;
+    row.appendChild(label);
+    row.appendChild(input);
+    row.appendChild(unitSpan);
+    colEl.appendChild(row);
+  }
+}
+
+function fillThresholdInputs(idPrefix, edges) {
+  edges.forEach(function (v, i) {
+    var input = document.getElementById(idPrefix + i);
+    if (input) input.value = v;
+  });
+}
+
+function readThresholdInputs(idPrefix) {
+  var out = [];
+  for (var i = 0; i < LETTERS.length - 1; i++) {
+    var input = document.getElementById(idPrefix + i);
+    out.push(parseFloat(input.value));
+  }
+  return out;
+}
+
+function isStrictlyIncreasing(arr) {
+  if (arr.some(function (v) { return isNaN(v); })) return false;
+  for (var i = 1; i < arr.length; i++) {
+    if (!(arr[i] > arr[i - 1])) return false;
+  }
+  return true;
+}
+
+function openSettings() {
+  fillThresholdInputs('dpe-', state.thresholds.dpe);
+  fillThresholdInputs('ges-', state.thresholds.ges);
+  document.getElementById('settingsError').textContent = '';
+  document.getElementById('settingsPanel').hidden = false;
+}
+
+function closeSettings() {
+  document.getElementById('settingsPanel').hidden = true;
+}
+
+function saveThresholds() {
+  var dpe = readThresholdInputs('dpe-');
+  var ges = readThresholdInputs('ges-');
+  var errEl = document.getElementById('settingsError');
+  if (!isStrictlyIncreasing(dpe) || !isStrictlyIncreasing(ges)) {
+    errEl.innerHTML = '<div class="error">Les seuils de chaque échelle doivent être des nombres strictement croissants (A &lt; B &lt; C &lt; D &lt; E &lt; F). Corrigez les valeurs avant d\'enregistrer.</div>';
+    return;
+  }
+  errEl.textContent = '';
+  state.thresholds = { dpe: dpe, ges: ges };
+  window.grist.setOption('thresholds', state.thresholds);
+  render();
+}
+
+function resetThresholds() {
+  fillThresholdInputs('dpe-', DEFAULT_DPE_EDGES);
+  fillThresholdInputs('ges-', DEFAULT_GES_EDGES);
+}
+
+buildThresholdInputs(document.getElementById('dpeSettingsCol'), 'dpe-', 'kWh/m²/an');
+buildThresholdInputs(document.getElementById('gesSettingsCol'), 'ges-', 'kg CO2/m²/an');
+
+document.getElementById('btnSettings').addEventListener('click', openSettings);
+document.getElementById('btnCloseSettings').addEventListener('click', closeSettings);
+document.getElementById('btnSaveThresholds').addEventListener('click', saveThresholds);
+document.getElementById('btnResetThresholds').addEventListener('click', resetThresholds);
+
+// ---------- Grist wiring ----------
+
+window.grist.ready({
+  columns: [
+    {
+      name: 'Consommation',
+      title: 'Consommation énergie primaire (kWh/m²/an)',
+      type: 'Numeric,Int',
+      optional: false,
+      description: 'Consommation d\'énergie primaire du logement, en kWh/m²/an.',
+    },
+    {
+      name: 'Emissions',
+      title: 'Émissions de GES (kg CO2eq/m²/an)',
+      type: 'Numeric,Int',
+      optional: false,
+      description: 'Émissions de gaz à effet de serre, en kg CO2eq/m²/an.',
+    },
+  ],
+  requiredAccess: 'read table',
+  onEditOptions: openSettings,
+});
+
+window.grist.onOptions(function (options) {
+  var stored = options && options.thresholds;
+  state.thresholds = {
+    dpe: (stored && Array.isArray(stored.dpe) && stored.dpe.length === LETTERS.length - 1) ? stored.dpe : DEFAULT_DPE_EDGES.slice(),
+    ges: (stored && Array.isArray(stored.ges) && stored.ges.length === LETTERS.length - 1) ? stored.ges : DEFAULT_GES_EDGES.slice(),
+  };
+  render();
+});
+
+window.grist.onNewRecord(function () {
+  state.record = null;
+  state.mapped = null;
+  render();
+});
+
+window.grist.onRecord(function (record) {
+  state.record = record;
+  state.mapped = window.grist.mapColumnNames(record) || null;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
