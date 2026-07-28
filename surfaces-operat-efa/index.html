@@ -214,6 +214,7 @@
       <select id="efaSelect"></select>
     </div>
     <button id="helpBtn" type="button">❓ Méthode de calcul</button>
+    <button id="configBtn" type="button">⚙️ Colonnes utilisées</button>
     <button id="printBtn" type="button">🖶️ Imprimer / Export PDF</button>
   </div>
   <div id="content">
@@ -225,25 +226,132 @@
 
 /* ---------------------------------------------------------------------
  * Config — noms de tables/colonnes attendus dans le document Grist.
- * Basé sur le document "Bac à sable SIPI" fourni. À ajuster ici si votre
- * document utilise des noms différents (pas d'UI de configuration : ce
- * widget est volontairement simple, la classification vit déjà dans
- * BDD_Salles, il n'y a rien d'autre à faire correspondre).
+ * Basé sur le document "Bac à sable SIPI" fourni, utilisés par défaut tant
+ * qu'aucune configuration n'a été enregistrée. Si une colonne est renommée
+ * côté Grist (ex. Surface_Chaufee), rouvrez "⚙️ Colonnes utilisées" dans la
+ * barre d'outils pour repointer le widget sans toucher au code — voir
+ * CONFIG_SCHEMA / applyColumnConfig ci-dessous.
  * ------------------------------------------------------------------- */
-const TABLES = {
+const DEFAULT_TABLES = {
   sites: 'BDD_Sites',
   batiments: 'BDD_Batiments',
   salles: 'BDD_Salles',
   categories: 'Ref_Categorie_SCE',
   sousCategories: 'Ref_SS_Categorie_SCE',
 };
-const COL = {
+const DEFAULT_COL = {
   site: { id: 'id', nom: 'Nom' },
   batiment: { id: 'id', nom: 'Nom', site: 'Site', appellation: 'Appellation', destruction: 'Destruction', finExploitation: 'Date_de_fin_d_exploitation' },
   salle: { id: 'id', numero: 'Numero', batiment: 'Batiment', site: 'Site', surface: 'Surface_utile_m2_', chauffee: 'Surface_Chaufee', rafraichie: 'Surface_Rafraichie', categorie: 'Categorie_SCE_OPERAT', sousCategorie: 'SS_categorie_SCE_OPERAT' },
   categorie: { id: 'id', nom: 'Ref_Categorie_SCE' },
   sousCategorie: { id: 'id', categorie: 'Categorie', nom: 'Nom_SousCategorie', code: 'Code_technique_OPERAT' },
 };
+
+// Décrit, pour chaque table logique utilisée par le widget, la table Grist
+// par défaut et les colonnes attendues — sert à générer le panneau
+// "⚙️ Colonnes utilisées" et à fabriquer TABLES/COL à partir d'une config
+// enregistrée (grist.setOption) sans dupliquer les noms un peu partout.
+const CONFIG_SCHEMA = [
+  {
+    group: 'sites', tableKey: 'sites', colKey: 'site', label: 'Sites', defaultTable: DEFAULT_TABLES.sites,
+    fields: [
+      { key: 'id', label: 'Identifiant', default: DEFAULT_COL.site.id },
+      { key: 'nom', label: 'Nom du site', default: DEFAULT_COL.site.nom },
+    ],
+  },
+  {
+    group: 'batiments', tableKey: 'batiments', colKey: 'batiment', label: 'Bâtiments', defaultTable: DEFAULT_TABLES.batiments,
+    fields: [
+      { key: 'id', label: 'Identifiant', default: DEFAULT_COL.batiment.id },
+      { key: 'nom', label: 'Nom', default: DEFAULT_COL.batiment.nom },
+      { key: 'site', label: 'Site (référence)', default: DEFAULT_COL.batiment.site },
+      { key: 'appellation', label: 'Appellation', default: DEFAULT_COL.batiment.appellation },
+      { key: 'destruction', label: 'Destruction (case à cocher)', default: DEFAULT_COL.batiment.destruction },
+      { key: 'finExploitation', label: 'Date de fin d’exploitation', default: DEFAULT_COL.batiment.finExploitation },
+    ],
+  },
+  {
+    group: 'salles', tableKey: 'salles', colKey: 'salle', label: 'Salles', defaultTable: DEFAULT_TABLES.salles,
+    fields: [
+      { key: 'id', label: 'Identifiant', default: DEFAULT_COL.salle.id },
+      { key: 'numero', label: 'Numéro', default: DEFAULT_COL.salle.numero },
+      { key: 'batiment', label: 'Bâtiment (référence)', default: DEFAULT_COL.salle.batiment },
+      { key: 'site', label: 'Site (référence)', default: DEFAULT_COL.salle.site },
+      { key: 'surface', label: 'Surface (m²)', default: DEFAULT_COL.salle.surface },
+      { key: 'chauffee', label: 'Chauffée (case à cocher)', default: DEFAULT_COL.salle.chauffee },
+      { key: 'rafraichie', label: 'Rafraîchie (case à cocher)', default: DEFAULT_COL.salle.rafraichie },
+      { key: 'categorie', label: 'Catégorie SCE OPERAT (référence)', default: DEFAULT_COL.salle.categorie },
+      { key: 'sousCategorie', label: 'Sous-catégorie SCE OPERAT (référence)', default: DEFAULT_COL.salle.sousCategorie },
+    ],
+  },
+  {
+    group: 'categories', tableKey: 'categories', colKey: 'categorie', label: 'Catégories SCE OPERAT', defaultTable: DEFAULT_TABLES.categories,
+    fields: [
+      { key: 'id', label: 'Identifiant', default: DEFAULT_COL.categorie.id },
+      { key: 'nom', label: 'Nom de la catégorie', default: DEFAULT_COL.categorie.nom },
+    ],
+  },
+  {
+    group: 'sousCategories', tableKey: 'sousCategories', colKey: 'sousCategorie', label: 'Sous-catégories SCE OPERAT', defaultTable: DEFAULT_TABLES.sousCategories,
+    fields: [
+      { key: 'id', label: 'Identifiant', default: DEFAULT_COL.sousCategorie.id },
+      { key: 'categorie', label: 'Catégorie parente (référence)', default: DEFAULT_COL.sousCategorie.categorie },
+      { key: 'nom', label: 'Nom de la sous-catégorie', default: DEFAULT_COL.sousCategorie.nom },
+      { key: 'code', label: 'Code technique OPERAT', default: DEFAULT_COL.sousCategorie.code },
+    ],
+  },
+];
+
+function defaultColumnConfig() {
+  const cfg = { tables: {}, cols: {} };
+  for (const g of CONFIG_SCHEMA) {
+    cfg.tables[g.group] = g.defaultTable;
+    cfg.cols[g.group] = {};
+    for (const f of g.fields) cfg.cols[g.group][f.key] = f.default;
+  }
+  return cfg;
+}
+
+// Fusionne une config enregistrée (potentiellement partielle : un seul champ
+// modifié) par-dessus les valeurs par défaut, pour que le widget continue de
+// fonctionner même si `grist.setOption` n'a encore jamais été appelé, ou
+// après l'ajout d'un nouveau champ à CONFIG_SCHEMA.
+function mergeColumnConfig(saved) {
+  const cfg = defaultColumnConfig();
+  if (!saved) return cfg;
+  for (const g of CONFIG_SCHEMA) {
+    if (saved.tables && saved.tables[g.group]) cfg.tables[g.group] = saved.tables[g.group];
+    if (saved.cols && saved.cols[g.group]) {
+      for (const f of g.fields) {
+        if (saved.cols[g.group][f.key]) cfg.cols[g.group][f.key] = saved.cols[g.group][f.key];
+      }
+    }
+  }
+  return cfg;
+}
+
+let COLUMN_CONFIG = defaultColumnConfig();
+let TABLES = null; // reconstruit depuis COLUMN_CONFIG par applyColumnConfig()
+let COL = null;
+
+function applyColumnConfig(cfg) {
+  COLUMN_CONFIG = cfg;
+  TABLES = {
+    sites: cfg.tables.sites,
+    batiments: cfg.tables.batiments,
+    salles: cfg.tables.salles,
+    categories: cfg.tables.categories,
+    sousCategories: cfg.tables.sousCategories,
+  };
+  COL = {
+    site: { ...cfg.cols.sites },
+    batiment: { ...cfg.cols.batiments },
+    salle: { ...cfg.cols.salles },
+    categorie: { ...cfg.cols.categories },
+    sousCategorie: { ...cfg.cols.sousCategories },
+  };
+}
+applyColumnConfig(COLUMN_CONFIG);
 
 // Les 5 entités fonctionnelles assujetties (EFA) encore en activité pour
 // l'UMPV, au sens du décret éco énergie tertiaire. Les autres sites du
@@ -292,6 +400,27 @@ async function fetchTableSafe(tableName) {
   } catch (e) {
     return { ok: false, error: String((e && e.message) || e) };
   }
+}
+
+// Utilisées par le panneau "⚙️ Colonnes utilisées" : énumèrent les tables et
+// colonnes réellement présentes dans le document via les tables internes
+// Grist _grist_Tables / _grist_Tables_column, pour proposer des menus
+// déroulants plutôt que de la saisie libre.
+async function listAllTableIds() {
+  const res = await fetchTableSafe('_grist_Tables');
+  if (!res.ok) return [];
+  return res.rows.map((r) => r.tableId).filter(Boolean).sort((a, b) => a.localeCompare(b));
+}
+
+async function listColumnsForTable(tableId) {
+  if (!tableId) return [];
+  const tablesRes = await fetchTableSafe('_grist_Tables');
+  if (!tablesRes.ok) return [];
+  const match = tablesRes.rows.find((r) => r.tableId === tableId);
+  if (!match) return [];
+  const colsRes = await fetchTableSafe('_grist_Tables_column');
+  if (!colsRes.ok) return [];
+  return colsRes.rows.filter((r) => r.parentId === match.id).map((r) => r.colId).filter(Boolean).sort((a, b) => a.localeCompare(b));
 }
 
 let DATA = null; // { sites, batiments, salles, categoriesById, sousCategoriesById, idARepartir, loadErrors }
@@ -511,7 +640,7 @@ function classifyBuilding(building) {
     if (totalARepartir > 0) {
       result.noDominantCategory = true;
       warnings.push(actionable(
-        `${building.nom} : aucune sous-catégorie OPERAT "utilisée" directement affectée dans ce bâtiment (hors Local vacant) — impossible d'appliquer la règle de catégorie dominante (${round1(totalARepartir)} m² à répartir restent non classés)`,
+        `${building.nom} : aucune sous-catégorie OPERAT "utilisée" directement affectée dans ce bâtiment (hors Local vacant) — impossible d'appliquer la règle de catégorie dominante (${fmt(totalARepartir)} m² à répartir restent non classés)`,
         []
       ));
     }
@@ -604,7 +733,7 @@ function aggregateSite(siteId) {
  * ------------------------------------------------------------------- */
 
 function fmt(v) {
-  return v.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return Math.round(v).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 function esc(s) {
@@ -737,7 +866,7 @@ function buildingDetailHtml(building, result) {
     inner += `<div class="noDominantNote">Aucune sous-catégorie dominante identifiable dans ce bâtiment (pas de surface en affectation directe) — ${fmt(result.totalSurfaceBatiment)} m² non classés, à vérifier manuellement.</div>`;
   } else {
     inner += `<div style="margin:6px 0">Sous-catégorie(s) retenue(s) comme dominante(s)${result.top1SharePct >= DOMINANT_THRESHOLD * 100 ? ' (règle des 70%)' : ' (règle des 2-3 catégories principales)'} : `
-      + result.selected.map((s) => `<span class="selectedTag">${esc(s.nom)} — ${round1(s.surface)} m² (${round1(s.sharePct)}%)</span>`).join('')
+      + result.selected.map((s) => `<span class="selectedTag">${esc(s.nom)} — ${fmt(s.surface)} m² (${round1(s.sharePct)}%)</span>`).join('')
       + `</div>`;
     inner += linesTable(result.lines, result.totalOperat);
   }
@@ -826,6 +955,109 @@ async function onEfaChange() {
   try { await grist.setOption('lastSiteId', sel.value); } catch (e) { /* pas bloquant */ }
 }
 
+function selectOptionsHtml(list, current) {
+  const items = list.includes(current) ? list : [current, ...list];
+  return items.map((v) => `<option value="${esc(v)}"${v === current ? ' selected' : ''}>${esc(v)}${!list.includes(v) ? ' (introuvable)' : ''}</option>`).join('');
+}
+
+function renderConfigForm(allTableIds, colsByTable) {
+  const groupsHtml = CONFIG_SCHEMA.map((g) => {
+    const currentTable = COLUMN_CONFIG.tables[g.group];
+    const cols = colsByTable.get(currentTable) || [];
+    const fieldsHtml = g.fields.map((f) => {
+      const current = COLUMN_CONFIG.cols[g.group][f.key];
+      return `<div class="field">
+        <label>${esc(f.label)}</label>
+        <select data-group="${g.group}" data-role="col" data-field="${f.key}">${selectOptionsHtml(cols, current)}</select>
+      </div>`;
+    }).join('');
+    return `<details class="section" data-group-block="${g.group}" open>
+      <summary>${esc(g.label)}</summary>
+      <div class="field" style="margin-bottom:10px;max-width:340px">
+        <label>Table Grist</label>
+        <select data-group="${g.group}" data-role="table">${selectOptionsHtml(allTableIds, currentTable)}</select>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px 16px">${fieldsHtml}</div>
+    </details>`;
+  }).join('');
+
+  return `<h2>Colonnes utilisées</h2>
+    <div class="subhead">Si une colonne a été renommée dans votre document Grist (par exemple la colonne
+    "chauffée" ou "rafraîchie" de ${esc(DEFAULT_TABLES.salles)}), repointez-la ici : le widget recalculera
+    aussitôt, sans qu'il soit nécessaire de modifier le code.</div>
+    ${groupsHtml}
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <button id="configApplyBtn" type="button">Enregistrer et recalculer</button>
+      <button id="configResetBtn" type="button">Réinitialiser aux valeurs par défaut</button>
+    </div>`;
+}
+
+function readConfigFromForm(div) {
+  const cfg = { tables: {}, cols: {} };
+  for (const g of CONFIG_SCHEMA) {
+    const tableSel = div.querySelector(`select[data-group="${g.group}"][data-role="table"]`);
+    cfg.tables[g.group] = tableSel.value;
+    cfg.cols[g.group] = {};
+    for (const f of g.fields) {
+      const colSel = div.querySelector(`select[data-group="${g.group}"][data-role="col"][data-field="${f.key}"]`);
+      cfg.cols[g.group][f.key] = colSel.value;
+    }
+  }
+  return cfg;
+}
+
+function wireConfigForm(div) {
+  div.querySelectorAll('select[data-role="table"]').forEach((sel) => {
+    sel.addEventListener('change', async () => {
+      const group = sel.dataset.group;
+      const cols = await listColumnsForTable(sel.value);
+      const schemaGroup = CONFIG_SCHEMA.find((g) => g.group === group);
+      const block = div.querySelector(`details[data-group-block="${group}"]`);
+      block.querySelectorAll('select[data-role="col"]').forEach((colSel) => {
+        const field = schemaGroup.fields.find((f) => f.key === colSel.dataset.field);
+        const current = colSel.value;
+        const preferred = cols.includes(current) ? current : (cols.includes(field.default) ? field.default : (cols[0] || current));
+        colSel.innerHTML = selectOptionsHtml(cols, preferred);
+      });
+    });
+  });
+
+  div.querySelector('#configApplyBtn').addEventListener('click', () => applyConfigFromForm(readConfigFromForm(div)));
+  div.querySelector('#configResetBtn').addEventListener('click', () => applyConfigFromForm(defaultColumnConfig()));
+}
+
+async function applyConfigFromForm(newCfg) {
+  applyColumnConfig(mergeColumnConfig(newCfg));
+  try { await grist.setOption('columnConfig', COLUMN_CONFIG); } catch (e) { /* pas bloquant */ }
+  await loadData();
+  if (DATA && !DATA.loadErrors.length) populateEfaSelect();
+  render(); // ferme le panneau "Colonnes utilisées" — les résultats recalculés (ou le
+            // bandeau d'erreur si une table/colonne est devenue invalide) le remplacent.
+}
+
+document.getElementById('configBtn').addEventListener('click', async () => {
+  const content = document.getElementById('content');
+  const already = document.getElementById('configCard');
+  if (already) { already.remove(); return; }
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.id = 'configCard';
+  div.innerHTML = '<h2>Colonnes utilisées</h2><div class="subhead">Chargement des tables du document…</div>';
+  content.prepend(div);
+
+  const allTableIds = await listAllTableIds();
+  const colsByTable = new Map();
+  for (const g of CONFIG_SCHEMA) {
+    const t = COLUMN_CONFIG.tables[g.group];
+    if (!colsByTable.has(t)) colsByTable.set(t, await listColumnsForTable(t));
+  }
+
+  // Le panneau a pu être refermé (re-clic sur le bouton) pendant le chargement.
+  if (!document.getElementById('configCard')) return;
+  div.innerHTML = renderConfigForm(allTableIds, colsByTable);
+  wireConfigForm(div);
+});
+
 document.getElementById('efaSelect').addEventListener('change', onEfaChange);
 document.getElementById('printBtn').addEventListener('click', () => {
   // Les <details> repliés (chapitres, bâtiments) ne rendent pas leur contenu :
@@ -903,6 +1135,7 @@ document.getElementById('helpBtn').addEventListener('click', () => {
 
 async function boot() {
   grist.onOptions(async (options) => {
+    applyColumnConfig(mergeColumnConfig(options && options.columnConfig));
     await loadData();
     if (DATA && !DATA.loadErrors.length) {
       populateEfaSelect();

@@ -17,6 +17,27 @@ window.grist = (function () {
     return cols;
   }
 
+  // _grist_Tables / _grist_Tables_column : métadonnées internes Grist, utilisées
+  // par le panneau "⚙️ Colonnes utilisées" pour lister les tables/colonnes
+  // réellement présentes dans le document. Reconstruites ici à partir des clés
+  // de DEMO_SEED (un "tableId" par table, un id interne arbitraire par table,
+  // et une ligne _grist_Tables_column par colonne observée dans ses lignes).
+  const tableNames = Object.keys(tables);
+  const gristTables = tableNames.map((name, i) => ({ id: i + 1, tableId: name }));
+  const gristColumns = [];
+  let nextColId = 1;
+  for (const t of gristTables) {
+    const keys = new Set(['id']);
+    (tables[t.tableId] || []).forEach((r) => Object.keys(r).forEach((k) => keys.add(k)));
+    for (const colId of keys) gristColumns.push({ id: nextColId++, parentId: t.id, colId });
+  }
+
+  function fetchTableRows(name) {
+    if (name === '_grist_Tables') return gristTables;
+    if (name === '_grist_Tables_column') return gristColumns;
+    return tables[name];
+  }
+
   return {
     ready() {
       setTimeout(() => optionsListeners.forEach((fn) => fn(currentOptions)), 0);
@@ -31,7 +52,7 @@ window.grist = (function () {
     },
     docApi: {
       fetchTable(name) {
-        const rows = tables[name];
+        const rows = fetchTableRows(name);
         if (!rows) return Promise.reject(new Error('Table inconnue : ' + name));
         return Promise.resolve(toColumnar(rows));
       },
