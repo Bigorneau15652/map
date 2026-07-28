@@ -114,22 +114,46 @@ source — jamais un simple compte abstrait.
 3. Acceptez la demande d'autorisation **"Full document access"** (nécessaire
    car le widget lit plusieurs tables sans passer par "Select by").
 4. Choisissez **Vue d'ensemble** pour les 5 EFA en une fois, ou un EFA précis
-   dans le menu déroulant pour le détail par bâtiment (lignes rétractables,
-   cliquables). Le bouton **❓ Méthode de calcul** rappelle la logique
-   ci-dessus dans le widget lui-même.
+   dans le menu déroulant pour le détail par bâtiment. Le bouton
+   **❓ Méthode de calcul** rappelle la logique ci-dessus dans le widget
+   lui-même. Toutes les surfaces sont affichées arrondies au m² entier.
+5. Les chapitres **"Sous-catégorie SCE OPERAT"** et **"Détail par bâtiment"**
+   sont repliables (cliquez sur leur titre). Le bouton
+   **🖶️ Imprimer / Export PDF** ouvre la boîte de dialogue d'impression du
+   navigateur (qui permet d'enregistrer en PDF) ; les chapitres repliés sont
+   temporairement dépliés le temps de l'impression pour que rien ne manque
+   sur le papier, puis reprennent leur état à l'écran une fois la boîte de
+   dialogue fermée.
 
 Le dernier EFA consulté est mémorisé (via `grist.setOption`) et resélectionné
 à la prochaine ouverture.
 
 ### Si vos tables/colonnes portent d'autres noms
 
-Ce widget est volontairement sans interface de configuration : il attend les
-tables `BDD_Sites`, `BDD_Batiments`, `BDD_Salles`, `Ref_Categorie_SCE`,
-`Ref_SS_Categorie_SCE` avec les noms de colonnes du document "Bac à sable
-SIPI" (voir constantes `TABLES` / `COL` en tête du `<script>` de
-`index.html`). Si votre document diffère, ajustez ces constantes directement
-dans le fichier — une table introuvable est signalée par un bandeau rouge qui
-la nomme.
+Cliquez sur **⚙️ Colonnes utilisées** dans la barre d'outils : un panneau
+liste, pour chacune des 5 tables utilisées (Sites, Bâtiments, Salles,
+Catégories SCE OPERAT, Sous-catégories SCE OPERAT), un menu déroulant pour
+choisir la table Grist à utiliser, puis un menu déroulant par colonne
+attendue — chaque liste est peuplée à partir des tables/colonnes réellement
+présentes dans votre document (via les tables internes Grist
+`_grist_Tables` / `_grist_Tables_column`), pas de saisie libre. Cliquez
+**Enregistrer et recalculer** : la config est mémorisée (`grist.setOption`)
+et le widget relit les données aussitôt avec le nouveau mappage — pas besoin
+de modifier `index.html`. **Réinitialiser aux valeurs par défaut** restaure
+les noms du document "Bac à sable SIPI" d'origine (voir `DEFAULT_TABLES` /
+`DEFAULT_COL` / `CONFIG_SCHEMA` en tête du `<script>` si vous voulez changer
+ces valeurs par défaut elles-mêmes).
+
+Symptôme typique d'une colonne renommée sans que la config n'ait été mise à
+jour : une case "Chauffée + rafraîchie" ou "Chauffée (seule)" qui tombe à
+0 m² partout alors qu'il y a réellement des locaux chauffés (la colonne
+`Surface_Chaufee` — ou `Surface_Rafraichie` — n'est plus trouvée par le nom
+attendu, donc traitée comme "non cochée" pour toutes les salles). Rouvrez
+**⚙️ Colonnes utilisées** et repointez la colonne concernée.
+
+Une table introuvable (mauvais nom, table supprimée) est toujours signalée
+par un bandeau rouge qui la nomme, que la config vienne des valeurs par
+défaut ou d'un mappage personnalisé.
 
 ## Développement / test local
 
@@ -138,9 +162,11 @@ l'API Grist (`mock-grist.js`) pré-rempli avec un extrait réel et trimmé du
 document (`demo-seed.js` — 10 bâtiments choisis pour couvrir : catégorie
 dominante à 70%+, répartition à 2-3 catégories, bâtiment sans catégorie
 dominante, salles à catégorie invalide, salles sans sous-catégorie), plus une
-ligne de test synthétique pour l'avertissement "Site incohérent". Servez le
-dossier avec un serveur statique quelconque (`python3 -m http.server`) et
-ouvrez `index.html?demo=1`.
+ligne de test synthétique pour l'avertissement "Site incohérent". `mock-grist.js`
+reconstruit aussi `_grist_Tables` / `_grist_Tables_column` à partir des clés de
+`demo-seed.js`, pour pouvoir tester le panneau **⚙️ Colonnes utilisées** en
+local. Servez le dossier avec un serveur statique quelconque (`python3 -m
+http.server`) et ouvrez `index.html?demo=1`.
 
 Voir `/CLAUDE.md` à la racine du dépôt avant tout changement visuel
 (lisibilité des bannières, contrôles de formulaire en mode sombre, test à
