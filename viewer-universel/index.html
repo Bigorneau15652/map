@@ -29,6 +29,25 @@
       --highlight: rgba(79,142,247,0.35);
       --room-fill: rgba(79,142,247,0.15);
       --room-stroke: #4f8ef7;
+      color-scheme: light; /* évite qu'un OS en mode sombre réintroduise du blanc-sur-blanc sur les <select>/<input> */
+    }
+
+    /* Indicateur visuel de format (utile en format « étiquette » compact,
+       tout en haut de Grist : la couleur seule suffit à identifier le format
+       sans avoir à ouvrir le contenu). Bascule tout le thème du widget —
+       pas seulement le fond — pour rester lisible partout (toolbar,
+       panneau calques, badges…). Piloté par document.body.dataset.fmt. */
+    body[data-fmt="dxf"] {
+      --bg: #e6f7ea; --surface: #cdeed6; --border: #9fd8b0;
+      --text: #163d1f; --text-muted: #3f6b4a; --accent: #0f7a38;
+    }
+    body[data-fmt="pdf"] {
+      --bg: #e7f0fb; --surface: #cfe2f7; --border: #a4c8ec;
+      --text: #123457; --text-muted: #3f628a; --accent: #2f6fd6;
+    }
+    body[data-fmt="img360"] {
+      --bg: #fbe9f3; --surface: #f6d1e5; --border: #edaed1;
+      --text: #5c1440; --text-muted: #8a4570; --accent: #d6398f;
     }
 
     html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
@@ -353,6 +372,7 @@ function showEmpty() {
   $('btn-fit').style.display = '';
   $('format-badge').className = '';
   $('format-badge').textContent = '—';
+  document.body.dataset.fmt = ''; // pas de format détecté -> thème neutre
 }
 
 function updateFormatBadge() {
@@ -360,6 +380,8 @@ function updateFormatBadge() {
   const f = state.currentFormat;
   badge.className = f || '';
   badge.textContent = f ? f.toUpperCase() : '—';
+  // Thème de couleur du widget selon le format détecté (voir CSS body[data-fmt])
+  document.body.dataset.fmt = (f === 'dxf' || f === 'pdf' || f === 'img360') ? f : '';
 }
 
 /* Extrait une URL exploitable d'une valeur de cellule Grist.
