@@ -111,7 +111,8 @@
     .sf-btn:hover { background: var(--border); color: var(--text); }
 
     /* ── DXF Canvas viewer ── */
-    #dxf-canvas { display: block; cursor: crosshair; }
+    #dxf-canvas { display: block; cursor: grab; }
+    #dxf-canvas.dragging { cursor: grabbing; }
     #canvas-wrap { flex: 1; overflow: hidden; position: relative; }
 
     /* ── PDF viewer ── */
@@ -1005,6 +1006,7 @@ canvas.addEventListener('mousedown', e => {
   if (e.button !== 0) return;
   state.dxf.isDragging = true;
   state.dxf.dragStart = { x: e.clientX - state.dxf.transform.ox, y: e.clientY - state.dxf.transform.oy };
+  canvas.classList.add('dragging');
 });
 window.addEventListener('mousemove', e => {
   if (!state.dxf.isDragging) return;
@@ -1012,7 +1014,10 @@ window.addEventListener('mousemove', e => {
   state.dxf.transform.oy = e.clientY - state.dxf.dragStart.y;
   renderDXF();
 });
-window.addEventListener('mouseup', () => { state.dxf.isDragging = false; });
+window.addEventListener('mouseup', () => {
+  state.dxf.isDragging = false;
+  canvas.classList.remove('dragging');
+});
 
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
