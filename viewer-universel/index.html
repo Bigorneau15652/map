@@ -77,6 +77,17 @@
       margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: .5px;
       padding: 2px 8px; border-radius: 12px; background: var(--border); color: var(--text-muted);
     }
+
+    /* Mode « étiquette » : quand le panneau Grist est réduit à une bande très
+       fine, les boutons (Calques/Ajuster/Config/Fenêtre…) n'ont plus la place
+       d'être utilisables — on les efface pour ne garder qu'une simple bande
+       de couleur (celle du format détecté). Se réactive tout seul, en direct,
+       dès que le panneau redevient assez haut. Seuil ajustable ci-dessous. */
+    @media (max-height: 90px) {
+      #toolbar { flex: 1 1 auto; height: auto; min-height: 0; padding: 0; border-bottom: none; }
+      #toolbar > * { display: none !important; }
+      #sidebar, #canvas-wrap, #pdf-wrap, #pano-wrap, #empty { display: none !important; }
+    }
     #format-badge.dxf { background: #1a3a1a; color: #6fcf6f; }
     #format-badge.pdf { background: #3a1a1a; color: #f07070; }
     #format-badge.img360 { background: #1a2a3a; color: #70b0f0; }
