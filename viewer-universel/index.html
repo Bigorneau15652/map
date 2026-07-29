@@ -603,7 +603,11 @@ function parseDXF(text) {
       case 'CIRCLE':
         if (code === 10) ent.cx = parseFloat(val);
         if (code === 20) ent.cy = parseFloat(val);
-        if (code === 40) ent.radius = parseFloat(val);
+        // Certains exports CAO écrivent un rayon négatif (convention propre à
+        // l'outil, ex. sens de l'arc) — géométriquement ça n'a pas de sens,
+        // donc on garde toujours la magnitude pour ne pas fausser le rendu
+        // ni le calcul de la boîte englobante (qui utilise aussi ent.radius).
+        if (code === 40) ent.radius = Math.abs(parseFloat(val));
         if (code === 50) ent.startAngle = parseFloat(val);
         if (code === 51) ent.endAngle = parseFloat(val);
         break;
@@ -775,7 +779,11 @@ function renderDXF() {
 
       case 'CIRCLE': {
         const c = worldToScreen(ent.cx, ent.cy);
-        const r = ent.radius * state.dxf.transform.scale;
+        const r = Math.abs(ent.radius * state.dxf.transform.scale);
+        // ctx.arc() lève une exception sur un rayon négatif/NaN — filet de
+        // sécurité pour qu'une entité DXF mal formée n'interrompe pas tout
+        // le rendu du plan.
+        if (!(r > 0)) break;
         ctx.beginPath();
         ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
         ctx.stroke();
@@ -784,9 +792,10 @@ function renderDXF() {
 
       case 'ARC': {
         const c = worldToScreen(ent.cx, ent.cy);
-        const r = ent.radius * state.dxf.transform.scale;
+        const r = Math.abs(ent.radius * state.dxf.transform.scale);
         const sa = -(ent.startAngle || 0) * Math.PI / 180;
         const ea = -(ent.endAngle || 0) * Math.PI / 180;
+        if (!(r > 0)) break;
         ctx.beginPath();
         ctx.arc(c.x, c.y, r, sa, ea, true);
         ctx.stroke();
@@ -1253,7 +1262,10 @@ async function loadFile(url, roomId, record) {
   } catch(err) {
     console.error('Viewer error:', err);
     showEmpty();
-    const isCors = err instanceof TypeError || /failed to fetch|networkerror/i.test(err.message || '');
+    // Repose uniquement sur le message : un TypeError générique peut venir
+    // d'ailleurs (ex. une erreur de rendu canvas) et ne doit pas être
+    // improprement présenté comme un blocage CORS/réseau.
+    const isCors = /failed to fetch|networkerror|load failed/i.test(err.message || '');
     let hint;
     if (err.message === '__HTML__') {
       hint = `L'URL renvoie une <b>page web</b>, pas un fichier DXF.<br>
