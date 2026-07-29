@@ -1167,10 +1167,23 @@ async function load360(url) {
   state.currentFormat = 'img360';
   showSection('pano-wrap');
   if (pannellumViewer) { try { pannellumViewer.destroy(); } catch(e){} pannellumViewer = null; }
+  if (state._pano360ObjectUrl) { URL.revokeObjectURL(state._pano360ObjectUrl); state._pano360ObjectUrl = null; }
   $('pano-wrap').innerHTML = '<div id="pano-container" style="width:100%;height:100%"></div>';
+  setLoading(20);
+  // On passe par fetchFile() (normalisation Nextcloud + proxy CORS, comme pour
+  // le DXF/PDF) plutôt que de laisser Pannellum charger l'URL distante
+  // directement : Pannellum utilise l'image comme texture WebGL, ce qui exige
+  // les en-têtes CORS même quand un simple <img> s'en passerait — sans ça
+  // l'affichage échoue silencieusement ou plante avec une erreur WebGL opaque.
+  const resp = await fetchFile(url);
+  setLoading(60);
+  const blob = await resp.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  state._pano360ObjectUrl = objectUrl;
+  setLoading(85);
   pannellumViewer = pannellum.viewer('pano-container', {
     type: 'equirectangular',
-    panorama: url,
+    panorama: objectUrl,
     autoLoad: true,
     showZoomCtrl: true,
     showFullscreenCtrl: true,
