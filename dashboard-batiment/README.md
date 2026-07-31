@@ -55,7 +55,7 @@ voir ci-dessous).
    qui les contient, ce bouton est donc le contournement : le titre choisi est
    mémorisé avec le widget (`grist.setOption`), donc persistant.
 9. Bouton **👁 Vue** : ouvre un panneau à cocher pour choisir quelles surfaces
-   (SUN, SUB, SPC, SHOB, SCE) sont affichées. Décocher un type le retire partout où
+   (SUN, SUB, SDP, SHOB, SCE) sont affichées. Décocher un type le retire partout où
    il apparaît : colonne du tableau "Surfaces par niveau", série du graphique en
    barres empilées, ligne de légende explicative correspondante, colonne de la
    ligne d'identité dans "Surfaces fonctionnelles du bâtiment", et tout indicateur
@@ -116,7 +116,7 @@ précis, chaque section a un id HTML stable, dans l'ordre du PDF de référence 
   la miniature elle-même n'étant pas interactive pour ne pas entrer en conflit avec le clic d'ouverture.
 - `#sec-reglementaire` — Informations réglementaires + Date visite/avis commission + Capacité d'accueil
 - `#sec-surfaces-totales` — Emprise au sol, une légende en italique rappelant la définition de chaque
-  acronyme (SUN/SUB/SPC/SHOB/SCE), le tableau Surfaces par niveau et un graphique en barres empilées (un
+  acronyme (SUN/SUB/SDP/SHOB/SCE), le tableau Surfaces par niveau et un graphique en barres empilées (un
   type de surface par colonne, les niveaux empilés du Sous-sol en bas au TT en haut) — écran uniquement.
   Les colonnes/séries/légendes affichées dépendent du menu **👁 Vue** (voir ci-dessous).
 
@@ -131,7 +131,7 @@ précis, chaque section a un id HTML stable, dans l'ordre du PDF de référence 
   du site (nombre de bâtiments, postes de travail, places de stationnement, places PMR, ratios), avec
   la carte OpenStreetMap du site (`#siteMapWrap`, centrée sur `BDD_Sites.Latitude`/`Longitude`) à droite —
   pas de photo au niveau site (`BDD_Sites` n'a pas de champ pièce jointe équivalent à `Photo_batiment`)
-- `#sec-site-surfaces-totales` — Emprise au sol totale, même légende SUN/SUB/SPC/SHOB/SCE, tableau
+- `#sec-site-surfaces-totales` — Emprise au sol totale, même légende SUN/SUB/SDP/SHOB/SCE, tableau
   "Surfaces totales et par bâtiment" (une ligne par bâtiment du site, au lieu d'une ligne par étage) et
   son graphique en barres empilées — même mécanique que la page 1, mêmes colonnes pilotées par **👁 Vue**
 
@@ -154,32 +154,33 @@ en le rendant simplement optionnel (masqué seulement quand vide) plutôt que re
 ### SCE ajoutée + menu **👁 Vue** pour choisir les surfaces affichées
 
 La SCE (surface de consommation d'énergie, utilisée pour OPERAT) est lue depuis
-`BDD_Etages.Surface_SCE`, calculée dans Grist sur le même principe que SUN/SUB/SPC/SHOB
+`BDD_Etages.Surface_SCE`, calculée dans Grist sur le même principe que SUN/SUB/SDP/SHOB
 (somme des salles du bâtiment/étage dont le type d'usage a l'indicateur `SCE` coché). Elle
 s'ajoute comme 5e type de surface, avec sa propre légende explicative : « SCE — Surface de
 Consommation d'Énergie : comprend tous les locaux où il y a des consommations d'énergie
 (utilisé pour OPERAT) ».
 
 Comme toutes les surfaces ne sont pas utiles à tout le monde (ex. SUN), le bouton toolbar
-**👁 Vue** ouvre un panneau à cocher (une case par type : SUN, SUB, SPC, SHOB, SCE). Décocher
+**👁 Vue** ouvre un panneau à cocher (une case par type : SUN, SUB, SDP, SHOB, SCE). Décocher
 un type le masque immédiatement partout où il apparaît :
 - colonne du tableau et série du graphique en barres empilées de "Surfaces par niveau" ;
 - la ligne de légende explicative correspondante ;
 - sa colonne dans la ligne d'identité de "Surfaces fonctionnelles du bâtiment" (uniquement
-  SUN/SUB/SPC, qui sont les seules à y figurer dans le PDF de référence) ;
+  SUN/SUB/SDP, qui sont les seules à y figurer dans le PDF de référence) ;
 - tout indicateur (KPI) qui en dépend : décocher SUN masque le ratio SUN/Poste de travail et
-  le ratio SUN/SUB ; décocher SUB ou SPC masque le ratio correspondant.
+  le ratio SUN/SUB ; décocher SUB ou SDP masque le ratio correspondant.
 
 Ce choix est propre à chaque instance du widget et persistant (`grist.setOption`), comme le
 titre : il survit à un rafraîchissement de la page ou à la réouverture du document.
 
-### SPC : acronyme non identifié avec certitude
+### SDP (anciennement affiché "SPC" par erreur)
 
-Cet acronyme n'est pas standardisé dans le mesurage tertiaire. Il est vraisemblablement apparenté à
-la SDP (Surface De Plancher), qui a remplacé SHON et SHOB en 2012 dans le droit de l'urbanisme — ça
-correspondrait à sa position dans les valeurs du PDF (entre SUB et SHON/SHOB, croissantes), et au nom
-que vous avez donné vous-même à la colonne de base servant à son calcul (`Surface_base_pour_SDP_m2_`).
-Ce n'est qu'une hypothèse : le libellé "SPC" lui-même reste à confirmer si vous avez une source.
+Ce type de surface correspond à la **SDP (Surface De Plancher)**, qui a remplacé SHON et SHOB en
+2012 dans le droit de l'urbanisme — cohérent avec sa position dans les valeurs du PDF (entre SUB et
+SHON/SHOB, croissantes) et avec le nom de la colonne Grist servant à son calcul
+(`Surface_base_pour_SDP_m2_`). Le widget affichait par erreur l'acronyme "SPC" (une coquille, sans
+rapport avec le mesurage tertiaire) à la place de "SDP" dans les tableaux, graphiques et légendes ;
+c'est corrigé partout, y compris dans le libellé du ratio SUB/SDP.
 
 ### Photo et carte du bâtiment
 
@@ -211,11 +212,11 @@ pas dans le PDF) a été retirée.
 | Capacité d'accueil                     | `BDD_Batiments.Effectif`                                                   |
 | Ratio d'occupation SUN/Poste de travail (cible 12m²) | SUN bâtiment ÷ Nombre de postes de travail |
 | Ratio d'optimisation de la capacité d'accueil SUN/SUB (cible > 67%) | SUN bâtiment ÷ SUB bâtiment |
-| Ratio d'optimisation de la conception (SPC) SUB/SPC (cible > 85%) | SUB bâtiment ÷ SPC bâtiment |
+| Ratio d'optimisation de la conception (SDP) SUB/SDP (cible > 85%) | SUB bâtiment ÷ SDP bâtiment |
 | Type établissement principal / secondaire (1)(2)(3) | 1er, 2e, 3e, 4e élément de `BDD_Batiments.Type_d_ERP2` (liste), code repris depuis `Table_Type_d_ERP` |
 | Catégorie d'établissement               | `BDD_Batiments.Categorie_d_ERP`                                            |
 | Date visite commission / Avis commission / Date du dernier avis commission | `BDD_Batiments.Date_de_visite_de_commission` / `AvisCommission` / `Date_du_dernier_avis` |
-| SUN/SUB/SPC/SHOB/SCE par niveau et total | Somme de `BDD_Etages.Surface_SUN_m2_` / `Surface_SUB_m2_` / `Surface_SP_m2_` / `Surface_SHOB_m2_2` / `Surface_SCE` (hors étages au Site incohérent) |
+| SUN/SUB/SDP/SHOB/SCE par niveau et total | Somme de `BDD_Etages.Surface_SUN_m2_` / `Surface_SUB_m2_` / `Surface_SP_m2_` / `Surface_SHOB_m2_2` / `Surface_SCE` (hors étages au Site incohérent) |
 | Photo du bâtiment                      | `BDD_Batiments.Photo_batiment` (pièce jointe)                              |
 | Carte de localisation                  | `BDD_Batiments.Latitude` / `Longitude`                                     |
 | Surfaces fonctionnelles (Administration, Enseignement, …) | `BDD_Salles` groupées par `Occupation`, filtrées sur `Type_d_usage.SUB = vrai` |
@@ -232,7 +233,7 @@ pas dans le PDF) a été retirée.
 | Toutes les surfaces (par bâtiment, fonctionnelles, ratios) | Mêmes colonnes/calculs qu'en mode Bâtiment, mais agrégés sur l'ensemble des bâtiments du site (voir section "Deux échelles" plus haut) |
 
 Les cibles affichées sur les indicateurs (SUN/poste ≤ 12-15-20 m², SUN/SUB > 67 %,
-SUB/SPC > 85 %) pilotent uniquement le code couleur vert/orange/rouge ; ajustez les
+SUB/SDP > 85 %) pilotent uniquement le code couleur vert/orange/rouge ; ajustez les
 seuils dans le script (`renderKpis`) si vos cibles internes diffèrent.
 
 ## Points de vigilance repérés dans le fichier `.grist` fourni
@@ -240,7 +241,7 @@ seuils dans le script (`renderKpis`) si vos cibles internes diffèrent.
 ### 1. Lignes (salles ET étages) au `Site` incohérent avec leur `Bâtiment`
 
 En comparant les surfaces recalculées avec celles du PDF de référence (bâtiment A,
-103, route de Mende) étage par étage, on constate que SUB/SPC/SHON/SHOB collent au
+103, route de Mende) étage par étage, on constate que SUB/SDP/SHON/SHOB collent au
 PDF à ±5 % dès qu'on ne garde que les lignes dont le `Site` correspond au site du
 bâtiment sélectionné. Sans ce filtre, les surfaces se retrouvent 3 à 11 fois plus
 élevées que le PDF.
@@ -278,7 +279,7 @@ salles = BDD_Salles.lookupRecords(Batiment=$Batiment, Etage=rec, Site=$Site)
 sum(salle.Surface_utile_m2_ for salle in salles if salle.Surface_utile_m2_ is not None)
 ```
 
-### 2. SP (SPC) et SHOB : calcul par soustraction, pas par addition
+### 2. SP (SDP) et SHOB : calcul par soustraction, pas par addition
 
 Les colonnes `Surface SP (m²)` et `Surface SHOB (m²)` de `BDD_Etages` se calculent
 en partant d'une surface de base saisie manuellement par étage
@@ -294,7 +295,7 @@ widget n'est nécessaire si vous ajustez encore cette formule.
 ### 3. SUN toujours un peu élevée après filtrage : à vérifier dans `Table_locaux_types_et_correspondance`
 
 Même en filtrant correctement par `Site`, la surface **SUN** peut rester au-dessus
-du PDF sur certains étages alors que SUB/SPC/SHON/SHOB collent bien sur les mêmes
+du PDF sur certains étages alors que SUB/SDP/SHON/SHOB collent bien sur les mêmes
 étages — ce qui écarte un problème de filtrage. Cause probable : plusieurs types de
 locaux « Circulation » (Circulation interne, Circulation primaire, Accueil/Attente,
 Palier d'étage, Vérandas, Galerie non technique) ont l'indicateur `SUN` coché à vrai
