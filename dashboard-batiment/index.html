@@ -557,7 +557,7 @@ let mode = 'batiment';
 
 // ---------------------------------------------------------------------------
 // Surface types shown in "Surfaces totales et par niveau" (table + graphique)
-// and, for SUN/SUB/SPC only, in the "Surfaces fonctionnelles" identity row —
+// and, for SUN/SUB/SDP only, in the "Surfaces fonctionnelles" identity row —
 // all selectable/hideable via the "Vue" menu, persisted with grist.setOption.
 // ---------------------------------------------------------------------------
 const SURFACE_TYPES = [
@@ -570,8 +570,8 @@ const SURFACE_TYPES = [
     caption: "<b>SUB</b> — Surface Utile Brute : surface intérieure hors éléments structuraux, circulations comprises ; base de calcul du loyer en bail commercial.",
   },
   {
-    key: 'SPC', label: 'SPC', etageField: 'Surface_SP_m2_', inIdentityRow: true,
-    caption: "<b>SPC</b> — acronyme non normalisé dans le mesurage tertiaire ; vraisemblablement apparenté à la SDP (Surface de Plancher, en vigueur depuis 2012).",
+    key: 'SDP', label: 'SDP', etageField: 'Surface_SP_m2_', inIdentityRow: true,
+    caption: "<b>SDP</b> — Surface De Plancher : somme des surfaces de plancher closes et couvertes, sous hauteur de plafond > 1,80 m, en vigueur depuis 2012 (remplace la SHOB).",
   },
   {
     key: 'SHOB', label: 'SHOB', etageField: 'Surface_SHOB_m2_2', inIdentityRow: false,
@@ -767,12 +767,12 @@ function renderSiteInfo(site) {
 function renderSiteKpis(site, siteBats, siteEtages, siteSalles) {
   const SUN = sum(siteEtages, e => e.Surface_SUN_m2_);
   const SUB = sum(siteEtages, e => e.Surface_SUB_m2_);
-  const SPC = sum(siteEtages, e => e.Surface_SP_m2_);
+  const SDP = sum(siteEtages, e => e.Surface_SP_m2_);
   const nbPostes = sum(siteSalles, s => s.Nb_de_postes_de_travail);
 
   const ratioSunPoste = nbPostes > 0 ? SUN / nbPostes : null;
   const ratioSunSub = SUB > 0 ? (SUN / SUB) * 100 : null;
-  const ratioSubSpc = SPC > 0 ? (SUB / SPC) * 100 : null;
+  const ratioSubSdp = SDP > 0 ? (SUB / SDP) * 100 : null;
 
   const kpis = [
     { label: 'Nombre de bâtiments', value: fmtNum(siteBats.length), cls: '', show: true },
@@ -792,10 +792,10 @@ function renderSiteKpis(site, siteBats, siteEtages, siteSalles) {
       show: visibleTypes.has('SUN') && visibleTypes.has('SUB'),
     },
     {
-      label: "Ratio d'optimisation de la conception (SPC) SUB/SPC (cible > 85%)",
-      value: fmtPct(ratioSubSpc),
-      cls: ratioSubSpc === null ? '' : (ratioSubSpc >= 85 ? 'ok' : ratioSubSpc >= 70 ? 'warn' : 'bad'),
-      show: visibleTypes.has('SUB') && visibleTypes.has('SPC'),
+      label: "Ratio d'optimisation de la conception (SDP) SUB/SDP (cible > 85%)",
+      value: fmtPct(ratioSubSdp),
+      cls: ratioSubSdp === null ? '' : (ratioSubSdp >= 85 ? 'ok' : ratioSubSdp >= 70 ? 'warn' : 'bad'),
+      show: visibleTypes.has('SUB') && visibleTypes.has('SDP'),
     },
   ].filter(k => k.show);
 
@@ -810,7 +810,7 @@ function renderSiteKpis(site, siteBats, siteEtages, siteSalles) {
   document.getElementById('siteEmpriseAuSol').textContent =
     `Emprise au sol totale : ${fmtNum(empriseTotal)} m²`;
 
-  return { SUN, SUB, SPC, nbPostes };
+  return { SUN, SUB, SDP, nbPostes };
 }
 
 function renderSiteSurfaces(siteBats, siteEtages) {
@@ -871,7 +871,7 @@ function renderWarnings(bat, batSalles, batEtages, excludedSalles, excludedEtage
   const warnings = [];
   const noType = batSalles.filter(s => !s.Type_d_usage).length;
   const noOcc = batSalles.filter(s => !s.Occupation).length;
-  if (noType > 0) { warnings.push(`${noType} local(-aux) sans « Type d'usage » renseigné (exclu des sommes SUN/SUB/SPC/SHOB).`); }
+  if (noType > 0) { warnings.push(`${noType} local(-aux) sans « Type d'usage » renseigné (exclu des sommes SUN/SUB/SDP/SHOB).`); }
   if (noOcc > 0) { warnings.push(`${noOcc} local(-aux) sans « Occupation » renseignée (regroupé sous « Non classé »).`); }
   if (bat && bat.Site && !siteById[bat.Site]) { warnings.push(`Le site lié à ce bâtiment est introuvable.`); }
 
@@ -1103,13 +1103,13 @@ function renderFloors(batEtages) {
 function renderKpis(bat, batEtages, batSalles) {
   const SUN = sum(batEtages, e => e.Surface_SUN_m2_);
   const SUB = sum(batEtages, e => e.Surface_SUB_m2_);
-  const SPC = sum(batEtages, e => e.Surface_SP_m2_);
+  const SDP = sum(batEtages, e => e.Surface_SP_m2_);
   const nbPostes = sum(batSalles, s => s.Nb_de_postes_de_travail);
   const capacite = bat.Effectif;
 
   const ratioSunPoste = nbPostes > 0 ? SUN / nbPostes : null;
   const ratioSunSub = SUB > 0 ? (SUN / SUB) * 100 : null;
-  const ratioSubSpc = SPC > 0 ? (SUB / SPC) * 100 : null;
+  const ratioSubSdp = SDP > 0 ? (SUB / SDP) * 100 : null;
 
   // A ratio is only shown while every surface type it depends on is visible —
   // a ratio built on a hidden surface no longer means anything on its own.
@@ -1129,10 +1129,10 @@ function renderKpis(bat, batEtages, batSalles) {
       show: visibleTypes.has('SUN') && visibleTypes.has('SUB'),
     },
     {
-      label: "Ratio d'optimisation de la conception (SPC) SUB/SPC (cible > 85%)",
-      value: fmtPct(ratioSubSpc),
-      cls: ratioSubSpc === null ? '' : (ratioSubSpc >= 85 ? 'ok' : ratioSubSpc >= 70 ? 'warn' : 'bad'),
-      show: visibleTypes.has('SUB') && visibleTypes.has('SPC'),
+      label: "Ratio d'optimisation de la conception (SDP) SUB/SDP (cible > 85%)",
+      value: fmtPct(ratioSubSdp),
+      cls: ratioSubSdp === null ? '' : (ratioSubSdp >= 85 ? 'ok' : ratioSubSdp >= 70 ? 'warn' : 'bad'),
+      show: visibleTypes.has('SUB') && visibleTypes.has('SDP'),
     },
   ].filter(k => k.show);
 
@@ -1146,7 +1146,7 @@ function renderKpis(bat, batEtages, batSalles) {
   document.getElementById('empriseAuSol').textContent =
     `Emprise au sol : ${fmtNum(bat.Surface_emprise_au_sol_m2_)} m²`;
 
-  return { SUN, SUB, SPC, nbPostes, capacite };
+  return { SUN, SUB, SDP, nbPostes, capacite };
 }
 
 function renderFunctional(bat, kpi, batSalles) {
@@ -1449,8 +1449,8 @@ els.titleBtn.addEventListener('click', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// "Vue" : quelles surfaces (SUN/SUB/SPC/SHOB/SCE) afficher dans "Surfaces
-// totales et par niveau" (tableau + graphique + légendes) et, pour SUN/SUB/SPC,
+// "Vue" : quelles surfaces (SUN/SUB/SDP/SHOB/SCE) afficher dans "Surfaces
+// totales et par niveau" (tableau + graphique + légendes) et, pour SUN/SUB/SDP,
 // dans la ligne d'identité de "Surfaces fonctionnelles Bâtiment". Persisté par
 // widget via grist.setOption, comme le titre.
 // ---------------------------------------------------------------------------
@@ -1459,7 +1459,10 @@ els.viewPanel.innerHTML = SURFACE_TYPES.map(t =>
 ).join('');
 
 function applyVisibleTypes(keys) {
-  visibleTypes = new Set(Array.isArray(keys) && keys.length ? keys : ALL_SURFACE_KEYS);
+  // Migre une éventuelle sélection enregistrée avant le renommage SPC -> SDP,
+  // pour qu'un widget déjà configuré ne perde pas ce type de surface.
+  const migrated = Array.isArray(keys) ? keys.map(k => (k === 'SPC' ? 'SDP' : k)) : keys;
+  visibleTypes = new Set(Array.isArray(migrated) && migrated.length ? migrated : ALL_SURFACE_KEYS);
   els.viewPanel.querySelectorAll('input[type=checkbox]').forEach(cb => {
     cb.checked = visibleTypes.has(cb.dataset.type);
   });
