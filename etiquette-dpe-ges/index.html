@@ -81,6 +81,7 @@
 
   .cardsWrap {
     display: flex;
+    flex-direction: row;
     flex-wrap: nowrap;
     gap: 16px;
     background: #ffffff;
@@ -89,12 +90,14 @@
     border-radius: 6px;
   }
 
-  /* Always side by side (never stacked), whatever the panel width — sizes
-     shrink instead of wrapping, see the media queries below for narrow
-     panels. Both cards share the exact same flex size and internal
-     proportions (valueSlot width, bar widths) so that class A on one scale
-     lines up with class A on the other, and both scales' class G bars end
-     at the same right edge. */
+  /* Side by side when there's enough width for both scales to stay legible;
+     below that (e.g. widget docked in a narrow side panel), stacked one
+     above the other instead of shrinking further — see the max-width:600px
+     query below. Both cards always share the exact same flex size and
+     internal proportions (valueSlot width, bar widths) so that class A on
+     one scale lines up with class A on the other, and both scales' class G
+     bars end at the same right edge (row layout), or both reach full width
+     (column layout). */
   .card { flex: 1 1 0; min-width: 0; }
 
   .rows { display: flex; flex-direction: column; gap: 4px; }
@@ -187,6 +190,15 @@
     margin-top: 8px;
     white-space: normal;
     overflow-wrap: anywhere;
+  }
+
+  /* Narrow-but-tall widget (e.g. docked against the edge of a Grist page):
+     stack the two scales instead of squeezing them side by side. Each card
+     then gets the full width, so the roomier default sizing above applies —
+     only the tighter breakpoints further down still shrink things further
+     for very narrow widths. */
+  @media (max-width: 600px) {
+    .cardsWrap { flex-direction: column; }
   }
 
   @media (max-width: 480px) {
@@ -474,7 +486,6 @@ window.grist.ready({
     },
   ],
   requiredAccess: 'read table',
-  onEditOptions: openSettings,
 });
 
 window.grist.onOptions(function (options) {
