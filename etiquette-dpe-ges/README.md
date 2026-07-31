@@ -20,6 +20,11 @@ ligne actuellement sélectionnée. Deux colonnes sont à mapper :
 échelles et affiche l'étiquette correspondante, avec la classe active mise en
 évidence (encart avec la valeur, barre agrandie), comme sur l'étiquette DPE papier.
 
+Le widget est responsive : les deux échelles s'affichent côte à côte quand la largeur
+du panneau le permet, et se replacent automatiquement l'une au-dessus de l'autre en
+dessous de 600px de large (par exemple si vous positionnez le widget dans une colonne
+étroite sur le bord d'une page Grist).
+
 ## Installation dans Grist
 
 1. Ouvrez votre document Grist.
@@ -43,10 +48,11 @@ valeur numérique dans les colonnes choisies, un bandeau rouge explicite l'indiq
 
 ## Seuils des classes (A à G), entièrement configurables
 
-Bouton **⚙ Seuils des classes** dans la barre d'outils (également accessible depuis
-l'icône de configuration du panneau Grist) : ouvre un panneau avec, pour chaque
-échelle (énergie et GES), les 6 seuils de passage d'une classe à l'autre (A≤, B≤, C≤,
-D≤, E≤, F≤ — la classe G s'applique au-delà du seuil F).
+Bouton **⚙ Seuils des classes** dans la barre d'outils du widget : ouvre un panneau
+avec, pour chaque échelle (énergie et GES), les 6 seuils de passage d'une classe à
+l'autre (A≤, B≤, C≤, D≤, E≤, F≤ — la classe G s'applique au-delà du seuil F). C'est le
+seul endroit pour régler ces seuils : le panneau Grist de droite ne sert qu'au mapping
+des colonnes (Consommation / Émissions).
 
 Les valeurs préremplies sont le barème réglementaire du DPE résidentiel en vigueur
 depuis juillet 2021 :
