@@ -239,7 +239,7 @@
         <strong>Consommation d'énergie primaire (kWh/m²/an)</strong>
       </div>
       <div class="scaleCol" id="gesSettingsCol">
-        <strong>Émissions de GES (kg CO2eq/m²/an)</strong>
+        <strong>Émissions de GES (kg CO2eq/m²/an)</strong>
       </div>
     </div>
     <div id="settingsError"></div>
@@ -361,7 +361,7 @@ function render() {
   } else if (consumption === null && emissions === null) {
     showBanner('Aucune valeur numérique trouvée dans les colonnes mappées pour la ligne ' +
       'sélectionnée : vérifiez que les colonnes choisies contiennent bien des nombres ' +
-      '(kWh/m²/an et kg CO2eq/m²/an).');
+      '(kWh/m²/an et kg CO2eq/m²/an).');
   } else {
     showBanner(null);
   }
@@ -370,7 +370,7 @@ function render() {
     value: consumption, edges: state.thresholds.dpe, colors: DPE_COLORS, unit: 'kWh/m²/an',
   });
   renderScale(document.getElementById('gesRows'), {
-    value: emissions, edges: state.thresholds.ges, colors: GES_COLORS, unit: 'kg CO2/m²/an',
+    value: emissions, edges: state.thresholds.ges, colors: GES_COLORS, unit: 'kg CO2/m²/an',
   });
 }
 
@@ -459,7 +459,7 @@ function resetThresholds() {
 }
 
 buildThresholdInputs(document.getElementById('dpeSettingsCol'), 'dpe-', 'kWh/m²/an');
-buildThresholdInputs(document.getElementById('gesSettingsCol'), 'ges-', 'kg CO2/m²/an');
+buildThresholdInputs(document.getElementById('gesSettingsCol'), 'ges-', 'kg CO2/m²/an');
 
 document.getElementById('btnSettings').addEventListener('click', openSettings);
 document.getElementById('btnCloseSettings').addEventListener('click', closeSettings);
@@ -479,10 +479,10 @@ window.grist.ready({
     },
     {
       name: 'Emissions',
-      title: 'Émissions de GES (kg CO2eq/m²/an)',
+      title: 'Émissions de GES (kg CO2eq/m²/an)',
       type: 'Numeric,Int',
       optional: false,
-      description: 'Émissions de gaz à effet de serre, en kg CO2eq/m²/an.',
+      description: 'Émissions de gaz à effet de serre, en kg CO2eq/m²/an.',
     },
   ],
   requiredAccess: 'read table',

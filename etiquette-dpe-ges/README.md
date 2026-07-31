@@ -46,6 +46,21 @@ Si les colonnes ne sont pas encore mappées, ou si la ligne sélectionnée n'a p
 valeur numérique dans les colonnes choisies, un bandeau rouge explicite l'indique
 (quoi faire, où aller) plutôt que d'afficher une étiquette vide ou une erreur.
 
+### Le widget reste bloqué sur la même ligne (toujours la même valeur)
+
+Si le widget affiche toujours la même ligne quelle que soit la ligne sélectionnée
+dans une autre section de la page (grille, carte, etc.), c'est presque toujours parce
+que les deux sections ne sont pas liées entre elles : par défaut, deux sections d'une
+même page Grist gardent chacune leur propre curseur, même si elles montrent la même
+table. Il faut lier explicitement le widget à la section source :
+
+1. Cliquez sur le widget pour le sélectionner, puis ouvrez l'onglet **Données source**
+   du panneau de droite.
+2. Dans **Sélectionner par**, choisissez la section (table/vue) dont vous voulez que
+   le widget suive la ligne sélectionnée.
+3. Le widget affiche alors la ligne active de cette section, et se met à jour à
+   chaque changement de sélection.
+
 ## Seuils des classes (A à G), entièrement configurables
 
 Bouton **⚙ Seuils des classes** dans la barre d'outils du widget : ouvre un panneau
