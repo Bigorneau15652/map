@@ -79,44 +79,23 @@
 
   #app { padding: 12px; max-width: 980px; margin: 0 auto; }
 
-  #pageHeader {
-    background: #0e8a4d;
-    color: #ffffff;
-    font-size: 18px;
-    font-weight: 700;
-    padding: 12px 16px;
-    border-radius: 6px 6px 0 0;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-
   .cardsWrap {
     display: flex;
     flex-wrap: nowrap;
     gap: 16px;
     background: #ffffff;
     border: 1px solid var(--border);
-    border-top: none;
     padding: 16px;
-    border-radius: 0 0 6px 6px;
+    border-radius: 6px;
   }
 
   /* Always side by side (never stacked), whatever the panel width — sizes
      shrink instead of wrapping, see the media queries below for narrow
-     panels. */
-  .card { flex: 3 1 0; min-width: 0; }
-  .gesCard { flex: 2 1 0; }
-
-  .capTop, .capBottom {
-    font-size: 12px;
-    font-weight: 700;
-    margin: 0 0 6px 116px;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-  .capTop { color: #0e8a4d; }
-  .capBottom { color: #c62828; margin: 6px 0 0 116px; }
-  .gesCard .capTop, .gesCard .capBottom { color: #486a8a; margin-left: 96px; }
+     panels. Both cards share the exact same flex size and internal
+     proportions (valueSlot width, bar widths) so that class A on one scale
+     lines up with class A on the other, and both scales' class G bars end
+     at the same right edge. */
+  .card { flex: 1 1 0; min-width: 0; }
 
   .rows { display: flex; flex-direction: column; gap: 4px; }
   .row { display: flex; align-items: stretch; min-height: 30px; }
@@ -128,7 +107,6 @@
     justify-content: flex-end;
     padding-right: 4px;
   }
-  .gesCard .valueSlot { flex-basis: 90px; width: 90px; }
   .lane { flex: 1 1 auto; display: flex; }
   .bar {
     display: flex;
@@ -157,19 +135,6 @@
   .row.active .lane .bar { border: 3px solid #16202b; border-left: none; border-radius: 0 4px 4px 0; }
   .valueBox .num { font-size: 18px; display: block; }
   .valueBox .unit { font-size: 10px; font-weight: 600; display: block; color: var(--text-muted); }
-
-  .gesHeader {
-    font-size: 13px;
-    font-weight: 700;
-    color: #274a6e;
-    background: #eaf2fb;
-    border: 1px solid #b8d3ec;
-    border-radius: 6px;
-    padding: 6px 10px;
-    margin-bottom: 10px;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
 
   #settingsPanel {
     background: #fff;
@@ -225,24 +190,16 @@
   }
 
   @media (max-width: 480px) {
-    #pageHeader { font-size: 15px; padding: 10px 12px; }
     .cardsWrap { padding: 10px; gap: 8px; }
     .valueSlot { flex-basis: 66px; width: 66px; padding-right: 2px; }
-    .gesCard .valueSlot { flex-basis: 52px; width: 52px; }
-    .capTop, .capBottom { margin-left: 70px; font-size: 11px; }
-    .gesCard .capTop, .gesCard .capBottom { margin-left: 56px; }
     .row.active .bar { font-size: 15px; padding: 4px 10px; }
     .valueBox .num { font-size: 13px; }
     .valueBox .unit { font-size: 9px; }
     .bar { font-size: 11px; padding: 3px 6px; }
-    .gesHeader { font-size: 12px; padding: 5px 8px; }
   }
 
   @media (max-width: 360px) {
     .valueSlot { flex-basis: 48px; width: 48px; }
-    .gesCard .valueSlot { flex-basis: 40px; width: 40px; }
-    .capTop, .capBottom { margin-left: 52px; }
-    .gesCard .capTop, .gesCard .capBottom { margin-left: 44px; }
     .valueBox .num { font-size: 11px; }
     .valueBox .unit { font-size: 8px; }
     .row.active .bar { font-size: 13px; padding: 3px 8px; }
@@ -284,18 +241,12 @@
   <div id="banner" hidden></div>
 
   <div id="app">
-    <div id="pageHeader">Performance énergétique et climatique</div>
     <div class="cardsWrap">
       <section class="card">
-        <div class="capTop">logement extrêmement performant</div>
         <div class="rows" id="dpeRows"></div>
-        <div class="capBottom">logement extrêmement peu performant</div>
       </section>
       <section class="card gesCard">
-        <div class="gesHeader">* Dont émissions de gaz à effet de serre</div>
-        <div class="capTop">peu d'émissions de CO2</div>
         <div class="rows" id="gesRows"></div>
-        <div class="capBottom">émissions de CO2 très importantes</div>
       </section>
     </div>
   </div>
@@ -512,7 +463,7 @@ window.grist.ready({
       title: 'Consommation énergie primaire (kWh/m²/an)',
       type: 'Numeric,Int',
       optional: false,
-      description: 'Consommation d\'énergie primaire du logement, en kWh/m²/an.',
+      description: 'Consommation d\'énergie primaire, en kWh/m²/an.',
     },
     {
       name: 'Emissions',

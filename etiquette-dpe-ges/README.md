@@ -3,8 +3,9 @@
 Widget Grist autonome (un seul fichier `index.html`, pas de build) qui reproduit
 l'étiquette « Performance énergétique et climatique » du Diagnostic de Performance
 Énergétique (DPE) : l'étiquette énergie (A à G, consommation d'énergie primaire) et
-l'étiquette gaz à effet de serre (A à G, émissions de GES), avec la classe du
-logement affiché mise en évidence sur chaque échelle.
+l'étiquette gaz à effet de serre (A à G, émissions de GES), alignées côte à côte à la
+même taille (classe A en face de classe A, fin de la barre G alignée avec la fin de la
+barre G), avec la classe active mise en évidence sur chaque échelle.
 
 ## Fonctionnement
 
@@ -29,7 +30,7 @@ ligne actuellement sélectionnée. Deux colonnes sont à mapper :
    https://bigorneau15652.github.io/map/etiquette-dpe-ges/index.html
    ```
 
-3. Sélectionnez la table contenant vos logements/bâtiments.
+3. Sélectionnez la table à utiliser.
 4. Dans le panneau de droite, onglet **Colonnes**, associez :
    - `Consommation` → votre colonne de consommation d'énergie primaire (kWh/m²/an)
    - `Emissions` → votre colonne d'émissions de GES (kg CO2eq/m²/an)
