@@ -6,9 +6,13 @@ vers une organisation GitHub de l'université Paul-Valéry.
 
 ---
 
-## 0. À lire en premier : « mode caché » et GitHub Pages
+## 0. La décision retenue : dépôts privés + `map` public mais discret
 
-C'est le point le plus important, parce qu'il conditionne tout le reste.
+> **Décision** — les 4 dépôts d'outillage passent en **privé**, le dépôt `map`
+> reste **public mais discret**. C'est le comportement par défaut du script,
+> vous n'avez aucune option à ajouter.
+
+### Pourquoi `map` ne peut pas être privé
 
 Un widget Grist personnalisé est une **page web chargée dans une iframe** par
 le navigateur de chaque utilisateur. Pour que Grist puisse l'afficher, l'URL
@@ -23,49 +27,57 @@ Il faut donc distinguer deux choses que le mot « caché » mélange :
 | **Le code source** (le dépôt GitHub) | Oui | Personne ne peut lire ni cloner le code sans être membre de l'organisation. |
 | **La page servie** (l'URL du widget) | Non | Si elle n'est pas publiquement joignable, Grist affiche une page blanche. |
 
-Et une contrainte de facturation GitHub s'ajoute :
+S'ajoute une contrainte de facturation GitHub : sur un plan **GitHub Free**,
+GitHub Pages n'est disponible **que depuis un dépôt public**. Passer `map` en
+privé couperait `…github.io/map/…` et tous vos widgets d'un coup.
 
-- **GitHub Free** (compte perso ou organisation gratuite) : GitHub Pages
-  n'est disponible **que sur les dépôts publics**. Passer `map` en privé
-  **coupe** `…github.io/map/…` et tous vos widgets cessent de s'afficher.
-- **GitHub Team / Enterprise** (payant, mais **gratuit pour les
-  établissements via GitHub Education**) : Pages fonctionne depuis un dépôt
-  **privé** — le code reste fermé, seule la page publiée reste publique.
-- **GitHub Enterprise Cloud** uniquement : Pages « privées », visibles
-  seulement des membres de l'organisation. Dans ce cas Grist ne pourrait
-  plus charger les widgets pour les utilisateurs non connectés à GitHub.
+Vos quatre autres dépôts (`grist-energie-eau-sync`, `eau-umpv-import`,
+`carte-batiments-eau`, `pv-umpv-import`) ne servent aucune page à Grist : ce
+sont des outils d'import/synchronisation, ils passent en privé sans aucun
+effet de bord.
 
-C'est probablement pour cette raison que vos quatre autres dépôts
-(`grist-energie-eau-sync`, `eau-umpv-import`, `carte-batiments-eau`,
-`pv-umpv-import`) peuvent être privés sans problème : ce sont des outils
-d'import/synchronisation, **ils ne servent aucune page à Grist**. Seul `map`
-sert des pages.
+À noter aussi : « privé » ne protégerait rien de sensible ici. Ces widgets
+sont du code d'affichage — les données, elles, restent dans Grist et ne sont
+pas dans le dépôt.
 
-### Ce que le script fait à la place
+### Ce que « discret » veut dire concrètement
 
-Le script applique donc un **« privé partout où c'est possible, discret
-partout ailleurs »** :
+Quatre mesures, appliquées automatiquement par le script sauf mention
+contraire :
 
-- les 4 dépôts d'outillage → **privés** ;
-- `map` → **public par défaut**, mais rendu discret :
-  - `<meta name="robots" content="noindex, nofollow">` injecté dans **chaque
-    page HTML** → les widgets ne remontent pas dans Google ;
-  - dépôt créé **sans description ni topics** → invisible dans les
-    recherches GitHub par sujet ;
-  - le catalogue de widgets Grist (`manifest.json`) n'est pas publié → les
-    widgets s'ajoutent uniquement en collant leur URL, ils n'apparaissent pas
-    dans la liste déroulante publique de Grist.
+1. **`<meta name="robots" content="noindex, nofollow">` dans chaque page
+   HTML** → les widgets ne remontent pas dans Google ni dans les autres
+   moteurs. *(script)*
+2. **Dépôt créé sans description ni topics** → il n'apparaît pas dans les
+   recherches GitHub par sujet ou par mot-clé de description. *(script)*
+3. **Aucun catalogue de widgets publié.** Le fichier `manifest.json` — celui
+   qui ferait apparaître vos widgets dans la liste déroulante publique de
+   Grist — n'est pas versionné : il était construit par le workflow
+   `release.yml`, que le script neutralise. Les widgets s'ajoutent donc
+   uniquement en collant leur URL. *(script)*
+4. **`robots.txt` à la racine du domaine** → étape manuelle optionnelle,
+   décrite au § 4.
 
-**Si l'université dispose de GitHub Education / Team**, vous pouvez alors
-lancer le script avec `--map-visibility private` et tout devient privé, Pages
-compris. C'est la meilleure option : à demander à la DSI avant de migrer, ça
-ne coûte rien de vérifier.
+Ce que ça ne fait **pas** : quelqu'un qui connaît l'URL exacte d'un widget
+pourra toujours l'ouvrir. C'est inévitable — c'est exactement ce que fait le
+navigateur de vos utilisateurs Grist.
+
+### Si l'université a GitHub Education ou Team
+
+Sur ces plans (gratuits pour les établissements), GitHub Pages fonctionne
+**depuis un dépôt privé** : le code est fermé, seule la page publiée reste
+publique. C'est strictement mieux que le public discret. Ça vaut la question
+à la DSI avant de migrer ; le cas échéant, relancez simplement avec :
+
+```bash
+./migrer-vers-umpv.sh --org VOTRE-ORG --map-visibility private
+```
 
 > **Cloudflare Pages**, que j'évoquais dans ma question : c'est un hébergeur
-> de sites statiques gratuit (concurrent de GitHub Pages). Il permet de garder
-> le dépôt privé sur GitHub tout en publiant les pages. Ce n'est **pas
-> nécessaire** ici — je le mentionne seulement comme solution de repli si
-> l'université refuse un dépôt public et n'a pas GitHub Education.
+> de sites statiques gratuit, concurrent de GitHub Pages, qui permettrait de
+> garder le dépôt privé sur GitHub tout en publiant les pages. **Non retenu**
+> — je le mentionne seulement comme solution de repli si un jour un dépôt
+> public devient inacceptable et que GitHub Education n'est pas disponible.
 
 ---
 
@@ -189,6 +201,42 @@ Options utiles :
 Le fichier `.nojekyll` est déjà présent à la racine du dépôt : il évite que
 GitHub ignore les dossiers commençant par `_`. Ne le supprimez pas.
 
+### Réglages de discrétion sur le dépôt `map`
+
+Une fois Pages actif, dans **Settings** du dépôt :
+
+- **About** (en haut à droite de la page d'accueil du dépôt) : laissez la
+  **description vide** et **n'ajoutez aucun topic**. C'est ce qui rend le
+  dépôt introuvable par recherche thématique sur GitHub.
+- **Features** : décochez **Wikis**, **Projects**, **Discussions**. Moins de
+  surface publique, moins de contenu indexable.
+- **Features → Issues** : à garder si vous voulez pouvoir suivre les demandes
+  d'évolution des widgets, à décocher sinon.
+- Ne créez **pas** de release et ne cochez pas « Publish this repository to
+  the GitHub Marketplace ».
+
+### (Optionnel) `robots.txt` à la racine du domaine
+
+La balise `noindex` injectée dans chaque page suffit dans l'immense majorité
+des cas. Pour une ceinture-bretelles, vous pouvez interdire l'exploration au
+niveau du domaine entier — mais `robots.txt` n'est lu qu'à la **racine** du
+domaine, donc il faut un dépôt dédié :
+
+1. Créez dans l'organisation un dépôt **public** nommé exactement
+   `VOTRE-ORG.github.io`.
+2. Ajoutez-y un unique fichier `robots.txt` :
+
+   ```
+   User-agent: *
+   Disallow: /
+   ```
+
+3. Settings → Pages → `Deploy from a branch` → `main` / `(root)`.
+
+Vérification : `https://VOTRE-ORG.github.io/robots.txt` doit renvoyer ces
+deux lignes. Attention, ce dépôt rend aussi `VOTRE-ORG.github.io` visible
+comme site d'accueil de l'organisation — laissez-le sans `index.html`.
+
 ---
 
 ## 5. Mettre à jour les URL dans Grist
@@ -261,10 +309,13 @@ Marche à suivre :
 
 ## 7. Vérifications finales
 
-- [ ] Les 5 dépôts existent dans l'organisation, avec la bonne visibilité.
+- [ ] Les 4 dépôts d'outillage sont **privés**, `map` est **public**.
+- [ ] `map` n'a **ni description ni topic**, Wiki/Projects/Discussions désactivés.
 - [ ] `map` a au moins 2 propriétaires (Owners) sur l'organisation.
 - [ ] GitHub Pages est actif et une page de widget s'ouvre dans le navigateur.
 - [ ] `view-source:` sur une page de widget montre bien la balise `noindex`.
+- [ ] `https://VOTRE-ORG.github.io/map/manifest.json` renvoie bien une **404**
+      (aucun catalogue de widgets publié) et la branche `release` n'existe pas.
 - [ ] Chaque widget a été rouvert **dans Grist** (pas seulement dans un
       navigateur) et affiche bien les données.
 - [ ] Testé aussi dans un **panneau étroit** (~340 px) et avec le **thème

@@ -232,7 +232,10 @@ echo "────────────────────────�
 echo "Récapitulatif :"
 for line in "${SUMMARY[@]}"; do echo "  $line"; done
 echo
-echo "Étape suivante : activer GitHub Pages sur $ORG/map"
-echo "  Settings → Pages → Source: Deploy from a branch → $BRANCH / (root)"
-echo "puis mettre à jour les URL des widgets dans Grist"
-echo "  (tableau de correspondance dans docs/migration-umpv/README.md)."
+echo "Étapes suivantes (détail dans docs/migration-umpv/README.md) :"
+echo "  1. Activer GitHub Pages sur $ORG/map"
+echo "     Settings → Pages → Source: Deploy from a branch → $BRANCH / (root)"
+echo "  2. Discrétion du dépôt map : laisser la description vide, aucun topic,"
+echo "     décocher Wikis / Projects / Discussions (§ 4 du README)."
+echo "  3. Mettre à jour les URL des widgets dans Grist"
+echo "     (tableau de correspondance § 5 du README)."
