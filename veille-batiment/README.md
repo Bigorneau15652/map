@@ -42,6 +42,20 @@ GRIST_API_KEY est la clé API du compte Grist, générée depuis les paramètres
 
 Aucun identifiant d'abonnement de presse n'est utilisé, ni demandé, ni stocké.
 
+## Envoi de la synthese par email
+
+L envoi est facultatif. Il ne se declenche que si les secrets correspondants sont renseignes, sinon l etape est ignoree sans provoquer d erreur.
+
+SMTP_SERVEUR est l adresse du serveur d envoi, par exemple le relais de l universite.
+
+SMTP_PORT vaut 587 pour une connexion STARTTLS, 465 pour une connexion SSL. Valeur par defaut 587.
+
+SMTP_UTILISATEUR et SMTP_MOT_DE_PASSE sont les identifiants de connexion au serveur. Avec une adresse Gmail, utiliser un mot de passe applicatif et non le mot de passe du compte.
+
+EMAIL_EXPEDITEUR est l adresse affichee en expediteur, par defaut celle de SMTP_UTILISATEUR.
+
+EMAIL_DESTINATAIRE est l adresse professionnelle qui recoit la synthese. Elle est conservee en secret du depot plutot que dans un fichier, afin de ne pas la faire figurer dans l historique de version.
+
 ## Méthode et limites
 
 La veille est construite à partir des titres, des accroches et des références réglementaires publiquement indexés des sites suivis, complétés par les sources ouvertes. Le contenu intégral des articles sous abonnement n'est pas récupéré, ce qui serait contraire aux conditions d'utilisation des éditeurs. Les liens fournis permettent d'ouvrir l'article complet avec l'abonnement de l'université.
