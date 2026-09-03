@@ -1,0 +1,10 @@
+[
+  {"Nom": "Kheox", "Domaine": "kheox.fr", "Type": "Veille réglementaire", "Abonnement": true, "Actif": true, "Commentaire": "Base de veille réglementaire du groupe Infopro. Contenu indexé partiellement, complété par Légifrance."},
+  {"Nom": "Le Moniteur", "Domaine": "lemoniteur.fr", "Type": "Presse spécialisée", "Abonnement": true, "Actif": true, "Commentaire": "Source la mieux indexée des trois. Rubrique textes officiels particulièrement utile."},
+  {"Nom": "Cahiers Techniques du Bâtiment", "Domaine": "cahiers-techniques-batiment.fr", "Type": "Presse spécialisée", "Abonnement": true, "Actif": true, "Commentaire": "Angle technique et produits, complémentaire du Moniteur sur les aspects réglementaires."},
+  {"Nom": "Légifrance", "Domaine": "legifrance.gouv.fr", "Type": "Réglementaire", "Abonnement": false, "Actif": true, "Commentaire": "Source de référence pour vérifier les numéros et les dates de texte."},
+  {"Nom": "ADEME", "Domaine": "ademe.fr", "Type": "Institutionnel", "Abonnement": false, "Actif": true, "Commentaire": "Appels à projets, guides méthodologiques et documentation OPERAT."},
+  {"Nom": "Ministère de la Transition écologique", "Domaine": "ecologie.gouv.fr", "Type": "Institutionnel", "Abonnement": false, "Actif": true, "Commentaire": "Communiqués et consultations publiques sur les projets de texte."},
+  {"Nom": "CSTB", "Domaine": "cstb.fr", "Type": "Institutionnel", "Abonnement": false, "Actif": false, "Commentaire": "Avis techniques et règles de l'art. Désactivé par défaut, à activer si besoin."},
+  {"Nom": "Xpair", "Domaine": "xpair.com", "Type": "Presse spécialisée", "Abonnement": false, "Actif": false, "Commentaire": "Génie climatique, accès gratuit. Désactivé par défaut."}
+]

@@ -1,0 +1,17 @@
+[
+  {"Theme": "Isolation", "Mots_cles": "isolation thermique, ITE, ITI, isolant biosourcé, pont thermique, rénovation enveloppe", "Priorite": "Haute", "Actif": true, "Commentaire": "Inclure la jurisprudence sur le droit de surplomb et les avis techniques."},
+  {"Theme": "Thermique du bâtiment", "Mots_cles": "réglementation thermique, RE2020, RT existant, simulation thermique dynamique, confort d'été, inconfort thermique", "Priorite": "Haute", "Actif": true, "Commentaire": "Suivre les évolutions de méthode de calcul et les seuils RE2020."},
+  {"Theme": "Énergie", "Mots_cles": "efficacité énergétique, sobriété énergétique, réseau de chaleur, photovoltaïque, autoconsommation, contrat de performance énergétique", "Priorite": "Haute", "Actif": true, "Commentaire": ""},
+  {"Theme": "Pompe à chaleur", "Mots_cles": "pompe à chaleur, PAC air eau, PAC eau eau, géothermie de surface, COP, agrément ADEME", "Priorite": "Haute", "Actif": true, "Commentaire": ""},
+  {"Theme": "Gaz frigorigène", "Mots_cles": "fluide frigorigène, F-Gas, HFC, HFO, PRP, R32, R290 propane, R454C", "Priorite": "Moyenne", "Actif": true, "Commentaire": "Surveiller les échéances du règlement UE 2024/573."},
+  {"Theme": "Chaudières", "Mots_cles": "chaudière gaz, chaudière condensation, chaufferie, interdiction chaudière fossile, ErP ecodesign", "Priorite": "Haute", "Actif": true, "Commentaire": ""},
+  {"Theme": "Chauffage", "Mots_cles": "chauffage collectif, émetteurs, régulation chauffage, équilibrage hydraulique, calorifugeage", "Priorite": "Moyenne", "Actif": true, "Commentaire": ""},
+  {"Theme": "DPE", "Mots_cles": "diagnostic de performance énergétique, DPE tertiaire, coefficient énergie primaire, passoire thermique, directive EPBD", "Priorite": "Moyenne", "Actif": true, "Commentaire": ""},
+  {"Theme": "Décret tertiaire", "Mots_cles": "décret tertiaire, éco énergie tertiaire, OPERAT, valeurs absolues, modulation, année de référence", "Priorite": "Haute", "Actif": true, "Commentaire": "Thème prioritaire, signaler systématiquement les échéances de déclaration."},
+  {"Theme": "ADEME", "Mots_cles": "ADEME, appel à projets, aide financière, fonds chaleur, diagnostic subventionné", "Priorite": "Haute", "Actif": true, "Commentaire": "Rechercher en priorité les dispositifs ouverts aux établissements publics."},
+  {"Theme": "Menuiseries", "Mots_cles": "menuiserie extérieure, fenêtre, vitrage, coefficient Uw, VIR, protection solaire, brise-soleil", "Priorite": "Moyenne", "Actif": true, "Commentaire": ""},
+  {"Theme": "Audit énergétique", "Mots_cles": "audit énergétique réglementaire, diagnostic énergétique, directive efficacité énergétique 2023/1791, système de management de l'énergie", "Priorite": "Haute", "Actif": true, "Commentaire": ""},
+  {"Theme": "Bilan carbone", "Mots_cles": "bilan carbone, analyse du cycle de vie, ACV, base INIES, FDES, décarbonation, stratégie nationale bas carbone", "Priorite": "Moyenne", "Actif": true, "Commentaire": ""},
+  {"Theme": "GTB et comptage", "Mots_cles": "GTB, décret BACS, gestion technique du bâtiment, plan de comptage, sous-comptage, supervision énergétique", "Priorite": "Haute", "Actif": true, "Commentaire": "Ajouté au périmètre initial, cohérent avec le parc supervisé."},
+  {"Theme": "Financement", "Mots_cles": "certificats d'économies d'énergie, CEE, intracting, tiers financement, plan de relance bâtiments publics, dotation rénovation", "Priorite": "Haute", "Actif": true, "Commentaire": "Ajouté au périmètre initial, sujet transverse aux autres thèmes."}
+]
