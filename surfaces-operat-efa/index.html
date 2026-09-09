@@ -361,8 +361,9 @@ const EFA_NAMES = ['Route de Mende', 'Béziers', 'Saint-Charles', 'Saint-Louis',
 
 const NOM_CATEGORIE_A_REPARTIR = 'À répartir';
 const NOM_CATEGORIE_LOCAL_VACANT = 'Local vacant';
-const DOMINANT_THRESHOLD = 0.70; // règle "catégorie forte >= 70%"
-const MAX_SELECTED = 3; // règle "2 ou 3 sous-catégories moyennement fortes"
+const DOMINANT_THRESHOLD = 0.70; // règle "catégorie forte >= 70%" : elle seule est retenue
+const MIN_SHARE = 0.15; // en dessous, une catégorie "utilisée" est toujours écartée (trop peu représentative)
+const MAX_SELECTED = 4; // plafond du nombre de catégories retenues, même si plus de 4 dépassent MIN_SHARE
 
 const STATUSES = ['CR', 'C', 'R', 'N'];
 const STATUS_LABEL = {
@@ -651,7 +652,15 @@ function classifyBuilding(building) {
 
   const sortedGroups = Array.from(groups.entries()).sort((a, b) => b[1].total - a[1].total);
   const top1Share = sortedGroups[0][1].total / totalDirect;
-  const selectedEntries = top1Share >= DOMINANT_THRESHOLD ? sortedGroups.slice(0, 1) : sortedGroups.slice(0, MAX_SELECTED);
+  let selectedEntries;
+  if (top1Share >= DOMINANT_THRESHOLD) {
+    selectedEntries = sortedGroups.slice(0, 1);
+  } else {
+    const qualifying = sortedGroups.filter(([, g]) => g.total / totalDirect >= MIN_SHARE);
+    // Si aucune catégorie n'atteint MIN_SHARE (bâtiment très fragmenté), on
+    // retient quand même la plus grande plutôt que de ne rien classer.
+    selectedEntries = (qualifying.length ? qualifying : sortedGroups.slice(0, 1)).slice(0, MAX_SELECTED);
+  }
 
   const sumSelected = selectedEntries.reduce((sum, [, g]) => sum + g.total, 0);
   const weights = new Map(selectedEntries.map(([ssid, g]) => [ssid, g.total / sumSelected]));
@@ -865,7 +874,7 @@ function buildingDetailHtml(building, result) {
   if (result.noDominantCategory) {
     inner += `<div class="noDominantNote">Aucune sous-catégorie dominante identifiable dans ce bâtiment (pas de surface en affectation directe) — ${fmt(result.totalSurfaceBatiment)} m² non classés, à vérifier manuellement.</div>`;
   } else {
-    inner += `<div style="margin:6px 0">Sous-catégorie(s) retenue(s) comme dominante(s)${result.top1SharePct >= DOMINANT_THRESHOLD * 100 ? ' (règle des 70%)' : ' (règle des 2-3 catégories principales)'} : `
+    inner += `<div style="margin:6px 0">Sous-catégorie(s) retenue(s) comme dominante(s)${result.top1SharePct >= DOMINANT_THRESHOLD * 100 ? ' (règle des 70%)' : ` (règle des catégories ≥ ${Math.round(MIN_SHARE * 100)}%)`} : `
       + result.selected.map((s) => `<span class="selectedTag">${esc(s.nom)} — ${fmt(s.surface)} m² (${round1(s.sharePct)}%)</span>`).join('')
       + `</div>`;
     inner += linesTable(result.lines, result.totalOperat);
@@ -1104,12 +1113,19 @@ document.getElementById('helpBtn').addEventListener('click', () => {
     "${esc(NOM_CATEGORIE_LOCAL_VACANT)}") :</p>
     <ul>
       <li>si une sous-catégorie atteint <b>${Math.round(DOMINANT_THRESHOLD * 100)}%</b> ou plus de cette
-      surface, tout le bâtiment (y compris "à répartir") lui est affecté ;</li>
-      <li>sinon, les <b>${MAX_SELECTED} sous-catégories</b> "utilisées" les plus
-      grandes sont retenues, et 100% de la surface du bâtiment restant à
-      classer (catégories minoritaires non retenues + "à répartir", mais
-      jamais "${esc(NOM_CATEGORIE_LOCAL_VACANT)}") leur est répartie au
-      prorata de leurs surfaces respectives.</li>
+      surface, elle seule est retenue et tout le bâtiment (y compris "à
+      répartir") lui est affecté ;</li>
+      <li>sinon, toutes les sous-catégories "utilisées" atteignant au moins
+      <b>${Math.round(MIN_SHARE * 100)}%</b> de cette surface sont retenues
+      (jusqu'à <b>${MAX_SELECTED}</b> maximum — les ${MAX_SELECTED} plus
+      grandes si plus en dépassent ${Math.round(MIN_SHARE * 100)}%), et 100%
+      de la surface du bâtiment restant à classer (catégories sous
+      ${Math.round(MIN_SHARE * 100)}% + "à répartir", mais jamais
+      "${esc(NOM_CATEGORIE_LOCAL_VACANT)}") leur est répartie au prorata de
+      leurs surfaces respectives ;</li>
+      <li>si aucune sous-catégorie n'atteint ${Math.round(MIN_SHARE * 100)}%
+      (bâtiment très fragmenté sur de nombreux petits usages), la plus
+      grande est tout de même retenue seule plutôt que de ne rien classer.</li>
     </ul>
     <p>Exemple : une petite bibliothèque (40 m², catégorie "Culture et
     spectacles") dans un bâtiment surtout composé de bureaux, de salles de

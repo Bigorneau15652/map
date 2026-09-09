@@ -45,17 +45,22 @@ dans la grille Grist ; le widget recalculera au prochain rafraîchissement.
 Sur la surface des catégories **"utilisées"** en affectation directe
 uniquement (hors "à répartir" et hors "Local vacant") :
 
-1. Si une sous-catégorie atteint **70%** ou plus de cette surface, **tout le
-   bâtiment** (y compris "à répartir" et les autres sous-catégories
-   "utilisées" minoritaires) lui est affecté intégralement.
-2. Sinon, les **3 sous-catégories "utilisées" les plus grandes** sont
-   retenues (même si aucune n'atteint 30%, ou si plus de 3 en dépassent 30% :
-   la règle des pourcentages sert à motiver le choix, mais la sélection
-   reste toujours plafonnée aux 3 plus grandes). La surface du bâtiment
-   restant à classer — catégories "utilisées" non retenues + "à répartir",
-   mais **jamais** "Local vacant" — leur est redistribuée au prorata de
-   leurs surfaces directes respectives.
-3. Si aucune sous-catégorie "utilisée" n'est affectée en direct dans un
+1. Si une sous-catégorie atteint **70%** ou plus de cette surface, **elle
+   seule est retenue** et tout le bâtiment (y compris "à répartir" et les
+   autres sous-catégories "utilisées" minoritaires) lui est affecté
+   intégralement.
+2. Sinon, **toutes les sous-catégories "utilisées" atteignant au moins 15%**
+   de cette surface sont retenues — jusqu'à **4 maximum** (les 4 plus
+   grandes si plus de 4 en dépassent 15%). Une sous-catégorie sous 15% n'est
+   **jamais** retenue seule, même s'il n'y en a que 2 ou 3 au total dans le
+   bâtiment. La surface du bâtiment restant à classer — catégories
+   "utilisées" non retenues (sous 15%) + "à répartir", mais **jamais** "Local
+   vacant" — leur est redistribuée au prorata de leurs surfaces directes
+   respectives.
+3. Si **aucune** sous-catégorie "utilisée" n'atteint 15% (bâtiment très
+   fragmenté sur de nombreux petits usages), la plus grande est tout de même
+   retenue seule plutôt que de ne rien classer.
+4. Si aucune sous-catégorie "utilisée" n'est affectée en direct dans un
    bâtiment (cas rare : un local technique isolé, poste EDF, chaufferie…),
    aucune règle ne peut s'appliquer au "à répartir" restant : ce cas est
    signalé nommément et sa surface apparaît dans un total **"Non classé"**
@@ -63,9 +68,10 @@ uniquement (hors "à répartir" et hors "Local vacant") :
    lui, reste classé tel quel dans ce cas — ce n'est pas une anomalie.
 
 **Exemple concret** (EFA Saint-Louis) : une bibliothèque de 40 m²
-("Culture et spectacles") dans un bâtiment autrement composé de bureaux, de
-salles de cours et de locaux vacants ne fait pas partie des 3 catégories
-"utilisées" dominantes retenues — sa surface est répartie au prorata entre
+("Culture et spectacles", 8% de la surface "utilisée" du bâtiment) dans un
+bâtiment autrement composé de bureaux (55%), de salles de cours (37%) et de
+locaux vacants ne fait pas partie des catégories "utilisées" dominantes
+retenues (sous le seuil de 15%) — sa surface est répartie au prorata entre
 les catégories "utilisées" retenues (salles de cours, bureaux…), jamais vers
 "Local vacant", même si "Local vacant" est la plus grande surface directe du
 bâtiment.
