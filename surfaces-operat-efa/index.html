@@ -781,7 +781,7 @@ function aggregateSite(siteId) {
     for (const l of result.lines) {
       const k = lineKey(l);
       if (!lines.has(k)) {
-        lines.set(k, { sousCategorieNom: l.sousCategorieNom, categorieNom: l.categorieNom, code: l.code, status: l.status, statusLabel: l.statusLabel, m2: 0 });
+        lines.set(k, { sousCategorieId: l.sousCategorieId, sousCategorieNom: l.sousCategorieNom, categorieNom: l.categorieNom, code: l.code, status: l.status, statusLabel: l.statusLabel, m2: 0 });
       }
       lines.get(k).m2 += l.m2;
     }
