@@ -172,6 +172,15 @@ jour : une case "Chauffée + rafraîchie" ou "Chauffée (seule)" qui tombe à
 attendu, donc traitée comme "non cochée" pour toutes les salles). Rouvrez
 **⚙️ Colonnes utilisées** et repointez la colonne concernée.
 
+Depuis qu'un tel cas s'est produit sans que rien ne le signale (colonne
+introuvable, mais aucune erreur ni avertissement affiché), le widget vérifie
+désormais, à chaque chargement, que **toutes** les colonnes configurées
+existent réellement dans les tables visées. Si l'une d'elles est introuvable
+(mauvais nom, colonne supprimée ou renommée côté Grist), un bandeau rouge
+apparaît en permanence en haut du widget — sur toutes les pages, quel que
+soit l'EFA sélectionné — nommant la colonne, le champ concerné et la table,
+avec le renvoi direct vers **⚙️ Colonnes utilisées** pour corriger.
+
 Une table introuvable (mauvais nom, table supprimée) est toujours signalée
 par un bandeau rouge qui la nomme, que la config vienne des valeurs par
 défaut ou d'un mappage personnalisé.
