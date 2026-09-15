@@ -588,6 +588,25 @@ function classifyBuilding(building) {
     ));
   }
 
+  // La Catégorie SCE OPERAT et la Sous-catégorie SCE OPERAT d'une salle sont
+  // deux colonnes indépendantes dans BDD_Salles : rien n'empêche qu'elles se
+  // contredisent (ex. Catégorie = "Enseignement Supérieur" mais Sous-catégorie
+  // = celle de "Local vacant"). Une telle salle "utilisée" hérite alors du nom
+  // d'une sous-catégorie qui n'est pas la sienne, et peut fausser la sélection
+  // des catégories dominantes (ex. "Local vacant" retenu comme dominant alors
+  // qu'aucune salle n'y est vraiment inoccupée) — signalé ici plutôt que
+  // silencieusement mélangé au calcul.
+  const inconsistentCategorie = direct.filter((s) => {
+    const info = DATA.sousCategoriesById.get(s[COL.salle.sousCategorie]);
+    return info && info.categorieId != null && info.categorieId !== s[COL.salle.categorie];
+  });
+  if (inconsistentCategorie.length) {
+    warnings.push(actionable(
+      `${building.nom} : ${inconsistentCategorie.length} salle(s) ont une Catégorie SCE OPERAT qui ne correspond pas à la catégorie parente de leur Sous-catégorie SCE OPERAT (colonnes incohérentes entre elles dans BDD_Salles) — leur classification peut être faussée`,
+      inconsistentCategorie.map((s) => s[COL.salle.numero])
+    ));
+  }
+
   // "Local vacant" est une vraie catégorie SCE OPERAT (locaux réellement
   // inoccupés), pas un fourre-tout : elle garde toujours sa propre surface
   // telle quelle et n'entre jamais dans le calcul de la catégorie dominante,
@@ -805,13 +824,20 @@ function statusColumnsHeader() {
 }
 
 function linesTable(lines, totalOperat) {
-  // group by categorie, then sous-categorie, columns = 4 statuts + total
+  // Groupées par sous-catégorie ID (pas par nom affiché) et accumulées, pas
+  // assignées : deux lignes peuvent légitimement partager le même nom affiché
+  // (ex. une catégorie mal étiquetée dont la sous-catégorie porte le même nom
+  // que "Local vacant", voir Ref_SS_Categorie_SCE/BDD_Salles) — grouper par
+  // nom avec une simple affectation perdrait silencieusement l'une des deux
+  // dans le tableau affiché, tout en la gardant dans la ligne "Total OPERAT"
+  // (qui, elle, somme `lines` brut) : les deux ne concordent alors plus.
   const byCat = new Map();
   for (const l of lines) {
     if (!byCat.has(l.categorieNom)) byCat.set(l.categorieNom, new Map());
     const bySs = byCat.get(l.categorieNom);
-    if (!bySs.has(l.sousCategorieNom)) bySs.set(l.sousCategorieNom, { code: l.code, byStatus: {} });
-    bySs.get(l.sousCategorieNom).byStatus[l.status] = l.m2;
+    if (!bySs.has(l.sousCategorieId)) bySs.set(l.sousCategorieId, { nom: l.sousCategorieNom, code: l.code, byStatus: {} });
+    const info = bySs.get(l.sousCategorieId);
+    info.byStatus[l.status] = (info.byStatus[l.status] || 0) + l.m2;
   }
 
   let rows = '';
@@ -819,14 +845,14 @@ function linesTable(lines, totalOperat) {
     let catTotal = 0;
     for (const info of bySs.values()) for (const st of STATUSES) catTotal += info.byStatus[st] || 0;
     rows += `<tr class="catRow"><td class="lib" colspan="${STATUSES.length + 1}">${esc(catNom || '(catégorie inconnue)')}</td><td class="num">${fmt(catTotal)}</td></tr>`;
-    for (const [ssNom, info] of Array.from(bySs.entries()).sort((a, b) => a[0].localeCompare(b[0], 'fr'))) {
+    for (const info of Array.from(bySs.values()).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))) {
       let ssTotal = 0;
       const cells = STATUSES.map((st) => {
         const v = info.byStatus[st] || 0;
         ssTotal += v;
         return `<td class="num">${v > 0.005 ? fmt(v) : '—'}</td>`;
       }).join('');
-      rows += `<tr class="subRow"><td class="lib">${esc(ssNom)}${info.code ? ` <span class="code">${esc(info.code)}</span>` : ''}</td>${cells}<td class="num">${fmt(ssTotal)}</td></tr>`;
+      rows += `<tr class="subRow"><td class="lib">${esc(info.nom)}${info.code ? ` <span class="code">${esc(info.code)}</span>` : ''}</td>${cells}<td class="num">${fmt(ssTotal)}</td></tr>`;
     }
   }
   const totalsByStatus = STATUSES.map((st) => lines.filter((l) => l.status === st).reduce((s, l) => s + l.m2, 0));
