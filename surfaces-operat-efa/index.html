@@ -80,8 +80,8 @@
   #emptyState { padding: 60px 20px; text-align: center; color: var(--text-muted); white-space: normal; overflow-wrap: anywhere; }
 
   /* Warning banners: high contrast, never truncated. See /CLAUDE.md. */
-  #warnings { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-  #warnings .w {
+  #warnings, #columnWarnings { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  #warnings .w, #columnWarnings .w {
     display: block;
     background: #fef3c7;
     border: 1px solid #f0b429;
@@ -94,7 +94,7 @@
     white-space: normal;
     overflow-wrap: anywhere;
   }
-  #warnings .w.bad { background: #fde2e2; border-color: #e0554f; color: #7a1a1a; }
+  #warnings .w.bad, #columnWarnings .w.bad { background: #fde2e2; border-color: #e0554f; color: #7a1a1a; }
 
   .card {
     background: #fff;
@@ -397,7 +397,7 @@ function truthy(v) {
 async function fetchTableSafe(tableName) {
   try {
     const cols = await grist.docApi.fetchTable(tableName);
-    return { ok: true, rows: toRows(cols) };
+    return { ok: true, rows: toRows(cols), columns: Object.keys(cols) };
   } catch (e) {
     return { ok: false, error: String((e && e.message) || e) };
   }
@@ -496,6 +496,31 @@ async function loadData() {
     sitesById, batimentsById, sallesByBatiment,
     categoriesById, sousCategoriesById, idARepartir, idLocalVacant,
   };
+
+  // Détecte les colonnes configurées (par défaut ou via "⚙️ Colonnes
+  // utilisées") qui n'existent plus réellement dans la table Grist visée —
+  // sans cette vérification, une colonne renommée ou mal repointée est lue
+  // comme `undefined` sur chaque ligne, silencieusement, et fausse tout le
+  // calcul sans qu'aucune erreur ne remonte nulle part (déjà vécu avec
+  // "Chauffée"/"Rafraîchie" : plus aucune surface chauffée détectée sur
+  // aucun site, sans le moindre avertissement).
+  const fetchResultsByGroup = { sites, batiments, salles, categories, sousCategories };
+  const columnWarnings = [];
+  for (const g of CONFIG_SCHEMA) {
+    const res = fetchResultsByGroup[g.group];
+    if (!res || !res.ok) continue; // table introuvable : déjà signalé ci-dessus (loadErrors)
+    const actualCols = new Set(res.columns);
+    for (const f of g.fields) {
+      const configured = COLUMN_CONFIG.cols[g.group][f.key];
+      if (!actualCols.has(configured)) {
+        columnWarnings.push(
+          `Colonne "${configured}" (${f.label}) introuvable dans la table "${COLUMN_CONFIG.tables[g.group]}" — ` +
+          `les résultats basés sur ce champ sont faux ou incomplets. Ouvrez "⚙️ Colonnes utilisées" pour la repointer vers la bonne colonne.`
+        );
+      }
+    }
+  }
+  DATA.columnWarnings = columnWarnings;
 
   if (idARepartir == null) {
     DATA.loadErrors.push(`Catégorie "${NOM_CATEGORIE_A_REPARTIR}" introuvable dans ${TABLES.categories} : les circulations/sanitaires ne pourront pas être détectés comme "à répartir".`);
@@ -963,7 +988,14 @@ function render() {
   }
   const sel = document.getElementById('efaSelect');
   const siteId = sel.value ? Number(sel.value) : null;
-  content.innerHTML = siteId != null ? renderEfaPage(siteId) : renderOverview();
+  // Les colonnes introuvables faussent tout calcul qui en dépend, sur toutes
+  // les pages : affichées en permanence en haut du widget, pas seulement
+  // sur la page où on les remarquerait, et jamais masquées par un simple
+  // changement d'EFA.
+  const columnWarningsHtml = (DATA.columnWarnings && DATA.columnWarnings.length)
+    ? `<div id="columnWarnings">${DATA.columnWarnings.map((w) => `<span class="w bad">⚠ ${esc(w)}</span>`).join('')}</div>`
+    : '';
+  content.innerHTML = columnWarningsHtml + (siteId != null ? renderEfaPage(siteId) : renderOverview());
 
   content.querySelectorAll('.efaLink').forEach((btn) => {
     btn.addEventListener('click', () => {
