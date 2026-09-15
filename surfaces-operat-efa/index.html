@@ -699,6 +699,14 @@ function classifyBuilding(building) {
   return result;
 }
 
+// L'appellation (ex. "Amphis 1 2 3") est le nom d'usage courant du bâtiment,
+// plus parlant au quotidien que le nom administratif (ex. "Amphis du
+// Forum") — c'est donc elle qui sert de nom principal, à l'affichage comme
+// pour le tri alphabétique de la liste "Détail par bâtiment".
+function buildingPrimaryName(building) {
+  return building.appellation || building.nom;
+}
+
 function activeBuildingsForSite(siteId) {
   return Array.from(DATA.batimentsById.values()).filter((b) => b.site === siteId && b.actif);
 }
@@ -709,7 +717,7 @@ function siteIdByName(name) {
 }
 
 function aggregateSite(siteId) {
-  const buildings = activeBuildingsForSite(siteId).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+  const buildings = activeBuildingsForSite(siteId).sort((a, b) => buildingPrimaryName(a).localeCompare(buildingPrimaryName(b), 'fr'));
   const buildingResults = buildings.map((b) => ({ building: b, result: classifyBuilding(b) }));
 
   const lineKey = (l) => l.sousCategorieId + '|' + l.status;
@@ -907,11 +915,9 @@ function renderEfaPage(siteId) {
     const label = result.noDominantCategory
       ? '<span style="color:var(--warn)">à vérifier — pas de catégorie dominante</span>'
       : result.selected.map((s) => esc(s.nom)).join(' + ');
-    // L'appellation (ex. "Amphis 1 2 3") est le nom d'usage courant du bâtiment,
-    // plus parlant au quotidien que le nom administratif (ex. "Amphis du Forum") —
-    // elle passe donc en premier et en gras ; le nom administratif suit en retrait,
-    // et n'est répété que s'il diffère réellement de l'appellation.
-    const primaryName = building.appellation || building.nom;
+    // Nom secondaire (retrait) : le nom administratif, seulement s'il diffère
+    // réellement du nom principal (voir buildingPrimaryName).
+    const primaryName = buildingPrimaryName(building);
     const secondaryName = building.nom && building.nom !== primaryName ? building.nom : '';
     return `<details class="buildingRow">
       <summary>
