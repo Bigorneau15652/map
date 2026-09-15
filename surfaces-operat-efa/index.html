@@ -894,10 +894,16 @@ function renderEfaPage(siteId) {
     const label = result.noDominantCategory
       ? '<span style="color:var(--warn)">à vérifier — pas de catégorie dominante</span>'
       : result.selected.map((s) => esc(s.nom)).join(' + ');
+    // L'appellation (ex. "Amphis 1 2 3") est le nom d'usage courant du bâtiment,
+    // plus parlant au quotidien que le nom administratif (ex. "Amphis du Forum") —
+    // elle passe donc en premier et en gras ; le nom administratif suit en retrait,
+    // et n'est répété que s'il diffère réellement de l'appellation.
+    const primaryName = building.appellation || building.nom;
+    const secondaryName = building.nom && building.nom !== primaryName ? building.nom : '';
     return `<details class="buildingRow">
       <summary>
-        <span class="bName">${esc(building.nom)}</span>
-        <span class="bMeta">${esc(building.appellation || '')}</span>
+        <span class="bName">${esc(primaryName)}</span>
+        ${secondaryName ? `<span class="bMeta">${esc(secondaryName)}</span>` : ''}
         <span class="bMeta">${fmt(result.totalSurfaceBatiment)} m² au total</span>
         <span class="bMeta">→ ${label}</span>
         ${result.warnings.length ? `<span class="bMeta" style="color:var(--warn)">⚠ ${result.warnings.length}</span>` : ''}
@@ -920,8 +926,11 @@ function renderEfaPage(siteId) {
     <div class="card">
       <details class="section" open>
         <summary>Détail par bâtiment (${agg.nbBatiments})</summary>
-        <div class="subhead">Cliquez sur un bâtiment pour dérouler son détail et vérifier la classification retenue.</div>
-        ${buildingsHtml || '<div class="subhead">Aucun bâtiment actif pour cet EFA.</div>'}
+        <div class="subhead" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <span>Cliquez sur un bâtiment pour dérouler son détail et vérifier la classification retenue.</span>
+          ${buildingsHtml ? '<button id="toggleAllBuildingsBtn" type="button">Tout déplier</button>' : ''}
+        </div>
+        <div id="buildingsList">${buildingsHtml || '<div class="subhead">Aucun bâtiment actif pour cet EFA.</div>'}</div>
       </details>
     </div>`;
 }
@@ -943,6 +952,20 @@ function render() {
       onEfaChange();
     });
   });
+
+  const toggleAllBtn = document.getElementById('toggleAllBuildingsBtn');
+  if (toggleAllBtn) {
+    toggleAllBtn.addEventListener('click', () => {
+      const rows = content.querySelectorAll('#buildingsList details.buildingRow');
+      // Se base sur l'état réel des lignes (pas seulement sur le libellé du
+      // bouton) : si l'utilisateur a déjà ouvert/fermé des bâtiments à la
+      // main, "Tout déplier" reste l'action logique tant qu'il en reste au
+      // moins un fermé.
+      const anyClosed = Array.from(rows).some((d) => !d.open);
+      rows.forEach((d) => { d.open = anyClosed; });
+      toggleAllBtn.textContent = anyClosed ? 'Tout replier' : 'Tout déplier';
+    });
+  }
 }
 
 function populateEfaSelect() {
