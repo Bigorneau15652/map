@@ -84,12 +84,27 @@ sens, chaque bâtiment ayant sa propre composition de surfaces.
 
 `Surface_Chaufee` et `Surface_Rafraichie` déterminent 4 statuts, chacun une
 ligne séparée : Chauffée + rafraîchie, Chauffée (seule), Rafraîchie (seule),
-Non chauffée / non rafraîchie. La redistribution ci-dessus est recalculée
-séparément pour chaque statut, avec les mêmes poids (proportion de chaque
-sous-catégorie "utilisée" retenue dans la surface totale "utilisée" du
-bâtiment), appliqués au total de ce statut pour les catégories "utilisées" +
-"à répartir" (hors périmètre exclu). "Local vacant" garde son propre statut
-thermique réel, indépendamment de cette redistribution.
+Non chauffée / non rafraîchie.
+
+La surface reçue par une catégorie retenue (voir la redistribution ci-dessus)
+suit **son propre statut thermique** — dans les mêmes proportions que ses
+salles en affectation directe — et jamais celui du "à répartir" ou des
+autres catégories du pool. Conformément à la FAQ OPERAT, la répartition au
+prorata ne mélange pas les statuts thermiques entre eux : elle ne crée donc
+jamais de nouvelle combinaison catégorie/statut qui n'existe pas déjà en
+affectation directe. Exemple : un bâtiment de 800 m² de bureaux chauffés +
+rafraîchis, 800 m² de salles d'enseignement chauffées seules, et 400 m² de
+locaux techniques/sanitaires/couloirs à répartir (statut thermique
+indifférent, non pris en compte) — les 400 m² à répartir sont redistribués
+au prorata des surfaces directes (ici 50/50, soit 200 m² chacune) et
+prennent le statut de leur catégorie receveuse : 200 m² s'ajoutent aux
+1000 m² de bureaux, en chauffée + rafraîchie ; 200 m² s'ajoutent aux 1000 m²
+de salles d'enseignement, en chauffée seule. Aucune ligne "bureaux — non
+chauffée / non rafraîchie" ni "salles d'enseignement — non chauffée / non
+rafraîchie" n'est créée.
+
+"Local vacant" garde son propre statut thermique réel, indépendamment de
+cette redistribution (il n'y participe jamais, voir plus haut).
 
 ### Ce qui est exclu du calcul, et pourquoi
 

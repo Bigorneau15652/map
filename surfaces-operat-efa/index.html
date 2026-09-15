@@ -609,9 +609,11 @@ function classifyBuilding(building) {
     }
   };
 
-  const aRepByStatus = { CR: 0, C: 0, R: 0, N: 0 };
-  for (const s of aRepartirRows) aRepByStatus[thermalStatus(s)] += (s[COL.salle.surface] || 0);
-  const totalARepartir = STATUSES.reduce((sum, st) => sum + aRepByStatus[st], 0);
+  // Le "à répartir" n'a pas de statut thermique propre pertinent pour la
+  // déclaration OPERAT : d'après la FAQ OPERAT, la répartition au prorata
+  // ne doit PAS mélanger les statuts thermiques entre eux. Seul le total
+  // (m², tous statuts confondus) compte pour la clé de répartition.
+  const totalARepartir = aRepartirRows.reduce((sum, s) => sum + (s[COL.salle.surface] || 0), 0);
 
   const horsPerimetreTotal = horsPerimetreRows.reduce((sum, s) => sum + (s[COL.salle.surface] || 0), 0);
   const totalVacant = Array.from(vacantGroups.values()).reduce((sum, g) => sum + g.total, 0);
@@ -665,13 +667,24 @@ function classifyBuilding(building) {
   const sumSelected = selectedEntries.reduce((sum, [, g]) => sum + g.total, 0);
   const weights = new Map(selectedEntries.map(([ssid, g]) => [ssid, g.total / sumSelected]));
 
-  const grandTotalByStatus = { CR: 0, C: 0, R: 0, N: 0 };
-  for (const g of groups.values()) for (const st of STATUSES) grandTotalByStatus[st] += g.byStatus[st];
-  for (const st of STATUSES) grandTotalByStatus[st] += aRepByStatus[st];
+  // Pool à redistribuer entre les catégories retenues : le "à répartir" et
+  // toute catégorie "utilisée" non retenue (minoritaire) — jamais "Local
+  // vacant". C'est une simple somme de m², sans statut thermique : d'après
+  // la FAQ OPERAT, la répartition au prorata ne doit pas créer de nouvelle
+  // combinaison catégorie/statut qui n'existe pas déjà en affectation
+  // directe (ex. ne jamais faire apparaître "Bureaux — non chauffée / non
+  // rafraîchie" simplement parce que le couloir à répartir ne l'était pas).
+  const nonSelectedTotal = totalDirect - sumSelected;
+  const poolTotal = totalARepartir + nonSelectedTotal;
 
   for (const [ssid, g] of selectedEntries) {
+    const share = weights.get(ssid) * poolTotal; // part du pool qui revient à cette catégorie
     for (const st of STATUSES) {
-      const m2 = weights.get(ssid) * grandTotalByStatus[st];
+      // La part reçue suit le statut thermique PROPRE de la catégorie
+      // receveuse (proportion de ses propres salles dans chaque statut) —
+      // jamais celui, sans rapport, des salles à répartir ou des autres
+      // catégories du pool.
+      const m2 = g.byStatus[st] + share * (g.byStatus[st] / g.total);
       if (m2 > 0.005) result.lines.push(lineFromGroup(ssid, st, m2));
     }
   }
@@ -1156,10 +1169,17 @@ document.getElementById('helpBtn').addEventListener('click', () => {
     retenues — sa surface est alors répartie au prorata entre les catégories
     "utilisées" retenues (bureaux, salles de cours…), jamais vers "Local
     vacant".</p>
-    <p>La répartition est ensuite recalculée dans les mêmes proportions pour
-    chacun des 4 statuts thermiques (chauffée + rafraîchie / chauffée seule /
-    rafraîchie seule / non chauffée), à partir du statut thermique réel de
-    chaque salle.</p>
+    <p>La surface reçue par une catégorie retenue suit ensuite <b>son propre
+    statut thermique</b> (chauffée + rafraîchie / chauffée seule / rafraîchie
+    seule / non chauffée), dans les mêmes proportions que ses salles en
+    affectation directe — jamais celui, sans rapport, des salles à répartir
+    ou des autres catégories du bâtiment. Conformément à la FAQ OPERAT, la
+    répartition au prorata ne mélange pas les statuts thermiques entre eux :
+    elle ne crée donc jamais de nouvelle combinaison catégorie/statut qui
+    n'existe pas déjà en affectation directe (ex. des bureaux chauffés +
+    rafraîchis à 100% en direct ne se retrouveront jamais avec une part
+    déclarée "non chauffée / non rafraîchie" simplement parce qu'un couloir
+    à répartir ne l'était pas).</p>
     <p>Le calcul est fait <b>bâtiment par bâtiment</b> puis sommé au niveau
     EFA — jamais directement sur l'agrégat de plusieurs bâtiments, dont la
     composition de surfaces diffère à chaque fois.</p>
