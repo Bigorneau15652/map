@@ -690,14 +690,17 @@ function classifyBuilding(building) {
 
   if (totalDirect <= 0) {
     // Aucune catégorie "utilisée" en affectation directe : le "à répartir"
-    // ne peut être redistribué nulle part et reste non classé. Les
-    // catégories toujours séparées (Local vacant, Stationnement), elles,
-    // restent classées telles quelles (ce n'est pas une anomalie).
+    // ne peut pas être redistribué DANS ce bâtiment (rien à répartir dedans).
+    // Il est marqué "non classé" ici — aggregateSite() tentera ensuite de le
+    // redistribuer au niveau de l'EFA, entre les autres bâtiments (voir
+    // "Méthode de calcul"). Les catégories toujours séparées (Local vacant,
+    // Stationnement), elles, restent classées telles quelles dans tous les
+    // cas (ce n'est pas une anomalie).
     result.nonClasseTotal = totalARepartir;
     if (totalARepartir > 0) {
       result.noDominantCategory = true;
       warnings.push(actionable(
-        `${building.nom} : aucune sous-catégorie OPERAT "utilisée" directement affectée dans ce bâtiment (hors Local vacant/Stationnement) — impossible d'appliquer la règle de catégorie dominante (${fmt(totalARepartir)} m² à répartir restent non classés)`,
+        `${building.nom} : aucune sous-catégorie OPERAT "utilisée" directement affectée dans ce bâtiment (hors Local vacant/Stationnement) — impossible d'appliquer la règle de catégorie dominante localement (${fmt(totalARepartir)} m² à répartir sont redistribués au niveau de l'EFA, entre les catégories des autres bâtiments)`,
         []
       ));
     }
@@ -798,6 +801,34 @@ function aggregateSite(siteId) {
     }
   }
 
+  // Un bâtiment sans la moindre sous-catégorie "utilisée" en direct (ex. une
+  // galerie technique reliant d'autres bâtiments, entièrement en "à
+  // répartir") ne peut pas appliquer la règle de catégorie dominante — vu
+  // seul, il n'a nulle part où redistribuer son "à répartir". Plutôt que de
+  // laisser cette surface hors du total OPERAT de l'EFA, elle est répartie
+  // au prorata entre les sous-catégories déjà classées des AUTRES bâtiments
+  // de l'EFA — jamais vers "Local vacant"/"Stationnement" (même règle
+  // qu'au sein d'un bâtiment), et chaque sous-catégorie receveuse garde son
+  // propre statut thermique (même principe anti-mélange que la
+  // redistribution "à répartir" habituelle, voir classifyBuilding()).
+  let nonClasseRedistribue = 0;
+  if (nonClasseTotal > 0.005) {
+    const eligibleLines = Array.from(lines.values()).filter((l) => !NOMS_CATEGORIES_TOUJOURS_SEPAREES.includes(l.categorieNom));
+    const eligibleTotal = eligibleLines.reduce((sum, l) => sum + l.m2, 0);
+    if (eligibleTotal > 0.005) {
+      for (const l of eligibleLines) l.m2 += nonClasseTotal * (l.m2 / eligibleTotal);
+      nonClasseRedistribue = nonClasseTotal;
+      nonClasseTotal = 0;
+      warnings.push(
+        `${fmt(nonClasseRedistribue)} m² provenant de bâtiment(s) sans aucune sous-catégorie "utilisée" en direct ` +
+        `(${noDominantBuildings.join(', ')}) — redistribués au prorata entre les sous-catégories déjà classées ` +
+        `des autres bâtiments de cet EFA, faute d'alternative au sein de leur propre bâtiment.`
+      );
+    }
+    // Si eligibleTotal est nul (aucune autre catégorie classée nulle part dans
+    // l'EFA — cas extrême), nonClasseTotal reste tel quel : rien où répartir.
+  }
+
   const totalOperat = Array.from(lines.values()).reduce((sum, l) => sum + l.m2, 0);
   const totalByStatus = { CR: 0, C: 0, R: 0, N: 0 };
   for (const l of lines.values()) totalByStatus[l.status] += l.m2;
@@ -807,7 +838,7 @@ function aggregateSite(siteId) {
     siteNom: DATA.sitesById.get(siteId),
     buildingResults,
     lines: Array.from(lines.values()).sort((a, b) => (a.categorieNom + a.sousCategorieNom).localeCompare(b.categorieNom + b.sousCategorieNom, 'fr') || a.status.localeCompare(b.status)),
-    totalOperat, totalByStatus, horsPerimetreTotal, totalSurfaceEfa, nonClasseTotal,
+    totalOperat, totalByStatus, horsPerimetreTotal, totalSurfaceEfa, nonClasseTotal, nonClasseRedistribue,
     warnings, noDominantBuildings,
     nbBatiments: buildings.length,
   };
@@ -1245,6 +1276,21 @@ document.getElementById('helpBtn').addEventListener('click', () => {
     retenues — sa surface est alors répartie au prorata entre les catégories
     "utilisées" retenues (bureaux, salles de cours…), jamais vers "Local
     vacant" ni "Stationnement".</p>
+    <p><b>Bâtiment sans aucune catégorie "utilisée" en direct</b> (ex. une
+    galerie technique reliant d'autres bâtiments, entièrement composée de
+    circulations "à répartir", sans le moindre bureau ou salle) : la règle
+    de catégorie dominante ne peut pas s'appliquer à l'intérieur de ce seul
+    bâtiment — il n'a nulle part où répartir sa propre surface. Sa surface
+    "à répartir" est alors redistribuée au prorata entre les sous-catégories
+    déjà classées <b>des autres bâtiments actifs de la même EFA</b> (jamais
+    vers "Local vacant"/"Stationnement", et chaque sous-catégorie receveuse
+    garde son propre statut thermique, comme pour la redistribution
+    habituelle). C'est la seule situation où le calcul dépasse le cadre d'un
+    seul bâtiment — justifiée ici par l'absence totale d'alternative
+    localement, plutôt que de laisser cette surface hors du total OPERAT
+    déclaré pour l'EFA. Si <i>aucun</i> bâtiment de l'EFA n'a la moindre
+    catégorie classée (cas extrême), cette surface reste "Non classé" —
+    signalée par un indicateur rouge, à vérifier manuellement.</p>
     <p>La surface reçue par une catégorie retenue suit ensuite <b>son propre
     statut thermique</b> (chauffée + rafraîchie / chauffée seule / rafraîchie
     seule / non chauffée), dans les mêmes proportions que ses salles en
