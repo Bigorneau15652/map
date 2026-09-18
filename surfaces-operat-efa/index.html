@@ -1179,11 +1179,28 @@ function wireConfigForm(div) {
 
 async function applyConfigFromForm(newCfg) {
   applyColumnConfig(mergeColumnConfig(newCfg));
-  try { await grist.setOption('columnConfig', COLUMN_CONFIG); } catch (e) { /* pas bloquant */ }
+  // Ne jamais avaler silencieusement un échec d'enregistrement : sans ça,
+  // une config qui ne persiste pas côté Grist (permissions, erreur réseau…)
+  // se perd sans que rien ne le signale — exactement le symptôme rapporté
+  // ("je dois recommencer à chaque réouverture").
+  let saveError = null;
+  try {
+    await grist.setOption('columnConfig', COLUMN_CONFIG);
+  } catch (e) {
+    saveError = String((e && e.message) || e);
+  }
   await loadData();
   if (DATA && !DATA.loadErrors.length) populateEfaSelect();
   render(); // ferme le panneau "Colonnes utilisées" — les résultats recalculés (ou le
             // bandeau d'erreur si une table/colonne est devenue invalide) le remplacent.
+  if (saveError) {
+    // Ajouté après render() : render() vide #content à chaque appel.
+    const content = document.getElementById('content');
+    const div = document.createElement('div');
+    div.id = 'saveError';
+    div.innerHTML = `<span class="w bad">⚠ La configuration n'a pas pu être enregistrée dans Grist (elle sera perdue à la fermeture du widget) : ${esc(saveError)}. Réessayez ; si le problème persiste, signalez ce message.</span>`;
+    content.prepend(div);
+  }
 }
 
 document.getElementById('configBtn').addEventListener('click', async () => {
