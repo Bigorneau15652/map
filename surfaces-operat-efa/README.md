@@ -31,11 +31,12 @@ dans la grille Grist ; le widget recalculera au prochain rafraîchissement.
 - **Catégorie "À répartir"** → circulations, sanitaires, locaux techniques
   "occupants"… qui n'ont pas d'équivalent OPERAT propre. Redistribuées dans
   les sous-catégories dominantes **"utilisées"** du bâtiment (voir plus bas).
-- **Catégorie "Local vacant"** → locaux réellement inoccupés. Toujours
-  affichée avec sa propre surface, telle quelle, dans le total OPERAT du
-  bâtiment. Cette catégorie ne participe **jamais** à la règle de catégorie
-  dominante et ne reçoit donc jamais de surface redistribuée depuis une
-  autre catégorie (voir plus bas).
+- **Catégorie "Local vacant" ou "Stationnement"** → toujours affichées avec
+  leur propre surface, telle quelle, dans le total OPERAT du bâtiment,
+  **quelle que soit leur taille**. Ces catégories ne participent **jamais**
+  à la règle de catégorie dominante — ni comme candidates à la sélection, ni
+  comme destinataires d'une surface redistribuée depuis une autre catégorie
+  (voir plus bas).
 - **Toute autre catégorie** ("utilisée") → affectation directe à sa
   `SS_categorie_SCE_OPERAT`. Une salle avec une catégorie renseignée mais
   sans sous-catégorie est exclue et signalée (donnée incomplète).
@@ -43,7 +44,7 @@ dans la grille Grist ; le widget recalculera au prochain rafraîchissement.
 ### Règle de catégorie dominante (par bâtiment, jamais au niveau EFA)
 
 Sur la surface des catégories **"utilisées"** en affectation directe
-uniquement (hors "à répartir" et hors "Local vacant") :
+uniquement (hors "à répartir", "Local vacant" et "Stationnement") :
 
 1. Si une sous-catégorie atteint **70%** ou plus de cette surface, **elle
    seule est retenue** et tout le bâtiment (y compris "à répartir" et les
@@ -54,9 +55,9 @@ uniquement (hors "à répartir" et hors "Local vacant") :
    grandes si plus de 4 en dépassent 15%). Une sous-catégorie sous 15% n'est
    **jamais** retenue seule, même s'il n'y en a que 2 ou 3 au total dans le
    bâtiment. La surface du bâtiment restant à classer — catégories
-   "utilisées" non retenues (sous 15%) + "à répartir", mais **jamais** "Local
-   vacant" — leur est redistribuée au prorata de leurs surfaces directes
-   respectives.
+   "utilisées" non retenues (sous 15%) + "à répartir", mais **jamais**
+   "Local vacant" ni "Stationnement" — leur est redistribuée au prorata de
+   leurs surfaces directes respectives.
 3. Si **aucune** sous-catégorie "utilisée" n'atteint 15% (bâtiment très
    fragmenté sur de nombreux petits usages), la plus grande est tout de même
    retenue seule plutôt que de ne rien classer.
@@ -64,8 +65,9 @@ uniquement (hors "à répartir" et hors "Local vacant") :
    bâtiment (cas rare : un local technique isolé, poste EDF, chaufferie…),
    aucune règle ne peut s'appliquer au "à répartir" restant : ce cas est
    signalé nommément et sa surface apparaît dans un total **"Non classé"**
-   séparé plutôt que d'être compté ou perdu silencieusement. "Local vacant",
-   lui, reste classé tel quel dans ce cas — ce n'est pas une anomalie.
+   séparé plutôt que d'être compté ou perdu silencieusement. "Local vacant"
+   et "Stationnement", eux, restent classés tels quels dans ce cas — ce
+   n'est pas une anomalie.
 
 **Exemple concret** (EFA Saint-Louis) : une bibliothèque de 40 m²
 ("Culture et spectacles", 8% de la surface "utilisée" du bâtiment) dans un
@@ -74,7 +76,9 @@ locaux vacants ne fait pas partie des catégories "utilisées" dominantes
 retenues (sous le seuil de 15%) — sa surface est répartie au prorata entre
 les catégories "utilisées" retenues (salles de cours, bureaux…), jamais vers
 "Local vacant", même si "Local vacant" est la plus grande surface directe du
-bâtiment.
+bâtiment. Même logique pour un petit parking : quelle que soit sa part de la
+surface du bâtiment, il garde toujours sa propre ligne "Stationnement" et
+n'absorbe jamais, ni ne cède jamais, de surface au prorata.
 
 Le calcul est fait **bâtiment par bâtiment** puis sommé au niveau EFA — une
 répartition au prorata sur l'agrégat de plusieurs bâtiments n'aurait pas de
@@ -103,8 +107,9 @@ de salles d'enseignement, en chauffée seule. Aucune ligne "bureaux — non
 chauffée / non rafraîchie" ni "salles d'enseignement — non chauffée / non
 rafraîchie" n'est créée.
 
-"Local vacant" garde son propre statut thermique réel, indépendamment de
-cette redistribution (il n'y participe jamais, voir plus haut).
+"Local vacant" et "Stationnement" gardent leur propre statut thermique réel,
+indépendamment de cette redistribution (elles n'y participent jamais, voir
+plus haut).
 
 ### Ce qui est exclu du calcul, et pourquoi
 

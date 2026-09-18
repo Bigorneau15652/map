@@ -361,6 +361,12 @@ const EFA_NAMES = ['Route de Mende', 'Béziers', 'Saint-Charles', 'Saint-Louis',
 
 const NOM_CATEGORIE_A_REPARTIR = 'À répartir';
 const NOM_CATEGORIE_LOCAL_VACANT = 'Local vacant';
+const NOM_CATEGORIE_STATIONNEMENT = 'Stationnement';
+// Catégories qui gardent toujours leur propre ligne, quelle que soit leur
+// taille : jamais candidates à la règle de catégorie dominante, jamais
+// destinataires d'une redistribution "à répartir"/catégorie minoritaire —
+// voir isToujoursSeparee() dans classifyBuilding().
+const NOMS_CATEGORIES_TOUJOURS_SEPAREES = [NOM_CATEGORIE_LOCAL_VACANT, NOM_CATEGORIE_STATIONNEMENT];
 const DOMINANT_THRESHOLD = 0.70; // règle "catégorie forte >= 70%" : elle seule est retenue
 const MIN_SHARE = 0.15; // en dessous, une catégorie "utilisée" est toujours écartée (trop peu représentative)
 const MAX_SELECTED = 4; // plafond du nombre de catégories retenues, même si plus de 4 dépassent MIN_SHARE
@@ -462,10 +468,10 @@ async function loadData() {
   }
 
   let idARepartir = null;
-  let idLocalVacant = null;
+  const idsToujoursSeparees = new Set();
   for (const [id, nom] of categoriesById.entries()) {
     if (nom === NOM_CATEGORIE_A_REPARTIR) idARepartir = id;
-    if (nom === NOM_CATEGORIE_LOCAL_VACANT) idLocalVacant = id;
+    if (NOMS_CATEGORIES_TOUJOURS_SEPAREES.includes(nom)) idsToujoursSeparees.add(id);
   }
 
   const sitesById = new Map();
@@ -494,7 +500,7 @@ async function loadData() {
   DATA = {
     loadErrors: [],
     sitesById, batimentsById, sallesByBatiment,
-    categoriesById, sousCategoriesById, idARepartir, idLocalVacant,
+    categoriesById, sousCategoriesById, idARepartir, idsToujoursSeparees,
   };
 
   // Détecte les colonnes configurées (par défaut ou via "⚙️ Colonnes
@@ -525,9 +531,10 @@ async function loadData() {
   if (idARepartir == null) {
     DATA.loadErrors.push(`Catégorie "${NOM_CATEGORIE_A_REPARTIR}" introuvable dans ${TABLES.categories} : les circulations/sanitaires ne pourront pas être détectés comme "à répartir".`);
   }
-  // Pas d'erreur bloquante si "Local vacant" est introuvable : le calcul reste
-  // correct, seule la règle d'exclusion des locaux vacants de la répartition
-  // (voir classifyBuilding) ne s'applique simplement pas.
+  // Pas d'erreur bloquante si "Local vacant"/"Stationnement" sont introuvables :
+  // le calcul reste correct, seule leur exclusion de la répartition dominante
+  // (voir classifyBuilding) ne s'applique simplement pas pour la catégorie
+  // manquante.
 }
 
 /* ---------------------------------------------------------------------
@@ -607,15 +614,17 @@ function classifyBuilding(building) {
     ));
   }
 
-  // "Local vacant" est une vraie catégorie SCE OPERAT (locaux réellement
-  // inoccupés), pas un fourre-tout : elle garde toujours sa propre surface
-  // telle quelle et n'entre jamais dans le calcul de la catégorie dominante,
+  // "Local vacant" et "Stationnement" sont de vraies catégories SCE OPERAT,
+  // pas un fourre-tout : elles gardent toujours leur propre surface telle
+  // quelle et n'entrent jamais dans le calcul de la catégorie dominante,
   // pour ne jamais absorber au prorata la surface d'une autre catégorie
   // minoritaire réellement utilisée (ex. une petite bibliothèque qui ne
-  // ferait pas partie des 3 plus grandes catégories du bâtiment).
-  const isVacant = (s) => DATA.idLocalVacant != null && s[COL.salle.categorie] === DATA.idLocalVacant;
-  const vacantRows = direct.filter(isVacant);
-  const usedRows = direct.filter((s) => !isVacant(s));
+  // ferait pas partie des catégories dominantes du bâtiment), ni être elles-
+  // mêmes noyées dans une autre catégorie dominante si leur propre part
+  // passe sous le seuil des 15%.
+  const isToujoursSeparee = (s) => DATA.idsToujoursSeparees.has(s[COL.salle.categorie]);
+  const separateRows = direct.filter(isToujoursSeparee);
+  const usedRows = direct.filter((s) => !isToujoursSeparee(s));
 
   const makeGroups = (rows) => {
     const g2 = new Map(); // sousCategorieId -> {total, byStatus}
@@ -631,7 +640,7 @@ function classifyBuilding(building) {
   };
 
   const groups = makeGroups(usedRows); // catégories "utilisées", candidates à la règle dominante
-  const vacantGroups = makeGroups(vacantRows); // "Local vacant", toujours en ligne(s) à part
+  const separateGroups = makeGroups(separateRows); // toujours en ligne(s) à part
 
   const lineFromGroup = (ssid, st, m2) => {
     const info = DATA.sousCategoriesById.get(ssid);
@@ -645,8 +654,8 @@ function classifyBuilding(building) {
       m2,
     };
   };
-  const addVacantLines = (result) => {
-    for (const [ssid, g] of vacantGroups.entries()) {
+  const addSeparateLines = (result) => {
+    for (const [ssid, g] of separateGroups.entries()) {
       for (const st of STATUSES) {
         if (g.byStatus[st] > 0.005) result.lines.push(lineFromGroup(ssid, st, g.byStatus[st]));
       }
@@ -660,9 +669,9 @@ function classifyBuilding(building) {
   const totalARepartir = aRepartirRows.reduce((sum, s) => sum + (s[COL.salle.surface] || 0), 0);
 
   const horsPerimetreTotal = horsPerimetreRows.reduce((sum, s) => sum + (s[COL.salle.surface] || 0), 0);
-  const totalVacant = Array.from(vacantGroups.values()).reduce((sum, g) => sum + g.total, 0);
-  const totalDirect = Array.from(groups.values()).reduce((sum, g) => sum + g.total, 0); // hors "Local vacant"
-  const totalSurfaceBatiment = totalDirect + totalVacant + totalARepartir + horsPerimetreTotal;
+  const totalSeparate = Array.from(separateGroups.values()).reduce((sum, g) => sum + g.total, 0);
+  const totalDirect = Array.from(groups.values()).reduce((sum, g) => sum + g.total, 0); // hors catégories toujours séparées
+  const totalSurfaceBatiment = totalDirect + totalSeparate + totalARepartir + horsPerimetreTotal;
 
   const result = {
     buildingId: building.id,
@@ -681,17 +690,18 @@ function classifyBuilding(building) {
 
   if (totalDirect <= 0) {
     // Aucune catégorie "utilisée" en affectation directe : le "à répartir"
-    // ne peut être redistribué nulle part et reste non classé. "Local
-    // vacant", lui, reste classé tel quel (ce n'est pas une anomalie).
+    // ne peut être redistribué nulle part et reste non classé. Les
+    // catégories toujours séparées (Local vacant, Stationnement), elles,
+    // restent classées telles quelles (ce n'est pas une anomalie).
     result.nonClasseTotal = totalARepartir;
     if (totalARepartir > 0) {
       result.noDominantCategory = true;
       warnings.push(actionable(
-        `${building.nom} : aucune sous-catégorie OPERAT "utilisée" directement affectée dans ce bâtiment (hors Local vacant) — impossible d'appliquer la règle de catégorie dominante (${fmt(totalARepartir)} m² à répartir restent non classés)`,
+        `${building.nom} : aucune sous-catégorie OPERAT "utilisée" directement affectée dans ce bâtiment (hors Local vacant/Stationnement) — impossible d'appliquer la règle de catégorie dominante (${fmt(totalARepartir)} m² à répartir restent non classés)`,
         []
       ));
     }
-    addVacantLines(result);
+    addSeparateLines(result);
     result.totalOperat = result.lines.reduce((sum, l) => sum + l.m2, 0);
     return result;
   }
@@ -713,11 +723,12 @@ function classifyBuilding(building) {
 
   // Pool à redistribuer entre les catégories retenues : le "à répartir" et
   // toute catégorie "utilisée" non retenue (minoritaire) — jamais "Local
-  // vacant". C'est une simple somme de m², sans statut thermique : d'après
-  // la FAQ OPERAT, la répartition au prorata ne doit pas créer de nouvelle
-  // combinaison catégorie/statut qui n'existe pas déjà en affectation
-  // directe (ex. ne jamais faire apparaître "Bureaux — non chauffée / non
-  // rafraîchie" simplement parce que le couloir à répartir ne l'était pas).
+  // vacant"/"Stationnement". C'est une simple somme de m², sans statut
+  // thermique : d'après la FAQ OPERAT, la répartition au prorata ne doit
+  // pas créer de nouvelle combinaison catégorie/statut qui n'existe pas
+  // déjà en affectation directe (ex. ne jamais faire apparaître "Bureaux —
+  // non chauffée / non rafraîchie" simplement parce que le couloir à
+  // répartir ne l'était pas).
   const nonSelectedTotal = totalDirect - sumSelected;
   const poolTotal = totalARepartir + nonSelectedTotal;
 
@@ -732,7 +743,7 @@ function classifyBuilding(building) {
       if (m2 > 0.005) result.lines.push(lineFromGroup(ssid, st, m2));
     }
   }
-  addVacantLines(result);
+  addSeparateLines(result);
   result.totalOperat = result.lines.reduce((sum, l) => sum + l.m2, 0);
   result.selected = selectedEntries.map(([ssid, g]) => ({
     nom: (DATA.sousCategoriesById.get(ssid) || {}).nom || `Sous-catégorie #${ssid}`,
@@ -1201,16 +1212,17 @@ document.getElementById('helpBtn').addEventListener('click', () => {
       sanitaires, locaux techniques… sans équivalent OPERAT propre, à
       répartir dans les sous-catégories dominantes "utilisées" du bâtiment
       (voir ci-dessous).</li>
-      <li><b>Catégorie "${esc(NOM_CATEGORIE_LOCAL_VACANT)}"</b> → locaux
-      réellement inoccupés. Toujours affichée avec sa propre surface, telle
-      quelle : elle ne participe jamais à la règle de catégorie dominante et
-      ne reçoit donc jamais de surface redistribuée d'une autre catégorie.</li>
+      <li><b>Catégorie "${esc(NOM_CATEGORIE_LOCAL_VACANT)}" ou "${esc(NOM_CATEGORIE_STATIONNEMENT)}"</b> →
+      toujours affichées avec leur propre surface, telle quelle, quelle que
+      soit leur taille : elles ne participent jamais à la règle de catégorie
+      dominante (ni comme candidates, ni comme destinataires d'une surface
+      redistribuée depuis une autre catégorie).</li>
       <li><b>Autre catégorie</b> → affectation directe à sa sous-catégorie SCE
       OPERAT.</li>
     </ul>
     <p><b>Règle de catégorie dominante</b>, appliquée bâtiment par bâtiment sur
-    la surface des catégories "utilisées" (hors "à répartir" et hors
-    "${esc(NOM_CATEGORIE_LOCAL_VACANT)}") :</p>
+    la surface des catégories "utilisées" (hors "à répartir", "${esc(NOM_CATEGORIE_LOCAL_VACANT)}"
+    et "${esc(NOM_CATEGORIE_STATIONNEMENT)}") :</p>
     <ul>
       <li>si une sous-catégorie atteint <b>${Math.round(DOMINANT_THRESHOLD * 100)}%</b> ou plus de cette
       surface, elle seule est retenue et tout le bâtiment (y compris "à
@@ -1221,8 +1233,8 @@ document.getElementById('helpBtn').addEventListener('click', () => {
       grandes si plus en dépassent ${Math.round(MIN_SHARE * 100)}%), et 100%
       de la surface du bâtiment restant à classer (catégories sous
       ${Math.round(MIN_SHARE * 100)}% + "à répartir", mais jamais
-      "${esc(NOM_CATEGORIE_LOCAL_VACANT)}") leur est répartie au prorata de
-      leurs surfaces respectives ;</li>
+      "${esc(NOM_CATEGORIE_LOCAL_VACANT)}" ni "${esc(NOM_CATEGORIE_STATIONNEMENT)}")
+      leur est répartie au prorata de leurs surfaces respectives ;</li>
       <li>si aucune sous-catégorie n'atteint ${Math.round(MIN_SHARE * 100)}%
       (bâtiment très fragmenté sur de nombreux petits usages), la plus
       grande est tout de même retenue seule plutôt que de ne rien classer.</li>
@@ -1232,7 +1244,7 @@ document.getElementById('helpBtn').addEventListener('click', () => {
     cours et de locaux vacants ne fera pas partie des catégories dominantes
     retenues — sa surface est alors répartie au prorata entre les catégories
     "utilisées" retenues (bureaux, salles de cours…), jamais vers "Local
-    vacant".</p>
+    vacant" ni "Stationnement".</p>
     <p>La surface reçue par une catégorie retenue suit ensuite <b>son propre
     statut thermique</b> (chauffée + rafraîchie / chauffée seule / rafraîchie
     seule / non chauffée), dans les mêmes proportions que ses salles en
