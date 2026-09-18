@@ -62,12 +62,13 @@ uniquement (hors "à répartir", "Local vacant" et "Stationnement") :
    fragmenté sur de nombreux petits usages), la plus grande est tout de même
    retenue seule plutôt que de ne rien classer.
 4. Si aucune sous-catégorie "utilisée" n'est affectée en direct dans un
-   bâtiment (cas rare : un local technique isolé, poste EDF, chaufferie…),
-   aucune règle ne peut s'appliquer au "à répartir" restant : ce cas est
-   signalé nommément et sa surface apparaît dans un total **"Non classé"**
-   séparé plutôt que d'être compté ou perdu silencieusement. "Local vacant"
-   et "Stationnement", eux, restent classés tels quels dans ce cas — ce
-   n'est pas une anomalie.
+   bâtiment (cas rare : une galerie technique reliant d'autres bâtiments, un
+   local technique isolé, poste EDF, chaufferie… entièrement "à répartir"),
+   la règle de catégorie dominante ne peut pas s'appliquer **à l'intérieur
+   de ce seul bâtiment** : signalé nommément, ce cas est traité au niveau de
+   l'EFA (voir "Bâtiment orphelin" ci-dessous) plutôt que d'être compté ou
+   perdu silencieusement. "Local vacant" et "Stationnement", eux, restent
+   classés tels quels dans ce cas — ce n'est pas une anomalie.
 
 **Exemple concret** (EFA Saint-Louis) : une bibliothèque de 40 m²
 ("Culture et spectacles", 8% de la surface "utilisée" du bâtiment) dans un
@@ -80,9 +81,31 @@ bâtiment. Même logique pour un petit parking : quelle que soit sa part de la
 surface du bâtiment, il garde toujours sa propre ligne "Stationnement" et
 n'absorbe jamais, ni ne cède jamais, de surface au prorata.
 
+### Bâtiment orphelin (aucune catégorie "utilisée" nulle part dans le bâtiment)
+
 Le calcul est fait **bâtiment par bâtiment** puis sommé au niveau EFA — une
-répartition au prorata sur l'agrégat de plusieurs bâtiments n'aurait pas de
-sens, chaque bâtiment ayant sa propre composition de surfaces.
+répartition au prorata sur l'agrégat de plusieurs bâtiments n'aurait
+normalement pas de sens, chaque bâtiment ayant sa propre composition de
+surfaces. **Seule exception** : un bâtiment entièrement "à répartir" (cas 4
+ci-dessus) n'a par définition aucune sous-catégorie à lui pour recevoir sa
+propre surface — il ne peut littéralement rien redistribuer à l'intérieur
+de lui-même.
+
+Dans ce cas seulement, sa surface "à répartir" est redistribuée au niveau de
+l'EFA, au prorata entre les sous-catégories **déjà classées des autres
+bâtiments actifs de la même EFA** — jamais vers "Local vacant" ou
+"Stationnement" (même règle qu'au sein d'un bâtiment), et chaque
+sous-catégorie receveuse garde son propre statut thermique (même principe
+anti-mélange que la redistribution "à répartir" habituelle). Un
+avertissement dédié liste, en m², la surface ainsi redistribuée et le(s)
+bâtiment(s) d'origine.
+
+Si **aucun** bâtiment de l'EFA n'a la moindre sous-catégorie classée (cas
+extrême — toute l'EFA serait "à répartir"), cette surface reste dans le
+total **"Non classé"**, affiché par un indicateur rouge à vérifier
+manuellement : il n'y a alors nulle part où la répartir, ni dans le
+bâtiment, ni dans l'EFA.
+
 
 ### Statuts thermiques
 
