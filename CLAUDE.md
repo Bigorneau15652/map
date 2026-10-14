@@ -101,3 +101,16 @@ When a widget is meant to reproduce a specific reference document:
   filter (e.g. `Site=$Site`) and a new/changed column omits it, that's a bug
   by omission — check for this kind of inconsistency explicitly when adding
   or editing formulas in a table that has similar existing columns.
+
+## SI Patrimoine reference documentation (read before any audit or change)
+
+A private repository named Grist-SIPI-informations holds the reference note of the Grist document "Bac à sable SIPI" (data model, formulas, relations, pages, widgets, known anomalies, change journal). It is expected on this computer as a sibling folder of this repository: ../Grist-SIPI-informations/. The main file is Note_reference_Grist_Bac_a_sable_SIPI.md. If a model state file or a change journal exists in that folder, read them too: they take precedence over the note where they differ.
+
+Rules:
+- Before auditing or modifying any widget, read the note. If the folder is not found, stop and ask the user to clone it or to provide the file. Never guess table or column names.
+- The note is dated. If it conflicts with the widget code or with what the user says, point out the conflict instead of choosing silently.
+- This repository is public. Never copy content from the private note into this repository (README files, code comments, commit messages, pull requests). Table structure, formula logic, anomaly lists and internal service names stay private.
+- When a change alters which tables or columns a widget expects, tell the user to add an entry to the change journal of the private repository.
+- For performance audits, measure first. Check Grist-side causes before touching widget code: heavy summary tables, full-document access reads of large tables such as BDD_Salles, duplicated calculations between a Grist formula and the widget.
+- In JavaScript, write every string with template literals (backticks), without exception, because French apostrophes cause "Unexpected token, expected ;" errors.
+- The user does not master code or GitHub. Communicate in French, in a didactic and factual tone, ask the necessary questions before programming, and give GitHub steps one by one.
