@@ -104,10 +104,12 @@ When a widget is meant to reproduce a specific reference document:
 
 ## SI Patrimoine reference documentation (read before any audit or change)
 
-A private repository named Grist-SIPI-informations holds the reference note of the Grist document "Bac à sable SIPI" (data model, formulas, relations, pages, widgets, known anomalies, change journal). It is expected on this computer as a sibling folder of this repository: ../Grist-SIPI-informations/. The main file is Note_reference_Grist_Bac_a_sable_SIPI.md. If a model state file or a change journal exists in that folder, read them too: they take precedence over the note where they differ.
+A private repository named Grist-SIPI-informations holds the reference note of the Grist document "Bac à sable SIPI" (data model, formulas, relations, pages, widgets, known anomalies, change journal). The main file is Note_reference_Grist_Bac_a_sable_SIPI.md. If a model state file or a change journal exists in that repository, read them too: they take precedence over the note where they differ.
+
+To find it, search for a folder named Grist-SIPI-informations in the working environment. If it is not available, ask the user to add the repository to the session (or to attach the file). Never continue without it for a task that depends on table or column names.
 
 Rules:
-- Before auditing or modifying any widget, read the note. If the folder is not found, stop and ask the user to clone it or to provide the file. Never guess table or column names.
+- Before auditing or modifying any widget, read the note. Never guess table or column names.
 - The note is dated. If it conflicts with the widget code or with what the user says, point out the conflict instead of choosing silently.
 - This repository is public. Never copy content from the private note into this repository (README files, code comments, commit messages, pull requests). Table structure, formula logic, anomaly lists and internal service names stay private.
 - When a change alters which tables or columns a widget expects, tell the user to add an entry to the change journal of the private repository.
