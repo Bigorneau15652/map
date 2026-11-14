@@ -9,6 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chroma-js@2.4.2/chroma.min.js"></script>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
+    :root{color-scheme:light}
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;overflow:hidden;color:#222}
     #app{display:flex;flex-direction:column;height:100vh}
@@ -31,6 +32,11 @@
     #mp{flex:1;position:relative;min-width:0}
     #map{position:absolute;inset:0;background:#dce8f5}
     .leaflet-container{background:#dce8f5!important}
+
+    /* Numéros de département */
+    .dlabel{background:none;border:none}
+    .dlabel span{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;font-size:11px;font-weight:700;color:#1a1a1a;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff;pointer-events:none}
+    .dlabel.mini span{font-size:10px}
 
     /* DOM-TOM insets */
     #dtp{position:absolute;bottom:8px;right:8px;display:grid;grid-template-columns:1fr 1fr;gap:3px;z-index:1000;width:175px}
@@ -175,6 +181,7 @@
     <div id="uc-wrap">Couleur: <input type="color" id="uc" value="#e74c3c" oninput="APP.uniqueColor=this.value;refresh()"></div>
     <div id="ch-wrap">Bas:<input type="color" id="cl2" value="#ffffb2" oninput="APP.choroLow=this.value;refresh()"> Haut:<input type="color" id="ch2" value="#d7191c" oninput="APP.choroHigh=this.value;refresh()"></div>
     <span class="sp"></span>
+    <button class="hbtn" id="btn-codes" onclick="toggleCodes()" title="Afficher / masquer les numéros de département sur la carte">N°</button>
     <button class="hbtn icon" onclick="showGuide()" title="Guide">❓</button>
     <button class="hbtn icon" onclick="showConfig()" title="Configuration tables Grist">⚙️</button>
   </div>
@@ -319,6 +326,7 @@
           <li>Cliquez la <b>pastille colorée</b> d'un département → ajoute/retire de la catégorie</li>
           <li>Décochez ☑ à gauche → le département devient grisé sur la carte</li>
           <li>Filtrez par région → sélectionnez tout en un clic</li>
+          <li>Bouton <b>N°</b> (en haut) → affiche/masque le numéro des départements sur la carte. Les plus petits n'apparaissent qu'en zoomant</li>
         </ul>
       </div>
     </div>
@@ -353,6 +361,7 @@ function loadConfig(opts){
   if(opts?.tableDc)   CFG.dc=opts.tableDc;
   if(opts?.colDept)   CFG.colDept=opts.colDept;
   if(opts?.colCat)    CFG.colCat=opts.colCat;
+  if(typeof opts?.showCodes===`boolean`)setCodesVisible(opts.showCodes);
 }
 
 // ── Config modal ──────────────────────────────────────────
@@ -402,14 +411,14 @@ async function saveConfig(){
   const msg=document.getElementById('cfg-msg');
   if(!c.depts||!c.cats){msg.className='err';msg.style.display='block';msg.textContent='⚠️ Sélectionnez au minimum les tables Départements et Catégories.';return;}
   Object.assign(CFG,c);
-  try{await grist.setOptions({tableDepts:CFG.depts,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat});msg.className='ok';msg.style.display='block';msg.textContent='✅ Configuration sauvegardée !';setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},700);}
+  try{await grist.setOptions({tableDepts:CFG.depts,tableCats:CFG.cats,tableDc:CFG.dc,colDept:CFG.colDept,colCat:CFG.colCat,showCodes:APP.showCodes});msg.className='ok';msg.style.display='block';msg.textContent='✅ Configuration sauvegardée !';setTimeout(()=>{closeModal('cfg-modal');fetchAllTables();},700);}
   catch(e){msg.className='err';msg.style.display='block';msg.textContent='❌ Erreur : '+e.message;}
 }
 function showGuide(){document.getElementById('guide-modal').classList.remove('gone');}
 function closeModal(id){document.getElementById(id).classList.add('gone');}
 
 // ── État ──────────────────────────────────────────────────
-const APP={mode:'categorie',uniqueColor:'#e74c3c',cumulColor:'#f39c12',useCumul:true,choroLow:'#ffffb2',choroHigh:'#d7191c',cats:[],depts:{},dcRows:{},deptRowId:{}};
+const APP={mode:'categorie',uniqueColor:'#e74c3c',cumulColor:'#f39c12',useCumul:true,choroLow:'#ffffb2',choroHigh:'#d7191c',showCodes:false,cats:[],depts:{},dcRows:{},deptRowId:{}};
 let deptFilter='all';
 let editingCatId=null; // catégorie en cours d'édition
 
@@ -422,6 +431,80 @@ function initMaps(){
   mainMap=L.map('map',{zoomControl:true,attributionControl:false}).setView([46.5,2.5],6);
   for(const[code,cfg]of Object.entries(DT))
     mMaps[code]=L.map(cfg.el,MAP_OPT);
+  mainMap.on(`zoomend`,updateLabelVisibility);
+}
+
+// ── Numéros de département ────────────────────────────────
+let mainLabels=null;          // groupe de numéros sur la carte principale
+let mainLabelItems=[];        // [{marker,bounds}] pour masquer les trop petits
+const miniLabels={};          // groupes de numéros des encarts DOM-TOM
+const LABEL_MIN_PX=22;        // taille minimale (pixels) d'un département pour afficher son numéro
+
+// Point d'ancrage : centre de gravité du plus grand morceau du département
+function labelPoint(geom){
+  const polys=geom?.type===`Polygon`?[geom.coordinates]:geom?.type===`MultiPolygon`?geom.coordinates:[];
+  let best=null,bestA=0;
+  for(const p of polys){
+    const ring=p?.[0]||[];let a=0,cx=0,cy=0;
+    for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+      const[x0,y0]=ring[j],[x1,y1]=ring[i];const f=x0*y1-x1*y0;
+      a+=f;cx+=(x0+x1)*f;cy+=(y0+y1)*f;
+    }
+    if(a!==0&&Math.abs(a)>bestA){bestA=Math.abs(a);best=L.latLng(cy/(3*a),cx/(3*a));}
+  }
+  return best;
+}
+function makeLabel(latlng,code,mini){
+  return L.marker(latlng,{icon:L.divIcon({className:mini?`dlabel mini`:`dlabel`,html:`<span>${code}</span>`,iconSize:null}),interactive:false,keyboard:false});
+}
+function buildLabels(){
+  if(mainLabels){mainMap.removeLayer(mainLabels);}
+  mainLabels=L.layerGroup();mainLabelItems=[];
+  if(geoLayer)geoLayer.eachLayer(l=>{
+    const code=String(l.feature?.properties?.code||``);if(!code)return;
+    const pt=labelPoint(l.feature.geometry)||l.getBounds().getCenter();
+    mainLabelItems.push({marker:makeLabel(pt,code,false),bounds:l.getBounds()});
+  });
+  for(const[code,m]of Object.entries(mMaps)){
+    if(miniLabels[code]){m.removeLayer(miniLabels[code]);delete miniLabels[code];}
+    const layer=mLayers[code];if(!layer)continue;
+    const g=L.layerGroup();
+    layer.eachLayer(l=>{const pt=labelPoint(l.feature.geometry)||l.getBounds().getCenter();g.addLayer(makeLabel(pt,code,true));});
+    miniLabels[code]=g;
+  }
+  applyCodesVisibility();
+}
+// Masque les numéros des départements trop petits au niveau de zoom actuel
+function updateLabelVisibility(){
+  if(!mainLabels)return;
+  for(const it of mainLabelItems){
+    const a=mainMap.latLngToLayerPoint(it.bounds.getNorthWest()),b=mainMap.latLngToLayerPoint(it.bounds.getSouthEast());
+    const big=Math.abs(b.x-a.x)>=LABEL_MIN_PX&&Math.abs(b.y-a.y)>=LABEL_MIN_PX;
+    if(big&&!mainLabels.hasLayer(it.marker))mainLabels.addLayer(it.marker);
+    if(!big&&mainLabels.hasLayer(it.marker))mainLabels.removeLayer(it.marker);
+  }
+}
+function applyCodesVisibility(){
+  const on=APP.showCodes;
+  if(mainLabels){
+    if(on){updateLabelVisibility();if(!mainMap.hasLayer(mainLabels))mainLabels.addTo(mainMap);}
+    else if(mainMap.hasLayer(mainLabels))mainMap.removeLayer(mainLabels);
+  }
+  for(const[code,g]of Object.entries(miniLabels)){
+    const m=mMaps[code];
+    if(on&&!m.hasLayer(g))g.addTo(m);
+    if(!on&&m.hasLayer(g))m.removeLayer(g);
+  }
+}
+function setCodesVisible(on){
+  APP.showCodes=!!on;
+  const btn=document.getElementById(`btn-codes`);if(btn)btn.classList.toggle(`on`,APP.showCodes);
+  applyCodesVisibility();
+}
+async function toggleCodes(){
+  setCodesVisible(!APP.showCodes);
+  try{await grist.setOption(`showCodes`,APP.showCodes);}  // mémorise le choix dans le widget
+  catch(e){console.warn(`toggleCodes:`,e.message);}
 }
 
 // ── GeoJSON ───────────────────────────────────────────────
@@ -523,6 +606,7 @@ function renderMap(geojson){
     try{mMaps[code].fitBounds(layer.getBounds(),{padding:[4,4]});}catch(_){}
     mMaps[code].invalidateSize();
   }
+  buildLabels();
   renderLegend();
 }
 
